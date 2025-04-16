@@ -17,3 +17,5 @@ https://www.base64encode.org/
 echo -n '{"username":"admin","password":"Plant%sapsup2!","vdom":"root"}' | base64
 REMOVED_SECRET
 ```
+
+You can then use the resulting API key to upload the certificates to the Fortiweb appliance using API.
