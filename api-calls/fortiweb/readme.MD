@@ -6,12 +6,12 @@ The account is not free disappointed face
 
 To send an API call you need the authorization key. In order to receive that we need the following
 
-'''
+```
 {"username":"admin","password":"Plant%sapsup2!","vdom":"root"}
 
 You then need to encode this to base64 by using one of the various websites such as Base64 Encode and Decode - Online  or openssl. 
 https://www.base64encode.org/
 
-'''shell
+```shell
 echo -n '{"username":"admin","password":"Plant%sapsup2!","vdom":"root"}' | base64
 REMOVED_SECRET
