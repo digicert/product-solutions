@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?><database>
+    <element db_object_id="415ec30b97d9b1108fa1db24a253afb4" label="Support User" max_length="40" name="x_dice_digicertone_support_user" type="collection">
+        <element label="Contact URL" max_length="4000" name="contact_url" type="url"/>
+        <element label="Email" max_length="320" name="email" type="string"/>
+        <element label="Name" max_length="40" name="name" type="string"/>
+        <element label="Phone" max_length="20" name="phone" type="phone_number_e164"/>
+    </element>
+</database>

@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_dice_digicertone.EnrollmentService</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>EnrollmentService</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var EnrollmentService = Class.create();
+EnrollmentService.prototype = {
+	initialize: function () {
+		this.httpRequestUtils = new HttpRequestUtils();
+		this.glideRecordUtils = new GlideRecordUtils();
+		this.profileService = new ProfileService();
+		this.certificateService = new CertificateService();
+		this.logger = new Logger('EnrollmentService');
+	},
+	// Create enrollment for manual approval
+	createManualEnrollment: function (certificateRequestGr) {
+		this.logger.debug(
+			'createManualEnrollment(): Start creating enrollment for manual approval for Certificate Request sys_id: {0}',
+			certificateRequestGr.sys_id
+		);
+
+		var certificateRequest = this.glideRecordUtils.getGrObject(certificateRequestGr);
+		var profile = this.profileService.getProfileInfoBySysId(certificateRequest.profile.value);
+		var csr = certificateRequest.csr.value;
+		var enrollmentMethod = profile.enrollment_method.value;
+		var authMethod = profile.authentication_method.value;
+		var oldCertSerialNumber = certificateRequest.old_certificate_serial_number.value;
+
+		var isCSRFlow = authMethod === Constants.AUTHENTICATION_METHODS.MANUAL_APPROVAL && enrollmentMethod === Constants.ENROLLMENT_METHODS.CSR;
+		var isManualEnrollmentRenewal = certificateRequest.is_manual_approval_renewal.value;
+
+		var oldCertId = "";
+
+		var params = {
+			profile: {
+				id: profile.id.value,
+			},
+			email: certificateRequest.enrollment_email.value,
+			attributes: JSON.parse(certificateRequest.attributes.value),
+		};
+
+		if (isManualEnrollmentRenewal) {
+			params = {
+				profile: {
+					id: profile.id.value
+				}
+			};
+			certificateDetails = this.certificateService.getCertificateDetailsBySerialNumber(oldCertSerialNumber);
+			oldCertId = certificateDetails.id;
+		}
+
+		if (isCSRFlow) {
+			params.csr = csr;
+		}
+
+
+		this.logger.debug(
+			'createManualEnrollment(): params for manual-enrollment HTTP request: {0}',
+			JSON.stringify(params)
+		);
+
+
+
+		try {
+			var renewalManualAuthUrl = Constants.URL.manualRenewalUrl.replace('{old_cert_id}', oldCertId);
+			var renewalUrl = isManualEnrollmentRenewal ? renewalManualAuthUrl : Constants.URL.manualEnrollmentUrl;
+			var enrollment = this.httpRequestUtils.post(renewalUrl, params);
+			enrollment = JSON.parse(enrollment);
+		} catch (error) {
+			this.logger.error(
+				'createManualEnrollment(): Error ocurred on creating enrollment for manual approval: {0}',
+				error.message
+			);
+			throw error;
+		}
+
+		certificateRequestGr.enrollment_id = enrollment.id;
+
+		if (enrollment.enrollment_id) {
+			certificateRequestGr.enrollment_id = enrollment.enrollment_id;
+			enrollment.id = enrollment.enrollment_id;
+			enrollment.is_approved = true;
+		}
+
+		certificateRequestGr.update();
+
+		this.logger.info(
+			'createManualEnrollment(): Enrollment for Certificate Request sys_id {0} has been successfully created',
+			certificateRequestGr.sys_id
+		);
+
+		return enrollment;
+	},
+
+	approveManualEnrollment: function (enrollmentData, certificateRequestSysId) {
+		var enrollmentId = enrollmentData.id;
+		var isAutoApproved = enrollmentData.is_approved;
+		this.logger.debug(
+			'approveManualEnrollment(): Changing enrollment status to approved. certificateRequestSysId: {0}, enrollmentId: {1}',
+			certificateRequestSysId,
+			enrollmentId
+		);
+
+		if (!isAutoApproved) {
+			var params = {
+				new_status: 'approved',
+			};
+
+			var enrollmentStatusUrl = Constants.URL.enrollmentStatusUrl.replace('{enrollment_id}', enrollmentId);
+
+			this.logger.debug('approveManualEnrollment(): enrollmentStatusUrl: {0}', enrollmentStatusUrl);
+
+			try {
+				this.httpRequestUtils.put(enrollmentStatusUrl, params);
+			} catch (error) {
+				this.logger.error(
+					'approveManualEnrollment(): Error ocurred on changing enrollment (enrollmentId: {0}, certificateRequestSysId: {1}) status to approved: {2}',
+					enrollmentId,
+					certificateRequestSysId,
+					error.message
+				);
+				throw error;
+			}
+		}
+		
+		var eventName = 'x_dice_digicertone.EnrollmentCreated';
+		var expiration = new GlideDateTime();
+		expiration.addSeconds(3600); // 3600 seconds = 1 hour
+		var payload = JSON.stringify({
+			eventNumber: 1, // event number in this event's chain
+			certificateRequestSysId: certificateRequestSysId,
+			enrollmentId: enrollmentId,
+		});
+		// DEVELOPER TIP: Use gs.getUserName() and gs.getUserID() for parm1 and parm2
+		// if no other values are required to see which user triggered the event in the event log.
+		gs.eventQueueScheduled(eventName, '', payload, gs.getUserName(), expiration);
+
+		this.logger.debug('approveManualEnrollment(): Added event to queue: {0}', eventName);
+	},
+
+	type: 'EnrollmentService',
+};
+]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-06-09 09:52:58</sys_created_on>
+        <sys_id>1daca0cec35321103e0a1c5ce001311e</sys_id>
+        <sys_mod_count>53</sys_mod_count>
+        <sys_name>EnrollmentService</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_script_include_1daca0cec35321103e0a1c5ce001311e</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2024-12-09 10:39:03</sys_updated_on>
+    </sys_script_include>
+</record_update>

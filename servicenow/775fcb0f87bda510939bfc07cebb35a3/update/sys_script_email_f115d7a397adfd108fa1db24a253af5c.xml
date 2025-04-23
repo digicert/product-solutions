@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_email">
+    <sys_script_email action="INSERT_OR_UPDATE">
+        <name>x_dice_digicertone.certificateTemplate</name>
+        <new_lines_to_html>false</new_lines_to_html>
+        <script><![CDATA[(function runMailScript( /* GlideRecord */ current, /* TemplatePrinter */ template,
+    /* Optional EmailOutbound */
+    email, /* Optional GlideRecord */ email_action,
+    /* Optional GlideRecord */
+    event) {
+    var eventName = event.getValue("name");
+    var certificateTemplate = null;
+
+    if (
+        eventName === Constants.EVENT.requestRejected ||
+        eventName === Constants.EVENT.certificateGenerated ||
+        eventName === Constants.EVENT.certificateFailed ||
+        eventName === Constants.EVENT.certificateDelayed ||
+        eventName === Constants.EVENT.certificateFailedAdmin
+    ) {
+        var profileSysId = current.getValue("profile");
+        var profileGr = new GlideRecord(Constants.PROFILE.table);
+        profileGr.get(profileSysId);
+
+        certificateTemplate = JSON.parse(profileGr.getValue("template"));
+    } else {
+        var document_id = current.getValue("document_id");
+        var gr = new GlideRecord(Constants.CERTIFICATE_REQUEST.table);
+        gr.get(document_id);
+
+        var profileSysId = gr.getValue("profile");
+        var profileGr = new GlideRecord(Constants.PROFILE.table);
+        profileGr.get(profileSysId);
+
+        certificateTemplate = JSON.parse(profileGr.getValue("template"));
+    }
+	template.print(
+        '<div class="insideBoxCell" style="margin-bottom: 20px;">' +
+        '<p class="semi" style="font-size: 14px; margin: 0; margin-bottom: 5px; font-family: \'Roboto\', sans-serif; font-weight: 800; color: #333333;">Certificate template</p>' +
+        '<p class="greyText" style="font-family: \'Roboto\', sans-serif; font-size: 14px; font-weight: 400; margin: 0; margin-bottom: 5px; color: #666666;">'
+    );
+    template.print(certificateTemplate.name);
+
+    template.print('</p></div>');
+
+})(current, template, email, email_action, event);]]></script>
+        <sys_class_name>sys_script_email</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-10-04 10:20:38</sys_created_on>
+        <sys_id>f115d7a397adfd108fa1db24a253af5c</sys_id>
+        <sys_mod_count>12</sys_mod_count>
+        <sys_name>x_dice_digicertone.certificateTemplate</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_script_email_f115d7a397adfd108fa1db24a253af5c</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2024-12-12 12:20:45</sys_updated_on>
+    </sys_script_email>
+</record_update>

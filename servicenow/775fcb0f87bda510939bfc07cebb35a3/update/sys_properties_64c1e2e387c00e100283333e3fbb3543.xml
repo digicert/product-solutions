@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_properties">
+    <sys_properties action="INSERT_OR_UPDATE">
+        <choices/>
+        <description>Boolean to decide whether to save certificates to cmdb_ci_certificate table or not</description>
+        <ignore_cache>true</ignore_cache>
+        <is_private>false</is_private>
+        <name>x_dice_digicertone.save_to_cmdb</name>
+        <read_roles/>
+        <suffix>save_to_cmdb</suffix>
+        <sys_class_name>sys_properties</sys_class_name>
+        <sys_created_by>mykola.diahovets</sys_created_by>
+        <sys_created_on>2024-02-05 13:15:22</sys_created_on>
+        <sys_id>64c1e2e387c00e100283333e3fbb3543</sys_id>
+        <sys_mod_count>33</sys_mod_count>
+        <sys_name>x_dice_digicertone.save_to_cmdb</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_properties_64c1e2e387c00e100283333e3fbb3543</sys_update_name>
+        <sys_updated_by>mykola.diahovets</sys_updated_by>
+        <sys_updated_on>2024-06-13 14:06:18</sys_updated_on>
+        <type>boolean</type>
+        <value>false</value>
+        <write_roles/>
+    </sys_properties>
+    <sys_translated_text action="delete_multiple" query="documentkey=64c1e2e387c00e100283333e3fbb3543"/>
+</record_update>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_properties">
+    <sys_properties action="INSERT_OR_UPDATE">
+        <choices/>
+        <description>Environment Dropdown is populated based on PRODUCTION MODE value.</description>
+        <ignore_cache>true</ignore_cache>
+        <is_private>false</is_private>
+        <name>x_dice_digicertone.production_mode</name>
+        <read_roles>admin</read_roles>
+        <suffix>production_mode</suffix>
+        <sys_class_name>sys_properties</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-08-22 11:14:23</sys_created_on>
+        <sys_id>ee04c2fdc37471103e0a1c5ce00131bb</sys_id>
+        <sys_mod_count>13</sys_mod_count>
+        <sys_name>x_dice_digicertone.production_mode</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_properties_ee04c2fdc37471103e0a1c5ce00131bb</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2024-12-16 07:04:19</sys_updated_on>
+        <type>boolean</type>
+        <value>true</value>
+        <write_roles>admin</write_roles>
+    </sys_properties>
+    <sys_translated_text action="delete_multiple" query="documentkey=ee04c2fdc37471103e0a1c5ce00131bb"/>
+</record_update>

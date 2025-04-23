@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ws_definition">
+    <sys_ws_definition action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <base_uri>/api/x_dice_digicertone/account</base_uri>
+        <consumes>application/json,application/xml,text/xml</consumes>
+        <consumes_customized>false</consumes_customized>
+        <default_version>No active default version</default_version>
+        <doc_link/>
+        <enforce_acl>cf9d01d3e73003009d6247e603f6a990</enforce_acl>
+        <is_versioned>false</is_versioned>
+        <name>Account</name>
+        <namespace>x_dice_digicertone</namespace>
+        <produces>application/json,application/xml,text/xml</produces>
+        <produces_customized>false</produces_customized>
+        <service_id>account</service_id>
+        <short_description/>
+        <sys_class_name>sys_ws_definition</sys_class_name>
+        <sys_created_by>mykola.diahovets</sys_created_by>
+        <sys_created_on>2024-02-29 12:28:23</sys_created_on>
+        <sys_id>5a8d755787ac8a10939bfc07cebb3571</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>Account</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_ws_definition_5a8d755787ac8a10939bfc07cebb3571</sys_update_name>
+        <sys_updated_by>mykola.diahovets</sys_updated_by>
+        <sys_updated_on>2024-02-29 12:28:23</sys_updated_on>
+    </sys_ws_definition>
+</record_update>

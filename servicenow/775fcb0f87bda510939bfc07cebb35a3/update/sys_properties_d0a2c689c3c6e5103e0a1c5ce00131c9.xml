@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_properties">
+    <sys_properties action="INSERT_OR_UPDATE">
+        <choices/>
+        <description>info | debug</description>
+        <ignore_cache>true</ignore_cache>
+        <is_private>false</is_private>
+        <name>x_dice_digicertone.logging.verbosity</name>
+        <read_roles/>
+        <suffix>logging.verbosity</suffix>
+        <sys_class_name>sys_properties</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-04-05 10:16:18</sys_created_on>
+        <sys_id>d0a2c689c3c6e5103e0a1c5ce00131c9</sys_id>
+        <sys_mod_count>8</sys_mod_count>
+        <sys_name>x_dice_digicertone.logging.verbosity</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_properties_d0a2c689c3c6e5103e0a1c5ce00131c9</sys_update_name>
+        <sys_updated_by>amit.kumar</sys_updated_by>
+        <sys_updated_on>2024-06-18 06:15:55</sys_updated_on>
+        <type>string</type>
+        <value>info</value>
+        <write_roles/>
+    </sys_properties>
+    <sys_translated_text action="delete_multiple" query="documentkey=d0a2c689c3c6e5103e0a1c5ce00131c9"/>
+</record_update>

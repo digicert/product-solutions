@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?><database>
+    <element db_object_id="a1b3110ac3d661503e0a1c5ce001310d" label="Certificates" max_length="40" name="x_dice_digicertone_certificates" type="collection">
+        <element label="Account ID" max_length="40" name="account_id" type="string"/>
+        <element label="Business unit ID" max_length="40" name="business_unit_id" type="string"/>
+        <element label="Business unit name" max_length="255" name="business_unit_name" type="string"/>
+        <element label="Certificate" max_length="4000" name="certificate" type="string"/>
+        <element label="CMDB reference" max_length="32" name="cmdb_reference" reference="cmdb_ci_certificate" type="reference"/>
+        <element label="Common name" max_length="255" name="common_name" type="string"/>
+        <element label="CSR" max_length="4000" name="csr" type="string"/>
+        <element label="Delivery Format" max_length="40" name="delivery_format" type="string"/>
+        <element label="Ica ID" max_length="40" name="ica_id" type="string"/>
+        <element attributes="CertCentral order ID associated with this certificate" label="Order ID" max_length="40" name="order_id" type="string"/>
+        <element label="Profile ID" max_length="40" name="profile_id" type="string"/>
+        <element label="Profile name" max_length="255" name="profile_name" type="string"/>
+        <element label="Renewal comment" max_length="512" name="renewal_comment" type="string"/>
+        <element label="Renewal notification status" max_length="40" name="renewal_notification_status" type="boolean"/>
+        <element label="Renewed" max_length="40" name="renewed" type="boolean"/>
+        <element label="Renewed By" max_length="32" name="renewed_by" reference="x_dice_digicertone_certificates" type="reference"/>
+        <element label="Revocation date" max_length="40" name="revocation_date" type="string"/>
+        <element label="Revocation reason" max_length="40" name="revocation_reason" type="string"/>
+        <element label="Seat ID" max_length="255" name="seat_id" type="string"/>
+        <element display="true" label="Serial Number" max_length="40" name="serial_number" type="string"/>
+        <element label="status" max_length="64" name="status" type="string"/>
+        <element label="thumbprint" max_length="64" name="thumbprint" type="string"/>
+        <element label="Valid from" max_length="40" name="valid_from" type="string"/>
+        <element label="Valid to" max_length="40" name="valid_to" type="string"/>
+        <index name="index">
+            <element name="cmdb_reference"/>
+        </index>
+        <index name="index2">
+            <element name="renewed_by"/>
+        </index>
+    </element>
+</database>

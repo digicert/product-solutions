@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_dice_digicertone.EmailHelpers</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>EmailHelpers</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var EmailHelpers = Class.create();
+
+EmailHelpers.getUserSysId = function(event, current) {
+    var userSysId = "";
+    var eventName = event.getValue("name");
+    if (
+        eventName === "approval.rejected.by.other" ||
+        eventName === Constants.EVENT.certificateFailedAdmin
+    ) {
+        userSysId = event.getValue("parm1");
+    } else if (
+        eventName === Constants.EVENT.requestRejected ||
+        eventName === Constants.EVENT.certificateGenerated ||
+        eventName === Constants.EVENT.certificateFailed ||
+        eventName === Constants.EVENT.certificateDelayed
+    ) {
+        userSysId = current.getValue("opened_by");
+    } else {
+        userSysId = current.getValue("approver");
+    }
+    return userSysId;
+};
+
+EmailHelpers.sendCertificateFailedNotification = function(inputs) {
+    var userSysId = inputs.current.getValue("opened_by");
+    var userAccess = new UserAccess();
+    userAccess.setUser(userSysId);
+
+    gs.eventQueue(Constants.EVENT.certificateFailed, inputs.current, userSysId);
+
+    if (!userAccess.isAdmin()) {
+        var appAdmins = EmailHelpers.getAppAdmins();
+        appAdmins.forEach(function(adminSysId) {
+            gs.eventQueue(Constants.EVENT.certificateFailedAdmin, inputs.current, adminSysId);
+        });
+    }
+};
+
+EmailHelpers.sendCertificateGeneratedNotification = function(inputs) {
+    var userSysId = inputs.current.getValue("opened_by");
+    gs.eventQueue(Constants.EVENT.certificateGenerated, inputs.current, userSysId);
+};
+
+EmailHelpers.getRoleSysId = function(role) {
+    var roleGr = new GlideRecord('sys_user_role');
+    roleGr.addQuery('name', role);
+    roleGr.query();
+
+    if (roleGr.next()) {
+        return roleGr.getValue("sys_id");
+    }
+
+    return null;
+};
+
+EmailHelpers.findAppAdmins = function(users, admins) {
+    var result = [];
+
+    for (var user in users) {
+        for (var admin in admins) {
+            if (users[user] === admins[admin]) {
+                result.push(users[user]);
+                break;
+            }
+        }
+    }
+
+    return result;
+};
+
+EmailHelpers.getUsersByRole = function(roleSysId) {
+    var grUser = new GlideRecord('sys_user_has_role');
+    grUser.addQuery('role', roleSysId);
+
+    grUser.query();
+
+    var users = [];
+
+    while (grUser.next()) {
+        users.push(grUser.getValue('user'));
+    }
+
+    return users;
+};
+
+EmailHelpers.getAppAdmins = function() {
+    var userRoleSysId = EmailHelpers.getRoleSysId(Constants.ROLE.USER);
+    var adminRoleSysId = EmailHelpers.getRoleSysId(Constants.ROLE.ADMIN);
+
+    if (!userRoleSysId) {
+        throw new Error("User role: " + userRole + " is not found!");
+    }
+    if (!adminRoleSysId) {
+        throw new Error("Admin role: " + adminRole + " is not found!");
+    }
+
+    var users = EmailHelpers.getUsersByRole(userRoleSysId);
+    var admins = EmailHelpers.getUsersByRole(adminRoleSysId);
+
+    return EmailHelpers.findAppAdmins(users, admins);
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-10-10 09:17:07</sys_created_on>
+        <sys_id>70200e2d97f171108fa1db24a253af11</sys_id>
+        <sys_mod_count>12</sys_mod_count>
+        <sys_name>EmailHelpers</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_script_include_70200e2d97f171108fa1db24a253af11</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2023-10-18 13:56:46</sys_updated_on>
+    </sys_script_include>
+</record_update>

@@ -1,0 +1,43 @@
+name: Run Cypress Tests
+
+on:
+  push:
+    branches: [ main, development ]
+  pull_request:
+    branches: [ main, development ]
+    types: [ opened, reopened, synchronize ]
+  workflow_dispatch: {}    
+
+jobs:
+  run-cypress-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Define additional variables
+        run: |-
+          echo "SNOWBIRD_DIR=$HOME/snowbird" >> $GITHUB_ENV
+          echo "CYPRESS_DIR=$HOME/snowbird/ui/e2e" >> $GITHUB_ENV
+          echo "SNOWBIRD_BRANCH=master" >> $GITHUB_ENV
+          BRANCH_NAME=${{ github.head_ref || github.ref_name }}
+          BRANCH_NAME=$(echo $BRANCH_NAME | cut -c1-128)
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+      
+      - name: Checkout additional repositories
+        run: |-
+          git clone https://${{ secrets.ACTIONS_PIPELINE }}@github.com/digicert/snowbird.git --branch $SNOWBIRD_BRANCH $SNOWBIRD_DIR
+        env:
+          GIT_TOKEN: ${{ secrets.ACTIONS_PIPELINE }}
+  
+      - name: Install dependencies and run cypress tests
+        run: |-
+          cd $CYPRESS_DIR
+          npm i
+          echo "Running tests on snow branch: $BRANCH_NAME"
+          npx cypress run --browser chrome --headed --spec cypress/e2e/certificate/snow/test_snow_rest_api.js --env persistentEnv=true,snow_branch=$BRANCH_NAME -c baseUrl='https://stage.one.digicert.com',chromeWebSecurity=false,experimentalModifyObstructiveThirdPartyCode=true
+
+      - name: Attach screenshots
+        uses: actions/upload-artifact@v1
+        if: failure()
+        with:
+          name: Cypress screenshots
+          path: /home/runner/snowbird/ui/e2e/cypress/screenshots    

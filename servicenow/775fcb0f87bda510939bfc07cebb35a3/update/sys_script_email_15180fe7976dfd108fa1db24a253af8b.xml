@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_email">
+    <sys_script_email action="INSERT_OR_UPDATE">
+        <name>x_dice_digicertone.validityValue</name>
+        <new_lines_to_html>false</new_lines_to_html>
+        <script><![CDATA[(function runMailScript( /* GlideRecord */ current, /* TemplatePrinter */ template,
+    /* Optional EmailOutbound */
+    email, /* Optional GlideRecord */ email_action,
+    /* Optional GlideRecord */
+    event) {
+    var eventName = event.getValue("name");
+    var duration = null;
+    var unit = null;
+    var certificate = null;
+
+    if (
+        eventName === Constants.EVENT.requestRejected ||
+        eventName === Constants.EVENT.certificateGenerated ||
+        eventName === Constants.EVENT.certificateFailed ||
+        eventName === Constants.EVENT.certificateDelayed ||
+        eventName === Constants.EVENT.certificateFailedAdmin
+    ) {
+        var profileSysId = current.getValue("profile");
+
+        var profileGr = new GlideRecord(Constants.PROFILE.table);
+        profileGr.get(profileSysId);
+
+        certificate = JSON.parse(profileGr.getValue("certificate"));
+    } else {
+        var document_id = current.getValue("document_id");
+        var gr = new GlideRecord(Constants.CERTIFICATE_REQUEST.table);
+        gr.get(document_id);
+
+        var profileSysId = gr.getValue("profile");
+
+        var profileGr = new GlideRecord(Constants.PROFILE.table);
+        profileGr.get(profileSysId);
+
+        certificate = JSON.parse(profileGr.getValue("certificate"));
+    }
+
+    duration = certificate.validity.duration;
+    unit = certificate.validity.unit;
+
+    template.print(duration + " " + unit);
+
+})(current, template, email, email_action, event);]]></script>
+        <sys_class_name>sys_script_email</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-10-04 09:39:44</sys_created_on>
+        <sys_id>15180fe7976dfd108fa1db24a253af8b</sys_id>
+        <sys_mod_count>9</sys_mod_count>
+        <sys_name>x_dice_digicertone.validityValue</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_script_email_15180fe7976dfd108fa1db24a253af8b</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2023-10-18 12:21:29</sys_updated_on>
+    </sys_script_email>
+</record_update>

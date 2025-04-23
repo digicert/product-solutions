@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update>
+    <sys_documentation element="signature_algorithm" label="Signature algorithm" language="en" table="x_dice_digicertone_profiles">
+        <sys_documentation action="INSERT_OR_UPDATE">
+            <element>signature_algorithm</element>
+            <help/>
+            <hint/>
+            <label>Signature algorithm</label>
+            <language>en</language>
+            <name>x_dice_digicertone_profiles</name>
+            <plural>Signature algorithms</plural>
+            <sys_class_name>sys_documentation</sys_class_name>
+            <sys_created_by>admin</sys_created_by>
+            <sys_created_on>2023-04-03 08:29:31</sys_created_on>
+            <sys_mod_count>0</sys_mod_count>
+            <sys_name>Signature algorithm</sys_name>
+            <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+            <sys_policy/>
+            <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+            <sys_update_name>sys_documentation_x_dice_digicertone_profiles_signature_algorithm_en</sys_update_name>
+            <sys_updated_by>admin</sys_updated_by>
+            <sys_updated_on>2023-04-03 08:29:31</sys_updated_on>
+            <url/>
+            <url_target/>
+        </sys_documentation>
+    </sys_documentation>
+</record_update>
