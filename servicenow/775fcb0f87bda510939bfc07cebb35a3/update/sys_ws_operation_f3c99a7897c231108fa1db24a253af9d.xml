@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ws_operation">
+    <sys_ws_operation action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <consumes>application/json,application/xml,text/xml</consumes>
+        <consumes_customized>false</consumes_customized>
+        <default_operation_uri/>
+        <enforce_acl>e4f74166c36321103e0a1c5ce00131de</enforce_acl>
+        <http_method>POST</http_method>
+        <name>Sync</name>
+        <operation_script><![CDATA[(function process( /*RESTAPIRequest*/ request, /*RESTAPIResponse*/ response) {
+    try {
+        var certificateService = new CertificateService();
+        var info = certificateService.getSyncCertificatesInfo();
+		if (!info) {
+			certificateService.setSyncCertificatesInfo({
+                status: Constants.APPLICATION_PROPERTIES.props.sync_certificates.status.processed,
+                updated: null,
+            });
+			info = certificateService.getSyncCertificatesInfo();
+		}
+        if (info && info.status === Constants.APPLICATION_PROPERTIES.props.sync_certificates.status.processed) {
+            gs.eventQueue(Constants.EVENT.syncCertificates, null);
+			
+            certificateService.setSyncCertificatesInfo({
+                status: Constants.APPLICATION_PROPERTIES.props.sync_certificates.status.processing,
+                updated: info ? info.updated : null,
+            });
+        }
+
+        response.setStatus(200);
+        response.setBody(info);
+    } catch (error) {
+        response.setStatus(500);
+        response.setBody({
+            error: error.message,
+        });
+    }
+})(request, response);]]></operation_script>
+        <operation_uri>/api/x_dice_digicertone/certificates/sync</operation_uri>
+        <produces>application/json,application/xml,text/xml</produces>
+        <produces_customized>false</produces_customized>
+        <relative_path>/sync</relative_path>
+        <request_example/>
+        <requires_acl_authorization>true</requires_acl_authorization>
+        <requires_authentication>true</requires_authentication>
+        <requires_snc_internal_role>true</requires_snc_internal_role>
+        <short_description/>
+        <sys_class_name>sys_ws_operation</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-10-20 13:32:06</sys_created_on>
+        <sys_id>f3c99a7897c231108fa1db24a253af9d</sys_id>
+        <sys_mod_count>6</sys_mod_count>
+        <sys_name>Sync</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_ws_operation_f3c99a7897c231108fa1db24a253af9d</sys_update_name>
+        <sys_updated_by>mykola.pelekh</sys_updated_by>
+        <sys_updated_on>2023-10-25 12:53:43</sys_updated_on>
+        <web_service_definition display_value="Certificates">5359d27897c231108fa1db24a253af41</web_service_definition>
+        <web_service_version/>
+    </sys_ws_operation>
+</record_update>

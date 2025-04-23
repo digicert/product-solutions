@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ws_operation">
+    <sys_ws_operation action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <consumes>application/json,application/xml,text/xml</consumes>
+        <consumes_customized>false</consumes_customized>
+        <default_operation_uri/>
+        <enforce_acl>860cbdc187b14650939bfc07cebb3552</enforce_acl>
+        <http_method>GET</http_method>
+        <name>Get</name>
+        <operation_script><![CDATA[(function process(/*RESTAPIRequest*/ request, /*RESTAPIResponse*/ response) {
+    var logger = new Logger('Application Property Get');
+	var service = new ApplicationPropertyService();
+
+    try {
+		var propName = request.pathParams.propName;
+		var value = service.get(propName);
+
+		var result = {};
+		result[propName] = value;
+
+		response.setStatus(200);
+		response.setBody(result);
+	} catch(error) {
+		logger.error("Failed to get application property: {0}, Error: {1}", propName, error);
+		response.setStatus(500);
+		response.setBody({
+			error: error.message,
+		});
+	}
+})(request, response);]]></operation_script>
+        <operation_uri>/api/x_dice_digicertone/application_property/get/{propName}</operation_uri>
+        <produces>application/json,application/xml,text/xml</produces>
+        <produces_customized>false</produces_customized>
+        <relative_path>/get/{propName}</relative_path>
+        <request_example/>
+        <requires_acl_authorization>true</requires_acl_authorization>
+        <requires_authentication>true</requires_authentication>
+        <requires_snc_internal_role>true</requires_snc_internal_role>
+        <short_description/>
+        <sys_class_name>sys_ws_operation</sys_class_name>
+        <sys_created_by>mykola.diahovets</sys_created_by>
+        <sys_created_on>2024-03-01 11:59:39</sys_created_on>
+        <sys_id>3a6ff6ef87a00e10939bfc07cebb3500</sys_id>
+        <sys_mod_count>3</sys_mod_count>
+        <sys_name>Get</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_ws_operation_3a6ff6ef87a00e10939bfc07cebb3500</sys_update_name>
+        <sys_updated_by>mykola.diahovets</sys_updated_by>
+        <sys_updated_on>2024-04-24 15:58:25</sys_updated_on>
+        <web_service_definition display_value="Application Property">35eefaaf87a00e10939bfc07cebb35a7</web_service_definition>
+        <web_service_version/>
+    </sys_ws_operation>
+</record_update>

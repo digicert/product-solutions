@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_properties">
+    <sys_properties action="DELETE">
+        <choices/>
+        <description>Enable MariaDB INSTANT ALTER algorithms on the Now Platform</description>
+        <ignore_cache>true</ignore_cache>
+        <is_private>false</is_private>
+        <name>glide.db.instant_alter.enabled</name>
+        <read_roles/>
+        <suffix/>
+        <sys_class_name>sys_properties</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2024-07-13 08:00:01</sys_created_on>
+        <sys_id>fbde443a879f0210939bfc07cebb35eb</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>glide.db.instant_alter.enabled</sys_name>
+        <sys_package display_value="DigiCert Certificate Manager" source="x_dice_digicert">57dae0acdb2500109f9c6f7748961907</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Certificate Manager">57dae0acdb2500109f9c6f7748961907</sys_scope>
+        <sys_update_name>sys_properties_fbde443a879f0210939bfc07cebb35eb</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2024-07-13 08:00:01</sys_updated_on>
+        <type>boolean</type>
+        <value>true</value>
+        <write_roles/>
+    </sys_properties>
+    <sys_translated_text action="DELETE" query="documentkey=fbde443a879f0210939bfc07cebb35eb"/>
+    <sys_update_version action="INSERT_OR_UPDATE">
+        <action>DELETE</action>
+        <application display_value="DigiCert Certificate Manager">57dae0acdb2500109f9c6f7748961907</application>
+        <file_path/>
+        <instance_id>fe6720efdb6b19943050ac44d4961981</instance_id>
+        <instance_name>ven05840</instance_name>
+        <name>sys_properties_fbde443a879f0210939bfc07cebb35eb</name>
+        <payload><![CDATA[<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_properties"><sys_properties action="INSERT_OR_UPDATE"><choices/><description>Enable MariaDB INSTANT ALTER algorithms on the Now Platform</description><ignore_cache>true</ignore_cache><is_private>false</is_private><name>glide.db.instant_alter.enabled</name><read_roles/><suffix/><sys_class_name>sys_properties</sys_class_name><sys_created_by>admin</sys_created_by><sys_created_on>2024-07-13 08:00:01</sys_created_on><sys_id>fbde443a879f0210939bfc07cebb35eb</sys_id><sys_mod_count>0</sys_mod_count><sys_name>glide.db.instant_alter.enabled</sys_name><sys_package display_value="DigiCert Certificate Manager" source="x_dice_digicert">57dae0acdb2500109f9c6f7748961907</sys_package><sys_policy/><sys_scope display_value="DigiCert Certificate Manager">57dae0acdb2500109f9c6f7748961907</sys_scope><sys_update_name>sys_properties_fbde443a879f0210939bfc07cebb35eb</sys_update_name><sys_updated_by>admin</sys_updated_by><sys_updated_on>2024-07-13 08:00:01</sys_updated_on><type>boolean</type><value>true</value><write_roles/></sys_properties><sys_translated_text action="delete_multiple" query="documentkey=fbde443a879f0210939bfc07cebb35eb"/></record_update>]]></payload>
+        <payload_hash>-1259355887</payload_hash>
+        <record_name>glide.db.instant_alter.enabled</record_name>
+        <reverted_from/>
+        <source>fc3960f987b791100283333e3fbb3592</source>
+        <source_table>sys_update_set</source_table>
+        <state>previous</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2024-07-13 08:00:03</sys_created_on>
+        <sys_id>10ee843a879f0210939bfc07cebb3592</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_recorded_at>190ab1b2bb90000001</sys_recorded_at>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2024-07-13 08:00:03</sys_updated_on>
+        <type>System Property</type>
+        <update_guid>d4ee443a1b9f0210bcf226bd77d7a4ef</update_guid>
+        <update_guid_history>d4ee443a1b9f0210bcf226bd77d7a4ef:-1259355887</update_guid_history>
+    </sys_update_version>
+    <sys_metadata_delete action="INSERT_OR_UPDATE">
+        <sys_audit_delete/>
+        <sys_class_name>sys_metadata_delete</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2024-12-26 05:29:33</sys_created_on>
+        <sys_db_object display_value="" name="sys_properties">sys_properties</sys_db_object>
+        <sys_id>2565c75037c94ea8930b64bdef54ad10</sys_id>
+        <sys_metadata>fbde443a879f0210939bfc07cebb35eb</sys_metadata>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>glide.db.instant_alter.enabled</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_parent/>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_scope_delete display_value="">5fb4e4a6fc58424280de8e9d121cd421</sys_scope_delete>
+        <sys_update_name>sys_properties_fbde443a879f0210939bfc07cebb35eb</sys_update_name>
+        <sys_update_version display_value="sys_properties_fbde443a879f0210939bfc07cebb35eb">10ee843a879f0210939bfc07cebb3592</sys_update_version>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2024-12-26 05:29:33</sys_updated_on>
+    </sys_metadata_delete>
+</record_update>

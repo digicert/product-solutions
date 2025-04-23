@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_dice_digicertone.ProfileService</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>ProfileService</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var ProfileService = Class.create();
+ProfileService.prototype = {
+	initialize: function () {
+		this.httpRequestUtils = new HttpRequestUtils();
+		this.logger = new Logger('ProfileService');
+	},
+
+	getProfiles: function () {
+		this.logger.debug('getProfiles(): Getting profiles from DC1: {0}', Constants.URL.getProfilesUrl);
+
+		var profiles = JSON.parse(this.httpRequestUtils.get(Constants.URL.getProfilesUrl));
+		this.logger.info('getProfiles(): Got {0} profiles from DC1', profiles.length);
+
+		return profiles;
+	},
+
+	getFilteredProfiles: function (profiles) {
+		this.logger.debug('getFilteredProfiles(): Filtering out unsupported profiles');
+
+		var ALLOWED_PROFILE_TEMPLATES = [
+			'Generic User Certificate',
+			'Generic Private Server Certificate',
+			'CertCentral Public Server Certificate',
+			'CertCentral Private Server Certificate',
+			'Public S/MIME Secure Email (via CertCentral)',
+			'Public Client Authentication (via CertCentral)',
+			'Microsoft CA User Certificate',
+			'Microsoft CA Private Server Certificate'
+		];
+		var ALLOWED_ENROLLMENT_AUTH_METHODS = [
+			{
+				enrollmentMethod: 'rest_api',
+				authenticationMethod: 'third_party_app',
+			},
+			{
+				enrollmentMethod: 'digicert_trust_assistant',
+				authenticationMethod: 'manual_approval',
+			},
+			{
+				enrollmentMethod: 'browser_pkcs12',
+				authenticationMethod: 'manual_approval',
+			},
+			{
+				enrollmentMethod: 'csr',
+				authenticationMethod: 'manual_approval'
+			}
+		];
+
+		return profiles
+			.filter(function (profile) {
+				return ALLOWED_PROFILE_TEMPLATES.indexOf(profile.template.name) >= 0;
+			})
+			.filter(function (profile) {
+				var isAllowedEnrollmentAndAuthMethod = ALLOWED_ENROLLMENT_AUTH_METHODS.some(function (enrollmentAuthPair) {
+					var enrollmentMethod = enrollmentAuthPair.enrollmentMethod;
+					var authenticationMethod = enrollmentAuthPair.authenticationMethod;
+
+					return (
+						enrollmentMethod === profile.enrollment_method && authenticationMethod === profile.authentication_method
+					);
+				});
+
+				return isAllowedEnrollmentAndAuthMethod;
+			})
+			.filter(function (profile) {
+
+				var isKeyEscrowed = profile.key_escrow_policy.key_escrow_enabled;
+				return !isKeyEscrowed;
+			})
+			.filter(function (profile) {
+				var isDualAminApprovalNeeded = profile.enable_dual_admin_approval;
+				return !isDualAminApprovalNeeded;
+			});
+	},
+
+	saveProfiles: function (profiles) {
+		function setProfileValues(gr, profile, lastSynced) {
+			// Set the profile values
+			gr.account_id = profile.account_id;
+			gr.api_token_binding_enabled = profile.api_token_binding_enabled;
+			gr.api_token_ids = JSON.stringify(profile.api_token_ids);
+			gr.authentication_method = profile.authentication_method;
+			gr.business_unit_id = profile.business_unit_id;
+			gr.certificate = JSON.stringify(profile.certificate);
+			gr.certificate_delivery_format = profile.certificate_delivery_format;
+			gr.duplicate_cert_policy = profile.duplicate_cert_policy;
+			gr.enable_dual_admin_approval = profile.enable_dual_admin_approval;
+			gr.enrollment_method = profile.enrollment_method;
+			gr.fixed_enrollment_url = profile.fixed_enrollment_url;
+			gr.id = profile.id;
+			gr.key_escrow_policy = JSON.stringify(profile.key_escrow_policy);
+			gr.name = profile.name;
+			gr.override_cert_validity_via_api = profile.override_cert_validity_via_api;
+			gr.private_key_attributes = JSON.stringify(profile.private_key_attributes);
+			gr.allowed_key_sizes = JSON.stringify(profile.allowed_key_sizes);
+			gr.publish_to_public_directory = profile.publish_to_public_directory;
+			gr.renewal_period_days = profile.renewal_period_days;
+			gr.signature_algorithm = profile.signature_algorithm;
+			gr.status = profile.status;
+			gr.template = JSON.stringify(profile.template);
+			// The last_synced value is used to force update the record if no other values are changed
+			// Details: https://www.servicenow.com/community/developer-forum/updated-field-not-changing/m-p/1991475/page/1
+			gr.last_synced = lastSynced;
+		}
+
+		var handledProfilesIds = [];
+		var lastSynced = new GlideDateTime();
+
+		for (var i = 0; i < profiles.length; i++) {
+			var profile = profiles[i];
+
+			// Create a new GlideRecord for the 'profiles' table
+			var gr = new GlideRecord(Constants.PROFILE.table);
+
+			gr.addQuery('id', profile.id);
+			gr.query();
+
+			if (gr.next()) {
+				if (!gr.getValue('access')) {
+					gr.access = JSON.stringify({
+						roles: [Constants.ROLE.ADMIN, Constants.ROLE.BUSINESS_OWNER, Constants.ROLE.SUBSCRIBER],
+					});
+				}
+				setProfileValues(gr, profile, lastSynced);
+
+				// Update existing record
+				gr.update();
+				this.logger.info('saveProfiles(): Profile record updated: ' + profile.id);
+			} else {
+				gr.initialize();
+				gr.access = JSON.stringify({
+					roles: [Constants.ROLE.ADMIN, Constants.ROLE.BUSINESS_OWNER, Constants.ROLE.SUBSCRIBER],
+				});
+				setProfileValues(gr, profile, lastSynced);
+
+				// Insert the new record
+				gr.insert();
+				this.logger.info('saveProfiles(): New profile record inserted: ' + profile.id);
+			}
+
+			handledProfilesIds.push(profile.id);
+		}
+
+		// All profiles not fetched from DC1 mark as "Deleted."
+		var rec = new GlideRecord(Constants.PROFILE.table);
+		rec.addQuery('status', '!=', Constants.PROFILE.statuses.Deleted);
+		rec.addQuery('id', 'NOT IN', handledProfilesIds.join(','));
+		rec.query();
+		while (rec.next()) {
+			this.logger.info('saveProfiles(): Profile record marked as Deleted: {0}', rec.getValue('id'));
+			rec.setValue('status', Constants.PROFILE.statuses.Deleted);
+			rec.update();
+		}
+	},
+
+	getProfileInfoBySysId: function (sysId) {
+		var glideRecordUtils = new GlideRecordUtils();
+		var gr = new GlideRecord(Constants.PROFILE.table);
+
+		if (gr.get(sysId)) {
+			this.logger.debug('getProfileInfoBySysId(): Profile exists. sys_id ' + sysId);
+			try {
+				var profile = glideRecordUtils.getGrObject(gr);
+			} catch (error) {
+				this.logger.error(
+					"getProfileInfoBySysId(): Can't parse profile to JSON. sys_id {0}. Error: {1}",
+					sysId,
+					error.message
+				);
+			}
+			return profile;
+		} else {
+			this.logger.error('getProfileInfoBySysId(): Profile not found. sys_id ' + sysId);
+			return null;
+		}
+	},
+
+	type: 'ProfileService',
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-04-04 13:35:20</sys_created_on>
+        <sys_id>b5b625f4c386a5103e0a1c5ce0013184</sys_id>
+        <sys_mod_count>66</sys_mod_count>
+        <sys_name>ProfileService</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_script_include_b5b625f4c386a5103e0a1c5ce0013184</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2024-12-12 07:47:43</sys_updated_on>
+    </sys_script_include>
+</record_update>

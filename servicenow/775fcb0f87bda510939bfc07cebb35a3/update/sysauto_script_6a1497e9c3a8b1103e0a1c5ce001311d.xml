@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sysauto_script">
+    <sysauto_script action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <business_calendar/>
+        <condition><![CDATA[// run script each day and night 00:00 and 12:00 UTC
+
+var currentTimeUTC = new GlideDateTime();
+var timeUTC = currentTimeUTC.getTime();
+var answer = timeUTC.getHourOfDayUTC() % 12 == 0;
+
+answer;]]></condition>
+        <conditional>true</conditional>
+        <entered_time>1970-01-01 00:00:00</entered_time>
+        <max_drift/>
+        <name>SyncCertificates</name>
+        <offset/>
+        <offset_type>0</offset_type>
+        <run_as/>
+        <run_as_tz/>
+        <run_dayofmonth>1</run_dayofmonth>
+        <run_dayofweek>1</run_dayofweek>
+        <run_period>1970-01-01 01:00:00</run_period>
+        <run_start>2023-08-09 12:05:30</run_start>
+        <run_time>1970-01-01 08:00:00</run_time>
+        <run_type>periodically</run_type>
+        <script><![CDATA[var logger = new Logger('SyncCertificates');
+logger.debug('Starting scheduled script execution');
+
+var certificateService = new CertificateService();
+certificateService.syncCertificates();
+
+logger.debug('Finished scheduled script execution');]]></script>
+        <sys_class_name>sysauto_script</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-08-09 12:06:24</sys_created_on>
+        <sys_id>6a1497e9c3a8b1103e0a1c5ce001311d</sys_id>
+        <sys_mod_count>5</sys_mod_count>
+        <sys_name>SyncCertificates</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sysauto_script_6a1497e9c3a8b1103e0a1c5ce001311d</sys_update_name>
+        <sys_updated_by>mykola.pelekh</sys_updated_by>
+        <sys_updated_on>2023-09-11 09:38:41</sys_updated_on>
+        <time_zone/>
+        <upgrade_safe>false</upgrade_safe>
+    </sysauto_script>
+</record_update>

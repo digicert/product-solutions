@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="db_image">
+    <db_image action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <category/>
+        <format/>
+        <height/>
+        <image>8b243be3972131508fa1db24a253af52</image>
+        <name>x_dice_digicertone.Facebook.svg</name>
+        <size_bytes>1252</size_bytes>
+        <sys_class_name>db_image</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-10-04 12:33:58</sys_created_on>
+        <sys_id>66737fa3972131508fa1db24a253afc6</sys_id>
+        <sys_mod_count>2</sys_mod_count>
+        <sys_name>x_dice_digicertone.Facebook.svg</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>db_image_66737fa3972131508fa1db24a253afc6</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2023-10-04 12:36:15</sys_updated_on>
+        <thumbnail/>
+        <width/>
+    </db_image>
+    <sys_attachment action="INSERT_OR_UPDATE">
+        <average_image_color/>
+        <chunk_size_bytes>700000</chunk_size_bytes>
+        <compressed>true</compressed>
+        <content_type>image/svg+xml</content_type>
+        <file_name>image</file_name>
+        <hash>c841ba995934f35cf4d6c3b4445c24942c68c88b45789e455a13abdfe5cb1c14</hash>
+        <image_height/>
+        <image_width/>
+        <size_bytes>1252</size_bytes>
+        <size_compressed>557</size_compressed>
+        <state>available</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-10-04 12:36:15</sys_created_on>
+        <sys_id>8b243be3972131508fa1db24a253af52</sys_id>
+        <sys_mod_count>3</sys_mod_count>
+        <sys_updated_by>guest</sys_updated_by>
+        <sys_updated_on>2023-10-05 11:37:25</sys_updated_on>
+        <table_name>ZZ_YYdb_image</table_name>
+        <table_sys_id>66737fa3972131508fa1db24a253afc6</table_sys_id>
+    </sys_attachment>
+    <sys_attachment_doc action="INSERT_OR_UPDATE">
+        <data>H4sIAAAAAAAAAA==</data>
+        <length>16</length>
+        <position>0</position>
+        <sys_attachment display_value="image" sys_id="8b243be3972131508fa1db24a253af52">8b243be3972131508fa1db24a253af52</sys_attachment>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-10-04 12:36:15</sys_created_on>
+        <sys_id>cb243be3972131508fa1db24a253af52</sys_id>
+    </sys_attachment_doc>
+    <sys_attachment_doc action="INSERT_OR_UPDATE">
+        <data>jVTBbtswDL0P2D8I2rkyRYoUVSTtodftB3YbljQJmjpB4jbBfm2HfdJ+YZSdBBngAPVBtsVHPvGR1N/ffyaPx9e1e5/v9qtNO/UxgHfz9udmtmoXU//WPd+pf3z4/Gmyf19cw6J35tju74/rVfsy9cuu2943zeFwCAcKm92iiaWUprd6d1jNuqW5wfbo3XK+Wiw7+9P610cZ80cAaIzVG7tzk0X/so/tj27pZlP/zeWAIhELECIrsAPnnpwGUs6MohozAlHdLgE5nXCSBMVBgEQoBQmyrUqYKkwzFMk5xUIsEA1mBNpDDJhJgJz7OgLEUJQ5nwMCS8VpMCfUVIyTRGQU9mSZJESUDMigRQqP4sT2gCOckrPMKMTIpEmGNcUeZXaIJ2GsCoaizJVGAiMxRgambCKImYTO3rayphogQcEhs6TGxS4FQJPvTMR0A8X/S1oVGMHZMdSUgwvpoGhmsXolAsvQTnULRtFy5hKpZJVY/UyxSxZ8i/SjuNjTmPymr7UK90Ii423DaGS4tT2a1UjUj+JSQCym3KA5SqqFHsFhUFXEc79ocbUvoJBQLrVYMRYXg6Z8iRalWD+lECGmfOrhbIWx6Yers6WMlTMFNRULWehinYhos0PWynaSQYIYDcehJOO4bnUbz7FJ/u68e16t13e7t/V86ttN+2u+2wx7U/+l9I93+263eRnsc++a4bJo6m0xqbfHwz+dg1aQ5AQAAA==</data>
+        <length>732</length>
+        <position>1</position>
+        <sys_attachment display_value="image" sys_id="8b243be3972131508fa1db24a253af52">8b243be3972131508fa1db24a253af52</sys_attachment>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-10-04 12:36:15</sys_created_on>
+        <sys_id>4f243be3972131508fa1db24a253af52</sys_id>
+    </sys_attachment_doc>
+</record_update>

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_dice_digicertone.ApplicationPropertyService</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>ApplicationPropertyService</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var ApplicationPropertyService = Class.create();
+ApplicationPropertyService.prototype = {
+  initialize: function () {
+    this.logger = new Logger('ApplicationPropertyService');
+  },
+
+  get: function(name) {
+	var propName = Constants.APP_SCOPE + '.' + name;
+	return gs.getProperty(propName);
+  },
+
+  set: function(name, value) {
+	var propName = Constants.APP_SCOPE + '.' + name;
+	var gr = new GlideRecord("sys_properties");
+	gr.addQuery("name", propName);
+	gr.query();
+
+	if (gr.next()) {
+		var prevValue = this.get(name);
+		this.logger.debug("Setting property '{0}' value: {1} -> {2}", propName, prevValue, value);
+		gr.value = value;
+		gr.update();
+		this.logger.info("Set property '{0}' value: {1} -> {2}", propName, prevValue, value);
+	} else {
+		this.logger.error("Failed to set property. Property: {0}, not found!", propName);
+	}
+  },
+
+  getEnvironmentUrls: function () {
+    this.logger.debug(
+      'getEnvironmentUrls(): Getting environments. Production mode: {0}',
+      gs.getProperty(Constants.APP_SCOPE + '.production_mode')
+    );
+
+    var environments = JSON.parse(gs.getProperty(Constants.APP_SCOPE + '.environments'));
+    var isProduction = gs.getProperty(Constants.APP_SCOPE + '.production_mode') === 'true';
+
+    return environments.filter(function (environment) {
+      return environment.name === (isProduction ? 'production' : 'test');
+    })[0];
+  },
+
+  setBaseApiUrl: function (baseApiUrl) {
+	var propName = 'base_api_url';
+	var baseApiUrlPropName = Constants.APP_SCOPE + '.' + propName;
+
+    var environments = this.getEnvironmentUrls();
+    var checkUrl = function (_ref) {
+      return baseApiUrl === _ref.url;
+    };
+
+    this.set(propName, baseApiUrl);
+   
+  },
+
+  type: 'ApplicationPropertyService',
+};
+]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-08-21 11:21:06</sys_created_on>
+        <sys_id>11ecb465c3b031103e0a1c5ce001317b</sys_id>
+        <sys_mod_count>21</sys_mod_count>
+        <sys_name>ApplicationPropertyService</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_script_include_11ecb465c3b031103e0a1c5ce001317b</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2024-11-05 10:24:04</sys_updated_on>
+    </sys_script_include>
+</record_update>

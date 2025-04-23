@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_email">
+    <sys_script_email action="INSERT_OR_UPDATE">
+        <name>x_dice_digicertone.helpContacts</name>
+        <new_lines_to_html>false</new_lines_to_html>
+        <script><![CDATA[(function runMailScript( /* GlideRecord */ current, /* TemplatePrinter */ template,
+    /* Optional EmailOutbound */
+    email, /* Optional GlideRecord */ email_action,
+    /* Optional GlideRecord */
+    event) {
+    var approverSysId = EmailHelpers.getUserSysId(event, current);
+
+    var userAccess = new UserAccess();
+    userAccess.setUser(approverSysId);
+
+    var gr = new GlideRecord('sys_user');
+    gr.get(approverSysId);
+
+    var isAdmin = userAccess.isAdmin();
+
+    if (!isAdmin) {
+        var support_user_gr = new GlideRecord(Constants.SUPPORT_USER.table);
+        support_user_gr.query();
+
+        var name = null;
+        var email_value = null;
+        var phone = null;
+        var contact_url = null;
+
+		var has_support_user = support_user_gr.next();
+        if (has_support_user) {
+            name = support_user_gr.getValue("name");
+            email_value = support_user_gr.getValue("email");
+            phone = support_user_gr.getValue("phone");
+            contact_url = support_user_gr.getValue("contact_url");
+        }
+
+        template.print('<div class="divderTop" style="margin-top: 35px;">');
+
+        template.print('<p style="font-family: \'Roboto\', sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0; margin-bottom: 5px;">Have questions? ');
+
+		if (has_support_user) {
+			if (contact_url) {
+				template.print('<a style="color: #0174c3; text-decoration: none;" href="' + contact_url + '">Contact URL</a>');
+			} else {
+				template.print('<p style="font-family: \'Roboto\', sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0; margin-bottom: 5px;">Reach out:</p>');
+				template.print('<p style="font-family: \'Roboto\', sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0; margin-bottom: 5px;">' + name + '</p>');
+				template.print('<p style="font-family: \'Roboto\', sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0; margin-bottom: 5px;">' + phone + '</p>');
+				template.print('<p style="font-family: \'Roboto\', sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0; margin-bottom: 5px;"><a style="color: #0174c3; text-decoration: none;" href="mailto:' + email_value + '">' + email_value + '</a></p>');
+			}
+		} else {
+			template.print("Reach out IT Admin");
+		}
+
+        template.print('</p></div>');
+    }
+})(current, template, email, email_action, event);]]></script>
+        <sys_class_name>sys_script_email</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-10-06 13:46:28</sys_created_on>
+        <sys_id>ca171e5c97f571108fa1db24a253afe6</sys_id>
+        <sys_mod_count>14</sys_mod_count>
+        <sys_name>x_dice_digicertone.helpContacts</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_script_email_ca171e5c97f571108fa1db24a253afe6</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2023-10-13 09:53:39</sys_updated_on>
+    </sys_script_email>
+</record_update>

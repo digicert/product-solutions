@@ -1,0 +1,689 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_dice_digicertone.CertificateService</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>CertificateService</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var CertificateService = Class.create();
+CertificateService.prototype = {
+	initialize: function () {
+		this.httpRequestUtils = new HttpRequestUtils();
+		this.glideRecordUtils = new GlideRecordUtils();
+		this.profileService = new ProfileService();
+		this.logger = new Logger('CertificateService');
+		this.pluginService = new PluginService();
+		this.cmdbCertService = new CMDBCertificateService();
+	},
+
+	pickUpCertificate: function (requestId, certificateRequestGr) {
+		this.logger.debug('pickUpCertificate(): Emit event pickUpCertificate by request id: {0}', requestId);
+		try {
+			var certificateRequest = this.glideRecordUtils.getGrObject(certificateRequestGr);
+			var profile = this.profileService.getProfileInfoBySysId(certificateRequest.profile.value);
+			var profileId = profile.id.value;
+
+			var body = {
+				profile: {
+					id: profileId,
+				},
+			};
+
+			var expirationDate = new GlideDateTime();
+			expirationDate.addDaysUTC(10);
+
+			var processTime = new GlideDateTime();
+			var timeout = 2;
+			processTime.addSeconds(timeout);
+			var payload = JSON.stringify({
+				body: body,
+				requestId: requestId,
+				timeout: timeout,
+				certificateRequestSysId: certificateRequestGr.getValue('sys_id'),
+				expirationDate: expirationDate.toString(),
+			});
+			gs.eventQueueScheduled(Constants.EVENT.pickUpCertificate, certificateRequestGr, payload, '', processTime);
+			return null;
+		} catch (error) {
+			this.logger.error(
+				'pickUpCertificate(): Failed to emit pickUpCertificate with requestId: {0}, error: {1}',
+				requestId,
+				error.message
+			);
+			return error.message;
+		}
+	},
+
+	issueCertificate: function (certificateRequestGr, additionalParams) {
+		this.logger.debug(
+			'issueCertificate(): Start issuing certificate for Certificate Request sys_id: {0}',
+			certificateRequestGr.sys_id
+		);
+
+		var certificateRequest = this.glideRecordUtils.getGrObject(certificateRequestGr);
+		var profile = this.profileService.getProfileInfoBySysId(certificateRequest.profile.value);
+
+		var params = {
+			profile: {
+				id: profile.id.value,
+			},
+			seat: {
+				seat_id: certificateRequest.seat_id.value,
+			},
+			csr: certificateRequest.csr.value,
+			attributes: JSON.parse(certificateRequest.attributes.value),
+		};
+
+		if (additionalParams) {
+			this.logger.debug(
+				'issueCertificate(): additionalParams to issue certificate: {0}',
+				JSON.stringify(additionalParams)
+			);
+			params.ca_attributes = additionalParams.ca_attributes;
+		}
+
+		// Currently, we do not support providing overridden data.
+		// All data is taken from the profile configuration on the DigiCert ONE side.
+		// if (certificateRequest.validity_duration.value) {
+		//   params.validity = {
+		//     unit: certificateRequest.validity_unit.value,
+		//     duration: certificateRequest.validity_duration.value,
+		//   };
+		// }
+
+		// if (certificateRequest.delivery_format.value) {
+		//   params.delivery_format = certificateRequest.delivery_format.value;
+		// }
+
+		// if (certificateRequest.include_ca_chain.value) {
+		//   params.include_ca_chain = certificateRequest.include_ca_chain.value;
+		// }
+
+		this.logger.debug('issueCertificate(): params for certificate HTTP request: {0}', JSON.stringify(params));
+
+		try {
+			var certificate = this.httpRequestUtils.post(Constants.URL.issueCertificateUrl, params);
+		} catch (error) {
+			this.logger.error('issueCertificate(): Error ocurred on certificate issuance: {0}', error.message);
+			throw error;
+		}
+
+		this.logger.info(
+			'issueCertificate(): Certificate for Certificate Request sys_id {0} has been successfully issued',
+			certificateRequestGr.sys_id
+		);
+
+		return JSON.parse(certificate);
+	},
+
+	saveCertificate: function (certificateData, certificateRequestSysId, certificateDetails) {
+		this.logger.debug(
+			'saveCertificate(): Saving certificate in ServiceNow table. certificateRequestSysId: {0}',
+			certificateRequestSysId || '-'
+		);
+
+		if (!certificateDetails) {
+			this.logger.debug(
+				'saveCertificate(): Getting certificate details for certificate serial number: {0}',
+				certificateData.serialNumber
+			);
+			var certificateRequestGr = new GlideRecord(Constants.CERTIFICATE_REQUEST.table);
+			var accountId;
+			if (certificateRequestGr.get(certificateRequestSysId)) {
+				var profileSysId = certificateRequestGr.getValue('profile');
+				var profile = this.profileService.getProfileInfoBySysId(profileSysId);
+				accountId = profile.account_id.value;
+			}
+			certificateDetails = this.getCertificateDetailsBySerialNumber(certificateData.serialNumber, accountId);
+		}
+
+		var cmdb_sys_id = null;
+
+		if (this.pluginService.isCMDBPluginActive() && gs.getProperty(Constants.SYS_PROPS.save_to_cmdb) === "true") {
+			var subject = certificateDetails.subject;
+			cmdb_sys_id = this.cmdbCertService.saveCertificate({
+				certificate: certificateDetails.certificate,
+				cert_template: certificateDetails.template_name,
+				thumb_print: certificateDetails.thumbprint,
+				key_size: certificateDetails.key_size,
+				signature_algorithm: certificateDetails.signature_algorithm,
+				subject_country: subject.country,
+				subject_distinguished_name: subject.unstructured_name,
+				subject_email: subject.email,
+				subject_locality: subject.locality,
+				subject_organization: subject.organization_name,
+				subject_organizational_unit: subject.organization_units,
+				subject_state: subject.state,
+				valid_from: certificateDetails.valid_from,
+				valid_to: certificateDetails.valid_to,
+				issuer_common_name: certificateDetails.issuing_ca_name,
+				subject_common_name: certificateDetails.common_name,
+				serial_number: certificateDetails.serial_number,
+				state: certificateDetails.status,
+			});
+		}
+
+		var gr = new GlideRecord(Constants.CERTIFICATE.table);
+
+		gr.cmdb_reference = cmdb_sys_id;
+		gr.serial_number = certificateData.serialNumber;
+		gr.delivery_format = certificateData.deliveryFormat;
+		gr.certificate = certificateData.certificate;
+
+		if (certificateData.csr) {
+			gr.csr = certificateData.csr;
+		}
+
+		// Add certificate details
+		gr.profile_id = certificateDetails.profile.id;
+		gr.profile_name = certificateDetails.profile.name;
+		gr.seat_id = certificateDetails.seat.seat_id;
+		gr.business_unit_id = certificateDetails.business_unit.id;
+		gr.business_unit_name = certificateDetails.business_unit.name;
+		gr.account_id = certificateDetails.account.id;
+		gr.ica_id = certificateDetails.ica.id;
+		gr.common_name = certificateDetails.common_name;
+		gr.status = certificateDetails.status;
+		gr.thumbprint = certificateDetails.thumbprint;
+		gr.valid_from = certificateDetails.valid_from;
+		gr.valid_to = certificateDetails.valid_to;
+
+		if (certificateDetails.ca_response_attributes) {
+			// CertCentral order ID associated with this certificate
+			gr.order_id = certificateDetails.ca_response_attributes.order_id;
+		}
+
+		gr.insert();
+
+		certificateSysId = gr.sys_id;
+
+		this.logger.info(
+			'saveCertificate(): New record created in {0} with sys_id: {1} for certificate with serial number {2}',
+			Constants.CERTIFICATE.table,
+			certificateSysId,
+			certificateData.serialNumber
+		);
+
+		if (certificateRequestSysId) {
+			gr = new GlideRecord(Constants.CERTIFICATE_REQUEST.table);
+			if (gr.get(certificateRequestSysId)) {
+				gr.certificate = certificateSysId;
+				var oldSerialNumber = gr.getValue('old_certificate_serial_number');
+				gr.update();
+
+				var oldCertificateSysId = this.getCertSysIdBySerialNumber(oldSerialNumber);
+
+				if (oldCertificateSysId.length > 0) {
+					var certGr = new GlideRecord(Constants.CERTIFICATE.table);
+					if (certGr.get(oldCertificateSysId)) {
+						certGr.renewed_by = certificateSysId;
+						certGr.renewed = true;
+						certGr.update();
+						this.logger.debug(
+							'saveCertificate(): Linked new certificate sys_id: {0} to old certificate sys_id: {1}',
+							certificateSysId,
+							oldCertificateSysId
+						);
+					}
+
+				}
+
+
+				this.logger.debug(
+					'saveCertificate(): Added certificate reference sys_id: {0} to certificate request sys_id: {1}',
+					certificateSysId,
+					certificateRequestSysId
+				);
+			}
+		}
+
+		return certificateSysId;
+	},
+
+	getCertificateDetailsBySerialNumber: function (serialNumber, accountId) {
+		try {
+			this.logger.debug(
+				'getCertificateDetailsBySerialNumber(): Getting certificate details from DigiCert API for certificate serial number: {0}',
+				serialNumber
+			);
+			var getCertificateDetailsBySerialNumberUrl = Constants.URL.getCertificateDetailsBySerialNumberUrl.replace(
+				'{serialNumber}',
+				serialNumber
+			);
+			if (accountId) {
+				getCertificateDetailsBySerialNumberUrl += '?account_id=' + accountId;
+			}
+			this.logger.debug(
+				'getCertificateDetailsBySerialNumber(): getCertificateDetailsBySerialNumberUrl - {0}',
+				getCertificateDetailsBySerialNumberUrl
+			);
+			var certificateDetails = this.httpRequestUtils.get(getCertificateDetailsBySerialNumberUrl);
+			certificateDetails = JSON.parse(certificateDetails);
+		} catch (error) {
+			this.logger.error(
+				'getCertificateDetailsBySerialNumber(): Error ocurred on getting certificate details: {0}',
+				error.message
+			);
+			throw error;
+		}
+
+		return certificateDetails;
+	},
+
+	getCertificateDetailsByEnrollmentId: function (enrollmentId) {
+		try {
+			this.logger.debug(
+				'getCertificateDetailsByEnrollmentId(): Getting certificate details from DigiCert API for enrollmentId: {0}',
+				enrollmentId
+			);
+			var certificateDetails = this.httpRequestUtils.get(
+				Constants.URL.getCertificateDetailsByEnrollmentId.replace('{enrollmentId}', enrollmentId)
+			);
+			certificateDetails = JSON.parse(certificateDetails).items[0];
+			if (certificateDetails) {
+				this.logger.debug(
+					'getCertificateDetailsByEnrollmentId(): Got certificate details from DigiCert API for enrollmentId: {0}',
+					enrollmentId
+				);
+			} else {
+				this.logger.debug(
+					'getCertificateDetailsByEnrollmentId(): No certificate details from DigiCert API for enrollmentId: {0}',
+					enrollmentId
+				);
+			}
+		} catch (error) {
+			this.logger.error(
+				'getCertificateDetailsByEnrollmentId(): Error ocurred on getting certificate details: {0}',
+				error.message
+			);
+			throw error;
+		}
+		return certificateDetails;
+	},
+
+	_findRelatedCertReqRecord: function (certificateSysId) {
+		this.logger.debug(
+			'_findRelatedCertReqRecord(): Finding related certificate request record: certificateSysId - {0}',
+			certificateSysId
+		);
+
+		function getCertReqRecordByCertSysId(sysId) {
+			var certificateRequestGr = new GlideRecord(Constants.CERTIFICATE_REQUEST.table);
+			certificateRequestGr.addQuery('certificate', sysId);
+			certificateRequestGr.query();
+
+			if (certificateRequestGr.next()) {
+				return certificateRequestGr;
+			}
+		}
+
+		var certificateRequestGr = getCertReqRecordByCertSysId(certificateSysId);
+
+		if (certificateRequestGr) {
+			this.logger.debug(
+				'_findRelatedCertReqRecord(): Found related certificate request record: certificateSysId - {0}, certificateRequestSysId - {1}',
+				certificateSysId,
+				certificateRequestGr.getValue('sys_id')
+			);
+			return certificateRequestGr;
+		}
+
+		var ref = certificateSysId;
+		var proceed = true;
+		while (proceed) {
+			var certificateGr = new GlideRecord(Constants.CERTIFICATE.table);
+			certificateGr.addQuery('renewed_by', ref);
+			certificateGr.query();
+
+			if (certificateGr.next()) {
+				ref = certificateGr.getValue('sys_id');
+			} else {
+				proceed = false;
+			}
+		}
+
+		certificateRequestGr = getCertReqRecordByCertSysId(ref);
+
+		this.logger.debug(
+			'_findRelatedCertReqRecord(): Found related certificate request record: certificateSysId - {0}, certificateRequestSysId - {1}',
+			certificateSysId,
+			certificateRequestGr.getValue('sys_id')
+		);
+
+		return certificateRequestGr;
+	},
+
+	renewCertificate: function (certificateSysId) {
+		this.logger.debug('renewCertificate(): Start renewing certificate with certificateSysId: {0}', certificateSysId);
+
+
+		var certificateGr = new GlideRecord(Constants.CERTIFICATE.table);
+		if (certificateGr.get(certificateSysId)) {
+			var serialNumber = certificateGr.getValue('serial_number');
+			var thumbprint = certificateGr.getValue('thumbprint');
+			var csr = certificateGr.getValue('csr');
+
+			// Get Certificate Request record to keep reference in certificate record
+			var certificateRequestGr = this._findRelatedCertReqRecord(certificateSysId);
+
+			// If the certificate hasn't been renewed, take CSR from the certificate request.
+			if (!csr) {
+				this.logger.debug('renewCertificate(): no CSR in certificate record, taking from certificate request record');
+				csr = certificateRequestGr.getValue('csr');
+			}
+
+			this.logger.debug(
+				'renewCertificate(): serial_number: {0}, thumbprint: {1}, csr: {2}',
+				serialNumber,
+				thumbprint,
+				csr
+			);
+
+			// The function that is used to renew certificate;
+			var renewCertificate;
+
+			// Certificates issued according to CertCentral-related profiles are renewed in different way
+			// Instead of regular HTTP POST /mpki/api/v1/certificate/{serial_number}/renew endpoint, the following one is used:
+			// - HTTP POST /mpki/api/v1/certificate
+			// with CertCentral order id value included in body
+			var profileGr = new GlideRecord(Constants.PROFILE.table);
+			profileGr.addQuery('id', certificateGr.getValue('profile_id'));
+			profileGr.query();
+			var profileTemplateName = '';
+			var authMethod = '';
+			var profileSysId = '';
+			if (profileGr.next()) {
+				authMethod = profileGr.getValue('authentication_method');
+				profileSysId = profileGr.sys_id;
+				profileTemplateName = JSON.parse(profileGr.getValue('template')).name;
+			}
+
+			if (authMethod === 'manual_approval') {
+				var attributes = certificateRequestGr.getValue('attributes');
+				var enrollmentEmail = certificateRequestGr.getValue('enrollment_email');
+				var grCertRequest = new GlideRecord(Constants.CERTIFICATE_REQUEST.table);
+				grCertRequest.attributes = attributes;
+				grCertRequest.enrollment_email = enrollmentEmail;
+				grCertRequest.enrollment_request = true;
+				grCertRequest.profile = profileSysId;
+				grCertRequest.is_manual_approval_renewal = true;
+				grCertRequest.old_certificate_serial_number = serialNumber;
+				if (csr) {
+					grCertRequest.csr = csr;
+				}
+				grCertRequest.insert();
+
+				return;
+			}
+			else if (profileTemplateName && profileTemplateName.includes('CertCentral')) {
+				this.logger.debug(
+					'renewCertificate(): CertCentral issued certificate. HTTP POST /mpki/api/v1/certificate is used to renew certificate'
+				);
+				var additionalParams = {
+					ca_attributes: {
+						renewal_of_order_id: certificateGr.getValue('order_id'),
+						ct_log_option: true,
+					},
+				};
+				renewCertificate = function () {
+					return this.issueCertificate(certificateRequestGr, additionalParams);
+				}.bind(this);
+			} else {
+				var renewCertificateUrl = Constants.URL.renewCertificateUrl
+					.replace('{serialNumber}', serialNumber)
+					.replace('{thumbprint}', thumbprint);
+
+				this.logger.debug('renewCertificate(): renewCertificateUrl: {0}', renewCertificateUrl);
+				renewCertificate = function () {
+					return this.httpRequestUtils.post(renewCertificateUrl, {
+						csr: csr,
+					});
+				}.bind(this);
+			}
+
+			try {
+				var newCertificate = renewCertificate();
+				newCertificate = typeof newCertificate === 'string' ? JSON.parse(newCertificate) : newCertificate;
+				newCertificate.csr = csr;
+
+				this.logger.info(
+					'renewCertificate(): Certificate has been renewed via DigiCert API. certificateSysId: {0}, serial_number: {1}, thumbprint: {2}',
+					certificateSysId,
+					serialNumber,
+					thumbprint
+				);
+			} catch (error) {
+				this.logger.error('renewCertificate(): Error ocurred on certificate renewal: {0}', error.message);
+				throw error;
+			}
+
+			var newCertificateSysId = this.saveCertificate({
+				serialNumber: newCertificate.serial_number,
+				certificate: newCertificate.certificate,
+				deliveryFormat: newCertificate.delivery_format,
+				csr: newCertificate.csr,
+			});
+
+			certificateGr.renewed = true;
+			certificateGr.renewed_by = newCertificateSysId;
+			certificateGr.update();
+
+			this.logger.info('renewCertificate(): New certificate has been saved in ServiceNow table.');
+		}
+	},
+
+	revokeCertificate: function (certificateSysId, revocationReason, accountId) {
+		this.logger.debug('revokeCertificate(): Start revoking certificate with certificateSysId: {0}', certificateSysId);
+
+		var gr = new GlideRecord(Constants.CERTIFICATE.table);
+
+		if (gr.get(certificateSysId)) {
+			var serialNumber = gr.getValue('serial_number');
+			var thumbprint = gr.getValue('thumbprint');
+
+			this.logger.debug('revokeCertificate(): serial_number: {0}, thumbprint: {1}', serialNumber, thumbprint);
+
+			var revokeCertificateUrl = Constants.URL.revokeCertificateUrl
+				.replace('{serialNumber}', serialNumber)
+				.replace('{thumbprint}', thumbprint);
+
+			if (accountId) {
+				revokeCertificateUrl += '&account_id=' + accountId;
+			}
+
+			this.logger.debug('revokeCertificate(): revokeCertificateUrl: {0}', revokeCertificateUrl);
+
+			try {
+				this.httpRequestUtils.put(revokeCertificateUrl, {
+					revocation_reason: revocationReason,
+				});
+
+				this.logger.info(
+					'revokeCertificate(): Certificate has been revoked. certificateSysId: {0}, serial_number: {1}, thumbprint: {2}',
+					certificateSysId,
+					serialNumber,
+					thumbprint
+				);
+			} catch (error) {
+				this.logger.error('revokeCertificate(): Error ocurred on certificate revocation: {0}', error.message);
+				throw error;
+			}
+
+			var certificateDetails = this.getCertificateDetailsBySerialNumber(serialNumber, accountId);
+
+			gr.status = certificateDetails.status;
+			if (certificateDetails.status != Constants.CERTIFICATE.statuses.RevocationPending) {
+				gr.revocation_reason = certificateDetails.revocation.reason;
+				gr.revocation_date = certificateDetails.revocation.revocation_date;
+			}
+
+			gr.update();
+
+			this.updateCertificateInCMDB(gr);
+
+			this.logger.debug(
+				'revokeCertificate(): updated certificate status and revocation data. certificateSysId: {0}',
+				certificateSysId
+			);
+		} else {
+			this.logger.error('revokeCertificate(): certificate not found. certificateSysId: {0}', certificateSysId);
+			throw new Error('Certificate not found');
+		}
+	},
+
+	getSyncCertificatesInfo: function () {
+		var gr = new GlideRecord(Constants.APPLICATION_PROPERTIES.table);
+		gr.addQuery("property", Constants.APPLICATION_PROPERTIES.props.sync_certificates.name);
+		gr.query();
+		if (gr.next()) {
+			try {
+				return JSON.parse(gr.getValue("value"));
+			} catch (e) {
+				return null;
+			}
+		}
+
+		return null;
+	},
+
+	setSyncCertificatesInfo: function (obj) {
+		var gr = new GlideRecord(Constants.APPLICATION_PROPERTIES.table);
+		gr.addQuery("property", Constants.APPLICATION_PROPERTIES.props.sync_certificates.name);
+		gr.query();
+
+		if (gr.next()) {
+			gr.setValue("value", JSON.stringify(obj));
+			gr.update();
+		} else {
+			gr.initialize();
+			gr.setValue("property", Constants.APPLICATION_PROPERTIES.props.sync_certificates.name);
+			gr.setValue("value", JSON.stringify(obj));
+			gr.insert();
+		}
+
+	},
+
+	handleSyncCertificates: function () {
+		var info = this.getSyncCertificatesInfo();
+		this.setSyncCertificatesInfo({
+			status: Constants.APPLICATION_PROPERTIES.props.sync_certificates.status.processing,
+			updated: info ? info.updated : null,
+		});
+		this.syncCertificates();
+		this.setSyncCertificatesInfo({
+			status: Constants.APPLICATION_PROPERTIES.props.sync_certificates.status.processed,
+			updated: new GlideDateTime().toString(),
+		});
+	},
+
+	syncCertificates: function () {
+		this.logger.debug('syncCertificates(): Start syncing certificates with DigiCert One');
+
+		// Query certificates where status is `issued` or `suspended`.
+		// Other possible certificate statuses (`expired` and `revoked`) can't be updated anymore,
+		// so there is no necessity to query them and sync.
+		var gr = new GlideRecord(Constants.CERTIFICATE.table);
+		var grOr = gr.addQuery('status', Constants.CERTIFICATE.statuses.Issued);
+		grOr.addOrCondition('status', Constants.CERTIFICATE.statuses.Suspended);
+		grOr.addOrCondition('status', Constants.CERTIFICATE.statuses.RevocationPending);
+		gr.query();
+
+		var certsCounter = 0;
+		var updatedCerts = [];
+
+		while (gr.next()) {
+			certsCounter++;
+
+			var serialNumber = gr.getValue('serial_number');
+			var accountId = gr.getValue('account_id');
+			var status = gr.getValue('status');
+
+			try {
+				var certificateDetails = this.getCertificateDetailsBySerialNumber(serialNumber, accountId);
+				this.logger.info('certificateDetails(): certificateDetails record: ' + JSON.stringify(certificateDetails, null, ''));
+			} catch (error) {
+				this.logger.debug('syncCertificates(): Error ocurred on getting certificate details: {0}', serialNumber);
+				continue;
+			}
+
+			if (status !== certificateDetails.status) {
+				gr.status = certificateDetails.status;
+
+				if (certificateDetails.status === Constants.CERTIFICATE.statuses.Revoked) {
+					gr.revocation_reason = certificateDetails.revocation.reason;
+					gr.revocation_date = certificateDetails.revocation.revocation_date;
+				}
+
+				gr.update();
+				updatedCerts.push(serialNumber);
+			}
+		}
+
+		this.logger.info(
+			'syncCertificates(): Finished syncing certificates with DigiCert One. ' +
+			'Queried {0} certificates. Updated {1} certificates: {2}',
+			certsCounter,
+			updatedCerts.length,
+			JSON.stringify(updatedCerts)
+		);
+	},
+
+	updateCertificateInCMDB: function (certificateGr) {
+		// save new status and related data to CMDB
+		if (this.pluginService.isCMDBPluginActive() && gs.getProperty(Constants.SYS_PROPS.save_to_cmdb) === "true") {
+			var profileGr = new GlideRecord(Constants.PROFILE.table);
+			profileGr.addQuery("id", certificateGr.getValue("profile_id"));
+			profileGr.query();
+			if (profileGr.next()) {
+				var private_key_attributes = JSON.parse(profileGr.getValue("private_key_attributes"));
+
+				var data = {
+					thumb_print: certificateGr.getValue("thumbprint"),
+					state: certificateGr.getValue("status"),
+					key_size: "RSA_" + private_key_attributes.key_size,
+					valid_from: certificateGr.getValue("valid_from"),
+					valid_to: certificateGr.getValue("valid_to"),
+					certificate: certificateGr.getValue("certificate")
+				};
+				this.cmdbCertService.saveCertificate(data);
+				// for debugging
+				// this.logger.debug("Successfully udpated status in CMDB, json: " + JSON.stringify(data));
+				return;
+			}
+		}
+		// for debugging
+		// this.logger.error("Failed to udpate status in CMDB, profileId: " + certificateGr.getValue("profile_id"));
+	},
+	getCertSysIdBySerialNumber: function (certificateSerialNumber) {
+		var certificateGr = new GlideRecord(Constants.CERTIFICATE.table);
+		certificateGr.addQuery('serial_number', certificateSerialNumber);
+		certificateGr.query();
+		var ref = '';
+		if (certificateGr.next()) {
+			ref = certificateGr.getValue('sys_id');
+		}
+
+		return ref;
+
+	},
+
+	type: 'CertificateService',
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-04-20 14:00:24</sys_created_on>
+        <sys_id>1ad5048ec39261503e0a1c5ce00131cf</sys_id>
+        <sys_mod_count>177</sys_mod_count>
+        <sys_name>CertificateService</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_script_include_1ad5048ec39261503e0a1c5ce00131cf</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2024-12-08 19:47:09</sys_updated_on>
+    </sys_script_include>
+</record_update>

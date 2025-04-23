@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update sys_domain="global" table="sysevent_script_action">
+    <sysevent_script_action action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <condition_script/>
+        <description/>
+        <event_name>x_dice_digicertone.sync_certificates</event_name>
+        <name>SyncCertificatesHandler</name>
+        <order>100</order>
+        <script><![CDATA[var logger = new Logger('SyncCertificatesHandler handler');
+logger.debug('Starting script execution');
+
+var certificateService = new CertificateService();
+certificateService.handleSyncCertificates();
+
+logger.debug('Finished script execution');]]></script>
+        <synchronous>false</synchronous>
+        <sys_class_name>sysevent_script_action</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2024-10-14 07:21:37</sys_created_on>
+        <sys_domain>global</sys_domain>
+        <sys_domain_path>/</sys_domain_path>
+        <sys_id>84f10fecc3d1121098f99b377d0131bc</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>SyncCertificatesHandler</sys_name>
+        <sys_overrides/>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sysevent_script_action_84f10fecc3d1121098f99b377d0131bc</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2024-10-14 07:21:37</sys_updated_on>
+    </sysevent_script_action>
+</record_update>

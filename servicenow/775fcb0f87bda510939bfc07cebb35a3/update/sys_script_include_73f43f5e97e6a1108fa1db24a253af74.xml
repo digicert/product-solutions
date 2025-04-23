@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_dice_digicertone.dbACL</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>dbACL</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var dbACL = Class.create();
+dbACL.prototype = {
+    initialize: function() {},
+    getMap: function() {
+        return {
+            "x_dice_digicertone_certificate_request": {
+                create: {
+                    admin: true,
+                    "x_dice_digicertone.business_owner": true,
+                    "x_dice_digicertone.subscriber": true,
+                    "x_dice_digicertone.user": true,
+                },
+                read: {
+                    admin: true,
+                    "x_dice_digicertone.business_owner": true,
+                    "x_dice_digicertone.subscriber": function(user, paramObject) {
+                        return user.getID() == paramObject.current.opened_by;
+                    },
+                    "x_dice_digicertone.user": function(user, paramObject) {
+                        return user.getID() == paramObject.current.opened_by;
+                    },
+                },
+                update: {
+                    admin: true,
+                    "x_dice_digicertone.business_owner": true,
+                    "x_dice_digicertone.subscriber": true,
+                    "x_dice_digicertone.user": true,
+                },
+                delete: {
+                    admin: true,
+                },
+            },
+            "x_dice_digicertone_certificate_request.state": {
+                update: {
+                    admin: true,
+                    "x_dice_digicertone.subscriber": function(user, paramObject) {
+                        return user.getID() == paramObject.current.opened_by;
+                    },
+                },
+            },
+            "x_dice_digicertone_certificates": {
+                create: {
+                    admin: true,
+                    "x_dice_digicertone.business_owner": true,
+                    "x_dice_digicertone.subscriber": true,
+                    "x_dice_digicertone.user": true,
+                },
+                read: {
+                    admin: true,
+                    "x_dice_digicertone.business_owner": true,
+                    // "x_dice_digicertone.subscriber": function (user, paramObject) {
+                    //   return user.getName() == paramObject.current.sys_created_by;
+                    // },
+                    "x_dice_digicertone.subscriber": true,
+                    "x_dice_digicertone.user": function(user, paramObject) {
+                        return user.getName() == paramObject.current.sys_created_by;
+                    },
+                    // "x_dice_digicertone.user": true,
+                },
+                update: {
+                    admin: true,
+                    "x_dice_digicertone.business_owner": true,
+                },
+                delete: {
+                    admin: true,
+                },
+            },
+            "x_dice_digicertone_profiles": {
+                create: {
+                    admin: true,
+                },
+                read: {
+                    admin: true,
+                    "x_dice_digicertone.business_owner": true,
+                    "x_dice_digicertone.subscriber": true,
+                    "x_dice_digicertone.user": true,
+                },
+                update: {
+                    admin: true,
+                },
+                delete: {
+                    admin: true,
+                },
+            },
+            "x_dice_digicertone_application_secure_properties": {
+                create: {
+                    admin: true,
+                },
+                read: {
+                    admin: true,
+                    "x_dice_digicertone.business_owner": true,
+                    "x_dice_digicertone.subscriber": true,
+                    "x_dice_digicertone.user": true,
+                },
+                update: {
+                    admin: true,
+                },
+                delete: {
+                    admin: true,
+                },
+            },
+            "x_dice_digicertone_support_user": {
+                create: {
+                    admin: true,
+                    "x_dice_digicertone.business_owner": false,
+                    "x_dice_digicertone.subscriber": false,
+                    "x_dice_digicertone.user": false,
+                },
+                read: {
+                    admin: true,
+                    "x_dice_digicertone.business_owner": true,
+                    "x_dice_digicertone.subscriber": true,
+                    "x_dice_digicertone.user": true,
+                },
+                update: {
+                    admin: true,
+                    "x_dice_digicertone.business_owner": false,
+                    "x_dice_digicertone.subscriber": false,
+                    "x_dice_digicertone.user": false,
+                },
+                delete: {
+                    admin: true,
+                    "x_dice_digicertone.business_owner": false,
+                    "x_dice_digicertone.subscriber": false,
+                    "x_dice_digicertone.user": false,
+                },
+            },
+            "x_dice_digicertone_application_properties": {
+                create: {
+                    admin: true,
+                    "x_dice_digicertone.business_owner": true,
+                    "x_dice_digicertone.subscriber": true,
+                    "x_dice_digicertone.user": true,
+                },
+                read: {
+                    admin: true,
+                    "x_dice_digicertone.business_owner": true,
+                    "x_dice_digicertone.subscriber": true,
+                    "x_dice_digicertone.user": true,
+                },
+                update: {
+                    admin: true,
+                    "x_dice_digicertone.business_owner": true,
+                    "x_dice_digicertone.subscriber": true,
+                    "x_dice_digicertone.user": true,
+                },
+                delete: {
+                    admin: true,
+                    "x_dice_digicertone.business_owner": true,
+                    "x_dice_digicertone.subscriber": true,
+                    "x_dice_digicertone.user": true,
+                },
+            },
+        };
+    },
+    type: "dbACL",
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-05-04 12:19:33</sys_created_on>
+        <sys_id>73f43f5e97e6a1108fa1db24a253af74</sys_id>
+        <sys_mod_count>28</sys_mod_count>
+        <sys_name>dbACL</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_script_include_73f43f5e97e6a1108fa1db24a253af74</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2023-10-20 12:04:13</sys_updated_on>
+    </sys_script_include>
+</record_update>

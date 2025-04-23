@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update sys_domain="global" table="sysevent_script_action">
+    <sysevent_script_action action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <condition_script/>
+        <description/>
+        <event_name>x_dice_digicertone.pickUpCertificate</event_name>
+        <name>PickUpCertificateHandler</name>
+        <order>100</order>
+        <script><![CDATA[var logger = new Logger('PickUpCertificateHandler');
+logger.debug('Starting script action');
+
+function updateCloseNotes(current, message) {
+    var timestamp = new GlideDateTime().getValue();
+    var closeNotes = timestamp + ' - ' + message;
+    var prevCloseNotes = current.getValue('close_notes');
+    current.close_notes = closeNotes + '\n' + prevCloseNotes;
+    current.update();
+}
+
+try {
+    logger.debug('Handling the event {0}, related to certificate request record. Payload: {1}.', event.name, event.parm1);
+
+    var httpRequestUtils = new HttpRequestUtils();
+    var certificateService = new CertificateService();
+    var payload = JSON.parse(event.parm1);
+
+    var currentTime = new GlideDateTime();
+    var isExpired = currentTime.after(new GlideDateTime(payload.expirationDate));
+
+    if (isExpired) {
+        throw new Error(
+            'Your job is expired. Note that job is expired after 10 days of tries. You should manually check the status of your certificate.'
+        );
+    }
+
+    // 86400 sec = 1 day
+    // limits timeout time
+    if (payload.timeout < 86400) {
+        payload.timeout *= 2;
+    }
+
+    var certificate = httpRequestUtils.post(
+        Constants.URL.pickUpCertificateUrl.replace('{request_id}', payload.requestId),
+        payload.body
+    );
+    certificate = JSON.parse(certificate);
+    if (certificate.status.toLowerCase() === 'ISSUED'.toLowerCase()) {
+        logger.info('Certificate for request id {0} has been successfully picked up', payload.requestId);
+		
+        certificateService.saveCertificate({
+                serialNumber: certificate.serial_number,
+                deliveryFormat: certificate.delivery_format,
+                certificate: certificate.certificate,
+            },
+            payload.certificateRequestSysId
+        );
+
+        updateCloseNotes(current, 'Your certificate has been issued!');
+        EmailHelpers.sendCertificateGeneratedNotification({
+            current: current
+        });
+    } else {
+        logger.debug(
+            'Certificate for request id {0} has not been picked up. Certificate status - {1}. Submit event to run an action again.',
+            payload.requestId,
+            certificate.status
+        );
+        var processTime = new GlideDateTime();
+        processTime.addSeconds(payload.timeout);
+        gs.eventQueueScheduled(Constants.EVENT.pickUpCertificate, current, JSON.stringify(payload), '', processTime);
+    }
+} catch (error) {
+    var message = 'Error ocurred on certificate pick up - ' + error;
+    logger.error(message);
+
+    updateCloseNotes(current, message);
+    EmailHelpers.sendCertificateFailedNotification({
+        current: current
+    });
+}
+
+logger.debug('Finished script action');]]></script>
+        <synchronous>false</synchronous>
+        <sys_class_name>sysevent_script_action</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-07-12 13:21:01</sys_created_on>
+        <sys_domain>global</sys_domain>
+        <sys_domain_path>/</sys_domain_path>
+        <sys_id>29a8d7e4978031108fa1db24a253af8f</sys_id>
+        <sys_mod_count>42</sys_mod_count>
+        <sys_name>PickUpCertificateHandler</sys_name>
+        <sys_overrides/>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sysevent_script_action_29a8d7e4978031108fa1db24a253af8f</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2024-07-22 08:57:33</sys_updated_on>
+    </sysevent_script_action>
+</record_update>

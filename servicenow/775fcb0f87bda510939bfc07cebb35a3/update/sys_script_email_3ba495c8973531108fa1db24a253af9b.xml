@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_email">
+    <sys_script_email action="INSERT_OR_UPDATE">
+        <name>x_dice_digicertone.updatedByEmail</name>
+        <new_lines_to_html>false</new_lines_to_html>
+        <script><![CDATA[(function runMailScript( /* GlideRecord */ current, /* TemplatePrinter */ template,
+    /* Optional EmailOutbound */
+    email, /* Optional GlideRecord */ email_action,
+    /* Optional GlideRecord */
+    event) {
+    var eventName = event.getValue("name");
+    var value = null;
+    var user_name = null;
+
+    if (
+        eventName === Constants.EVENT.requestRejected ||
+        eventName === Constants.EVENT.certificateGenerated ||
+        eventName === Constants.EVENT.certificateFailed ||
+        eventName === Constants.EVENT.certificateDelayed ||
+        eventName === Constants.EVENT.certificateFailedAdmin
+    ) {
+        var documentId = current.getValue("sys_id");
+        var approvalGr = new GlideRecord("sysapproval_approver");
+        approvalGr.addQuery("document_id", documentId);
+        approvalGr.addQuery("state", "rejected");
+        approvalGr.query();
+
+        if (approvalGr.next()) {
+            user_name = approvalGr.getValue("sys_updated_by");
+        }
+    } else {
+        user_name = current.getValue("sys_updated_by");
+    }
+
+    var gr = new GlideRecord('sys_user');
+    gr.query("user_name", user_name);
+    gr.query();
+
+    if (gr.next()) {
+        value = gr.getValue('email');
+    }
+
+    template.print(value);
+
+})(current, template, email, email_action, event);]]></script>
+        <sys_class_name>sys_script_email</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-10-05 14:18:17</sys_created_on>
+        <sys_id>3ba495c8973531108fa1db24a253af9b</sys_id>
+        <sys_mod_count>5</sys_mod_count>
+        <sys_name>x_dice_digicertone.updatedByEmail</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_script_email_3ba495c8973531108fa1db24a253af9b</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2023-10-18 12:25:41</sys_updated_on>
+    </sys_script_email>
+</record_update>

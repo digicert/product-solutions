@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ws_operation">
+    <sys_ws_operation action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <consumes>application/json,application/xml,text/xml</consumes>
+        <consumes_customized>false</consumes_customized>
+        <default_operation_uri/>
+        <enforce_acl>e7874de2c36321103e0a1c5ce00131b8</enforce_acl>
+        <http_method>GET</http_method>
+        <name>Profile</name>
+        <operation_script><![CDATA[(function process(/*RESTAPIRequest*/ request, /*RESTAPIResponse*/ response) {
+
+    // Get the currently logged-in user's sys_id
+    var user = gs.getUser();
+
+    // Query the sys_user table for this user
+    if (user) {
+        // If found, return the user's profile information
+        response.setStatus(200);
+        response.setBody({
+			id: user.getID(),
+			name: user.getName(),
+            display_name: user.getDisplayName(),
+            first_name: user.getFirstName(),
+            last_name: user.getLastName(),
+            email: user.getEmail(),
+			roles: user.getRoles(),
+			user_roles: user.getUserRoles()
+        });
+    } else {
+        // If not found, return an error
+        response.setStatus(404);
+        response.setBody({
+            error: 'User not found'
+        });
+    }
+
+})(request, response);]]></operation_script>
+        <operation_uri>/api/x_dice_digicertone/current_user/profile</operation_uri>
+        <produces>application/json,application/xml,text/xml</produces>
+        <produces_customized>false</produces_customized>
+        <relative_path>/profile</relative_path>
+        <request_example/>
+        <requires_acl_authorization>true</requires_acl_authorization>
+        <requires_authentication>true</requires_authentication>
+        <requires_snc_internal_role>true</requires_snc_internal_role>
+        <short_description/>
+        <sys_class_name>sys_ws_operation</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-05-18 08:51:35</sys_created_on>
+        <sys_id>47ea837ac33221103e0a1c5ce00131f8</sys_id>
+        <sys_mod_count>4</sys_mod_count>
+        <sys_name>Profile</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_ws_operation_47ea837ac33221103e0a1c5ce00131f8</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2023-06-23 11:23:48</sys_updated_on>
+        <web_service_definition display_value="Current User">b38a0f3ac33221103e0a1c5ce00131fd</web_service_definition>
+        <web_service_version/>
+    </sys_ws_operation>
+</record_update>

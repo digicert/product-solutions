@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_email">
+    <sys_script_email action="INSERT_OR_UPDATE">
+        <name>x_dice_digicertone.footerContacts</name>
+        <new_lines_to_html>false</new_lines_to_html>
+        <script><![CDATA[(function runMailScript(
+    /* GlideRecord */
+    current,
+    /* TemplatePrinter */
+    template,
+    /* Optional EmailOutbound */
+    email,
+    /* Optional GlideRecord */
+    email_action,
+    /* Optional GlideRecord */
+    event
+) {
+    var userSysId = EmailHelpers.getUserSysId(event, current);
+	
+    var userAccess = new UserAccess();
+    userAccess.setUser(userSysId);
+    var isAdmin = userAccess.isAdmin();
+
+    if (isAdmin) {
+        template.print(
+            '<p class="content-footer" style="margin: 0; margin-bottom: 5px; text-align: center; font-family: \'Roboto\',sans-serif; font-weight: 400; font-size: 10px; color: #666666;">' +
+            'Have questions? Call us at 1-800-579-2848 or email ' +
+            '<a href="mailto:enterprise-pkisupport@digicert.com" style="text-decoration: underline; color: #666666; font-family: \'Roboto\', sans-serif; font-size: 10px; text-align: center;">enterprise-pkisupport@digicert.com</a>' +
+            '</p>'
+        );
+    }
+})(current, template, email, email_action, event);]]></script>
+        <sys_class_name>sys_script_email</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-09-29 12:22:59</sys_created_on>
+        <sys_id>b2f04ec697ad79108fa1db24a253af16</sys_id>
+        <sys_mod_count>16</sys_mod_count>
+        <sys_name>x_dice_digicertone.footerContacts</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_script_email_b2f04ec697ad79108fa1db24a253af16</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2023-10-09 11:44:28</sys_updated_on>
+    </sys_script_email>
+</record_update>

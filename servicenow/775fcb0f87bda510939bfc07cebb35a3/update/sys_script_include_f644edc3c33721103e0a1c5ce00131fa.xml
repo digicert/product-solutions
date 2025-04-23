@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_dice_digicertone.CertificateRequestService</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>CertificateRequestService</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var CertificateRequestService = Class.create();
+CertificateRequestService.prototype = {
+	initialize: function () {
+		this.httpRequestUtils = new HttpRequestUtils();
+		this.glideRecordUtils = new GlideRecordUtils();
+		this.certificateService = new CertificateService();
+		this.logger = new Logger('CertificateRequestService');
+	},
+
+	_getEnrolReqsWithoutCerts: function (enrollmentId) {
+		this.logger.debug(
+			'_getEnrolReqsWithoutCerts(): Getting enrollments requests where enrollment has been created but no certificate yet' +
+			(enrollmentId ? ', enrollmentId - {0}' : ''),
+			enrollmentId
+		);
+
+		// Retrieve certificate request records where:
+		// - `enrollment_request` is true
+		// - `enrollment_id` equals passed enrollmentId.
+		//   - if enrollmentId is not passed, get all records where `enrollment_id` is not null
+		// - `certificate` is null
+		// - certificate request created no more than 10 days ago
+		var gr = new GlideRecord(Constants.CERTIFICATE_REQUEST.table);
+		gr.addQuery('enrollment_request', true);
+
+		if (enrollmentId) {
+			gr.addQuery('enrollment_id', enrollmentId);
+		} else {
+			gr.addNotNullQuery('enrollment_id');
+		}
+
+		gr.addNullQuery('certificate');
+
+		var date = new Date();
+		var DAYS_BACK = 10;
+		date.setDate(date.getDate() - DAYS_BACK); // go back 10 days
+		gr.addQuery('approval_set', '>=', date.toISOString().slice(0, 10)); // yyyy-mm-dd UTC
+		gr.query();
+
+		var result = [];
+		while (gr.next()) {
+			var certificateRequestId = gr.getValue('sys_id');
+			var enrollmentId = gr.getValue('enrollment_id');
+
+			result.push({
+				certificateRequestId: certificateRequestId,
+				enrollmentId: enrollmentId,
+			});
+		}
+
+		this.logger.debug(
+			'_getEnrolReqsWithoutCerts(): {0} enrollments requests where enrollment has been created and approved but no certificate yet',
+			result.length
+		);
+
+		// [{ certificateRequestId, enrollmentId }, ...]
+		return result;
+	},
+
+	getCertsForCreatedEnrollments: function (enrollmentId) {
+		// If `enrollmentId` is passed, get the certificate only for this enrollment.
+		// It's passed when this method is called from script action (EnrollmentCreatedHandler) when we need to check the certificate only for one enrollment
+		//
+		// If it's not passed, retrieve all the certificates related to certificate requests, where:
+		// - `enrollment_request` is true
+		// - `enrollment_id` is not null
+		// - `certificate` is null
+		// - certificate request created no more than 10 days ago
+		//
+		// `enrollmentId` is not passed, when this method is called from Scheduled Executed Script
+
+		this.logger.debug(
+			'getCertsForCreatedEnrollments(): Getting certificates where enrollments have been created but no certificates yet' +
+			(enrollmentId ? ', enrollmentId - {0}' : ''),
+			enrollmentId
+		);
+
+		var enrollmentsReqs = this._getEnrolReqsWithoutCerts(enrollmentId);
+
+		if (!enrollmentsReqs.length) {
+			// No enrollments without certificates.
+			// It means that we have up-to-date certificates
+			this.logger.info('getCertsForCreatedEnrollments(): No certificates to retrieve');
+			return true;
+		}
+
+		var certificatesDetails = [];
+
+		for (var i = 0; i < enrollmentsReqs.length; i++) {
+			var certificateRequestId = enrollmentsReqs[i].certificateRequestId;
+			var enrollmentId = enrollmentsReqs[i].enrollmentId;
+			var certificateDetails;
+
+			try {
+				certificateDetails = this.certificateService.getCertificateDetailsByEnrollmentId(enrollmentId);
+			} catch (error) {
+				this.logger.error(
+					'getCertsForCreatedEnrollments(): Error ocurred, skip processing the certificate. Enrollment id - {0}',
+					enrollmentId
+				);
+				continue;
+			}
+
+			if (certificateDetails) {
+				// Get deliveryFormat from profile details
+				var gr = new GlideRecord(Constants.PROFILE.table);
+				gr.addQuery('id', certificateDetails.profile.id);
+				gr.query();
+				if (!gr.next()) {
+					this.logger.debug(
+						'getCertsForCreatedEnrollments(): No profile found in ServiceNow, skip processing the certificate. Enrollment id - {0}',
+						enrollmentId
+					);
+					continue;
+				}
+
+				var account_id = gr.getValue("account_id");
+				var authMethod = gr.getValue("authentication_method");
+				var isManualAuth = Constants.AUTHENTICATION_METHODS.MANUAL_APPROVAL === authMethod;
+
+				// fetch certificate by its serial_number because getCertificateDetailsByEnrollmentId() above does't include all required data for certificate
+				certificateDetails = this.certificateService.getCertificateDetailsBySerialNumber(certificateDetails.serial_number, account_id);
+
+				var deliveryFormat = gr.getValue('certificate_delivery_format').toLowerCase();
+
+				if (isManualAuth) {
+					deliveryFormat = 'x509';
+				}
+
+				// The certificate in the certificate details response is base64-encoded, without BEGIN/END prefix/suffix.
+				// Add them here to parse the certificate appropriately then.
+				// TODO: Consider checking if the certificate includes prefix "-----BEGIN" before adding these prefix/suffix
+				var certificate;
+				if (deliveryFormat === 'pkcs7' && !isManualAuth) {
+					certificate = '-----BEGIN PKCS7-----' + certificateDetails.certificate + '-----END PKCS7-----';
+				}
+				else if (deliveryFormat === 'pkcs12_der') {
+					certificate = '-----BEGIN CERTIFICATE-----\n' + certificateDetails.certificate + '\n-----END CERTIFICATE-----';
+				}
+				else {
+					certificate = '-----BEGIN CERTIFICATE-----' + certificateDetails.certificate + '-----END CERTIFICATE-----';
+				}
+
+				certificatesDetails.push({
+					certificateRequestId: certificateRequestId,
+					serialNumber: certificateDetails.serial_number,
+					deliveryFormat: deliveryFormat,
+					enrollmentId: enrollmentId,
+				});
+
+				this.certificateService.saveCertificate({
+					serialNumber: certificateDetails.serial_number,
+					deliveryFormat: deliveryFormat,
+					certificate: certificate,
+				},
+					certificateRequestId,
+					certificateDetails
+				);
+			}
+		}
+
+		this.logger.info('getCertsForCreatedEnrollments(): Retrieved {0} certificates.', certificatesDetails.length);
+
+		return certificatesDetails;
+	},
+
+	type: 'CertificateRequestService',
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-07-07 13:05:40</sys_created_on>
+        <sys_id>f644edc3c33721103e0a1c5ce00131fa</sys_id>
+        <sys_mod_count>52</sys_mod_count>
+        <sys_name>CertificateRequestService</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_script_include_f644edc3c33721103e0a1c5ce00131fa</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2024-12-17 17:17:18</sys_updated_on>
+    </sys_script_include>
+</record_update>

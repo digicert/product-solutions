@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update sys_domain="global" table="sysevent_email_action">
+    <sysevent_email_action action="INSERT_OR_UPDATE">
+        <action_insert>false</action_insert>
+        <action_update>false</action_update>
+        <active>true</active>
+        <advanced_condition/>
+        <affected_field_on_event/>
+        <category display_value="Uncategorized" name="Uncategorized">c97d83137f4432005f58108c3ffa917a</category>
+        <collection>x_dice_digicertone_certificates</collection>
+        <condition/>
+        <content_type>text/html</content_type>
+        <default_interval/>
+        <description/>
+        <digest_from/>
+        <digest_html><![CDATA[<p>&nbsp;</p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><object id="__symantecMPKIClientMessenger" style="display: none;" data-supports-flavor-configuration="true" data-extension-version="1.2.0.158"></object><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>]]></digest_html>
+        <digest_reply_to/>
+        <digest_separator_html><![CDATA[<p>&nbsp;</p>
+<hr />
+<p>&nbsp;</p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><object id="__symantecMPKIClientMessenger" style="display: none;" data-supports-flavor-configuration="true" data-extension-version="1.2.0.158"></object><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>]]></digest_separator_html>
+        <digest_separator_text><![CDATA[\n--------------------------------------------------------------------------------\n]]></digest_separator_text>
+        <digest_subject/>
+        <digest_template/>
+        <digest_text/>
+        <digestable>false</digestable>
+        <enable_dynamic_translation>false</enable_dynamic_translation>
+        <event_name>x_dice_digicertone.certificate.renewal</event_name>
+        <event_parm_1>true</event_parm_1>
+        <event_parm_2>false</event_parm_2>
+        <exclude_delegates>false</exclude_delegates>
+        <force_delivery>false</force_delivery>
+        <from/>
+        <generation_type>event</generation_type>
+        <importance/>
+        <include_attachments>false</include_attachments>
+        <item>event.parm1</item>
+        <item_table/>
+        <mandatory>false</mandatory>
+        <message/>
+        <message_html><![CDATA[<p>&nbsp;</p>
+<table style="border-collapse: separate; width: 100%;" role="presentation" border="0" width="100%" cellspacing="0" cellpadding="0">
+<tbody>
+<tr>
+<td style="font-family: sans-serif; font-size: 14px; vertical-align: top;" valign="top">
+<h2 class="title-text" style="font-family: Muli, sans-serif; font-weight: 400; line-height: 1.4; margin: 0px 0px 40px; font-size: 30px; color: #333333; text-align: center;">Your certificate is about to expire</h2>
+<div class="greetingsText" style="margin-bottom: 25px;">
+<p style="font-family: Roboto, sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0px 0px 10px;"><span style="font-size: 10pt;">Hello ${common_name}</span></p>
+<p style="font-family: Roboto, sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0px 0px 10px;">&nbsp;</p>
+<p style="font-family: Roboto, sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0px 0px 5px;"><span style="font-size: 10pt;">The certificate associated with the common name ${common_name} is about to expire.</span></p>
+<p style="font-family: Roboto, sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0px 0px 5px;"><span style="font-size: 10pt;">Renew your certificate before ${valid_to} to ensure uninterrupted service.</span></p>
+<p style="font-family: Roboto, sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0px 0px 5px;"><span style="font-size: 10pt;">Certificate Serial Number: ${serial_number}</span></p>
+<p style="font-family: Roboto, sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0px 0px 5px;">&nbsp;</p>
+<p style="font-family: Roboto, sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0px 0px 5px;"><span style="font-size: 10pt;">Use the device you originally used to enroll this certificate and access the following link to complete the renewal process:</span></p>
+<p style="font-family: Roboto, sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0px 0px 5px;">&nbsp;</p>
+<table style="border-collapse: collapse; width: 100%; height: 58.7814px; border-color: #ced4d9;" border="1" cellpadding="15px">
+<tbody>
+<tr style="height: 19.5938px;">
+<td style="width: 48.1576%; height: 19.5938px;"><span style="font-size: 10pt;">Common name</span></td>
+<td style="width: 48.1576%; height: 19.5938px;"><span style="font-size: 10pt;">${common_name}</span></td>
+</tr>
+<tr style="height: 19.5938px;">
+<td style="width: 48.1576%; height: 19.5938px;"><span style="font-size: 10pt;">ServiceNow login URL</span></td>
+<td style="width: 48.1576%; height: 19.5938px;"><span style="font-size: 10pt;"><a style="text-decoration: none; color: #0174c3;" href="${mail_script:x_dice_digicertone.baseInstanceUrl}">${mail_script:x_dice_digicertone.baseInstanceUrl}</a></span></td>
+</tr>
+<tr style="height: 19.5938px;">
+<td style="width: 48.1576%; height: 19.5938px;"><span style="font-size: 10pt;">Certificate expiration</span></td>
+<td style="width: 48.1576%; height: 19.5938px;"><span style="font-size: 10pt;">${valid_to}</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="divderTop" style="margin-top: 35px;">
+<p style="font-family: Roboto, sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0px 0px 5px;"><span style="font-size: 10pt;">To start the renewal process, select: <a style="text-decoration: none; color: #0174c3;" href="${mail_script:x_dice_digicertone.baseInstanceUrl}now/nav/ui/classic/params/target/x_dice_digicertone_App.do%23%2Fcertificates%2F${sys_id}">View request</a></span></p>
+<p style="font-family: Roboto, sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0px 0px 5px;"><span style="font-size: 10pt;">Message from your administrator :</span></p>
+<p style="font-family: Roboto, sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0px 0px 5px;"><span style="font-size: 10pt;"> ${renewal_comment}</span></p>
+<p style="font-family: Roboto, sans-serif; font-size: 14px; font-weight: 400; color: #333333; margin: 0px 0px 5px;">&nbsp;</p>
+</div>
+<span style="font-size: 10pt;">Have questions? Contact your IT administrator.</span><br />
+<div class="divderTop" style="margin-top: 35px;">
+<p style="font-family: Roboto, sans-serif; font-size: 14px; font-weight: 400; margin: 0px 0px 10px;"><span style="font-size: 10pt;">Thanks,</span></p>
+<p style="font-family: Roboto, sans-serif; font-size: 14px; font-weight: 400; margin: 0px 0px 10px;"><span style="font-size: 10pt;">DigiCert Team</span></p>
+<div class="contacts"><span style="font-size: 10pt;"><span class="contactDivider" style="border-right: 1px solid black; padding-right: 10px;">1-800-579-2848</span> </span><span style="padding-right: 10px; margin-left: 10px;"><span style="font-size: 10pt;"> <a style="color: #0174c3; text-decoration: none;" href="mailto:enterprise-pkisupport@digicert.com">Email</a></span> </span> <span style="margin-left: 10px;"> </span></div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+<style>
+@media only screen and (max-width: 620px) {
+table[class=body] h1 {
+  font-size: 28px !important;
+  margin-bottom: 10px !important;
+}
+
+table[class=body] p,
+table[class=body] ul,
+table[class=body] ol,
+table[class=body] td,
+table[class=body] span,
+table[class=body] a {
+  font-size: 16px !important;
+}
+
+table[class=body] .wrapper,
+table[class=body] .article {
+  padding: 10px !important;
+}
+
+table[class=body] .content {
+  padding: 0 !important;
+}
+
+table[class=body] .container {
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+table[class=body] .main {
+  border-left-width: 0 !important;
+  border-radius: 0 !important;
+  border-right-width: 0 !important;
+}
+
+table[class=body] .btn table {
+  width: 100% !important;
+}
+
+table[class=body] .btn a {
+  width: 100% !important;
+}
+
+table[class=body] .img-responsive {
+  height: auto !important;
+  max-width: 100% !important;
+  width: auto !important;
+}
+}
+@media all {
+.ExternalClass {
+  width: 100%;
+}
+
+.ExternalClass,
+.ExternalClass p,
+.ExternalClass span,
+.ExternalClass font,
+.ExternalClass td,
+.ExternalClass div {
+  line-height: 100%;
+}
+
+.apple-link a {
+  color: inherit !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+  text-decoration: none !important;
+}
+
+.btn-primary table td:hover {
+  background-color: #488EEF!important;
+}
+
+.btn-primary a:hover {
+  background-color: #488EEF!important;
+  border-color: #488EEF !important;
+}
+}
+</style>
+<p><object id="__symantecMPKIClientMessenger" style="display: none;" width="300" height="150" data-supports-flavor-configuration="true" data-extension-version="1.2.0.158" data-mce-fragment="1"></object><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><object id="__symantecMPKIClientMessenger" style="display: none;" width="300" height="150" data-supports-flavor-configuration="true" data-extension-version="1.2.0.158" data-mce-fragment="1"></object><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><object id="__symantecMPKIClientMessenger" style="display: none;" width="300" height="150" data-supports-flavor-configuration="true" data-extension-version="1.2.0.158" data-mce-fragment="1"></object><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><object id="__symantecMPKIClientMessenger" style="display: none;" width="300" height="150" data-supports-flavor-configuration="true" data-extension-version="1.2.0.158" data-mce-fragment="1"></object><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><object id="__symantecMPKIClientMessenger" style="display: none;" width="300" height="150" data-supports-flavor-configuration="true" data-extension-version="1.2.0.158" data-mce-fragment="1"></object><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><object id="__symantecMPKIClientMessenger" style="display: none;" width="300" height="150" data-supports-flavor-configuration="true" data-extension-version="1.2.0.158" data-mce-fragment="1"></object><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><object id="__symantecMPKIClientMessenger" style="display: none;" width="300" height="150" data-supports-flavor-configuration="true" data-extension-version="1.2.0.158" data-mce-fragment="1"></object><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span><object id="__symantecMPKIClientMessenger" style="display: none;" width="300" height="150" data-supports-flavor-configuration="true" data-extension-version="1.2.0.158" data-mce-fragment="1"></object><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><object id="__symantecMPKIClientMessenger" style="display: none;" width="300" height="150" data-supports-flavor-configuration="true" data-extension-version="1.2.0.158" data-mce-fragment="1"></object><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><br /><br /></p>
+<style>
+@media only screen and (max-width: 620px) {
+table[class=body] h1 {
+  font-size: 28px !important;
+  margin-bottom: 10px !important;
+}
+
+table[class=body] p,
+table[class=body] ul,
+table[class=body] ol,
+table[class=body] td,
+table[class=body] span,
+table[class=body] a {
+  font-size: 16px !important;
+}
+
+table[class=body] .wrapper,
+table[class=body] .article {
+  padding: 10px !important;
+}
+
+table[class=body] .content {
+  padding: 0 !important;
+}
+
+table[class=body] .container {
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+table[class=body] .main {
+  border-left-width: 0 !important;
+  border-radius: 0 !important;
+  border-right-width: 0 !important;
+}
+
+table[class=body] .btn table {
+  width: 100% !important;
+}
+
+table[class=body] .btn a {
+  width: 100% !important;
+}
+
+table[class=body] .img-responsive {
+  height: auto !important;
+  max-width: 100% !important;
+  width: auto !important;
+}
+}
+@media all {
+.ExternalClass {
+  width: 100%;
+}
+
+.ExternalClass,
+.ExternalClass p,
+.ExternalClass span,
+.ExternalClass font,
+.ExternalClass td,
+.ExternalClass div {
+  line-height: 100%;
+}
+
+.apple-link a {
+  color: inherit !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+  text-decoration: none !important;
+}
+
+.btn-primary table td:hover {
+  background-color: #488EEF!important;
+}
+
+.btn-primary a:hover {
+  background-color: #488EEF!important;
+  border-color: #488EEF !important;
+}
+}
+</style>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>
+<p><object id="__symantecMPKIClientMessenger" style="display: none;" data-supports-flavor-configuration="true" data-extension-version="1.2.0.158"></object><span id="__symantecMPKIClientDetector" style="display: none;">__PRESENT</span></p>]]></message_html>
+        <message_list/>
+        <message_text/>
+        <name>Certificate Renewal Reminder</name>
+        <omit_watermark>false</omit_watermark>
+        <order>100</order>
+        <push_message_only>false</push_message_only>
+        <recipient_fields/>
+        <recipient_groups/>
+        <recipient_users/>
+        <reply_to/>
+        <send_self>true</send_self>
+        <sms_alternate/>
+        <style/>
+        <subject>DigiCert via ServiceNow - Your certificate about to expire</subject>
+        <subscribable>false</subscribable>
+        <sys_class_name>sysevent_email_action</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2024-12-07 18:08:36</sys_created_on>
+        <sys_domain>global</sys_domain>
+        <sys_domain_path>/</sys_domain_path>
+        <sys_id>ffdb1342c316121098f99b377d0131c3</sys_id>
+        <sys_mod_count>8</sys_mod_count>
+        <sys_name>Certificate Renewal Reminder</sys_name>
+        <sys_overrides/>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sysevent_email_action_ffdb1342c316121098f99b377d0131c3</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2024-12-08 18:12:51</sys_updated_on>
+        <sys_version>2</sys_version>
+        <template display_value="DigiCert Email">4e47758e976d79108fa1db24a253afdb</template>
+        <type>email</type>
+        <weight>0</weight>
+    </sysevent_email_action>
+</record_update>

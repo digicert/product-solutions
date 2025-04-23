@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="db_image">
+    <db_image action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <category/>
+        <format/>
+        <height/>
+        <image>41547763972131508fa1db24a253af85</image>
+        <name>x_dice_digicertone.Youtube.svg</name>
+        <size_bytes>6187</size_bytes>
+        <sys_class_name>db_image</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-10-04 12:36:49</sys_created_on>
+        <sys_id>d144b363972131508fa1db24a253af8f</sys_id>
+        <sys_mod_count>2</sys_mod_count>
+        <sys_name>x_dice_digicertone.Youtube.svg</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>db_image_d144b363972131508fa1db24a253af8f</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2023-10-04 12:36:57</sys_updated_on>
+        <thumbnail/>
+        <width/>
+    </db_image>
+    <sys_attachment action="INSERT_OR_UPDATE">
+        <average_image_color/>
+        <chunk_size_bytes>700000</chunk_size_bytes>
+        <compressed>true</compressed>
+        <content_type>image/svg+xml</content_type>
+        <file_name>image</file_name>
+        <hash>2ba85155ef6aa3d65de03600b693144a9d73adf01e7b3b951146d07911b891bd</hash>
+        <image_height/>
+        <image_width/>
+        <size_bytes>6187</size_bytes>
+        <size_compressed>2264</size_compressed>
+        <state>available</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-10-04 12:36:56</sys_created_on>
+        <sys_id>41547763972131508fa1db24a253af85</sys_id>
+        <sys_mod_count>3</sys_mod_count>
+        <sys_updated_by>guest</sys_updated_by>
+        <sys_updated_on>2023-10-05 11:37:25</sys_updated_on>
+        <table_name>ZZ_YYdb_image</table_name>
+        <table_sys_id>d144b363972131508fa1db24a253af8f</table_sys_id>
+    </sys_attachment>
+    <sys_attachment_doc action="INSERT_OR_UPDATE">
+        <data>H4sIAAAAAAAAAA==</data>
+        <length>16</length>
+        <position>0</position>
+        <sys_attachment display_value="image" sys_id="41547763972131508fa1db24a253af85">41547763972131508fa1db24a253af85</sys_attachment>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-10-04 12:36:56</sys_created_on>
+        <sys_id>81547763972131508fa1db24a253af85</sys_id>
+    </sys_attachment_doc>
+    <sys_attachment_doc action="INSERT_OR_UPDATE">
+        <data>jZhNchw3EoX3E+E7VLQ3MwsV8ZNIAA7RXnArX8A7xYgiGaZIBUmbCl9tFnMkX8FfAsVudFe1w62IktT9Ckjkz8uX+PN//3//07cv99Pv10/Pd48Plzs/u910/fDfx093DzeXu99ePr8ru59+/O5f759/vxlhfjfx4sPzD9/u7x5+vdzdvrx8/eHi4vX1dX6N8+PTzYWvtV60X3fT692nl9vLXdCv33bT7fXdze0LixT7X1tl6/3gnLtg1x27T9P7m+nl6ePD8+fHpy+Xuy8fX57uvv3bT44/fnoXAn//pyPBfv34cjt9utz9PHk3B5dENIfsS8qSpjT7wL+8tGfMeZo+bOF8mOMCsqeW0oB5Hr7M3k9lzuMXMZ5Zb2PfX6afpziX7JxETis5l5hk4t09jqdqnaarSeegJXlxVdS5qsBcGXGF76YKSgIo0RL4J6tNdpQjZLUvryYvs2iQKi5kThJybGCdnQ/VOS8xRn5tO4XBHudUw2SuSK5E9cGJ81Ga5U6PXBbbPnV2LmIO9mj1OSaA3h2bzoLBvnXsKVK8uhSL4VKIxdX2LDU1VK651Jzxr6/izV9u+GBIi2nwcxEJQgR4N1c551kDpphriTnxN4faBAKrMeGJ5BzWVN9gw3lzxOIpBOKSK16xJwbaaUMeQs/BtO0b5iCuuKDsW1IwXD2sxvsqbT121WpLSE7REaU5Dt7DKN9g4nMqoT9DarAhbCmxQ99V8EsmalVLlYaLq0QCliqGEafkOIYddhO1hAErpFZnPo5jsgnR7ru+ucSeJWSAclxKzk4bZyclJHWWKC1kMmRA1RgayCuuEheDFAMC69tEXJ1T9TXzE66wHySrx7L2jFra++IpQR8ilUlugNK3Hdozd1MS0VWPOT76GCyQOpwtetbvm2afSVShwkk/c9WwpSVzW61oCpq8Vkqm2snKYFohaKCEUrEKw46UVO1gdUyxXHsQhcLw+3SEEyaoOx/8JPjEUBSy1OC9JkvGDOqkVlKDDWUSHeb6OY6hIT2XXZfKTKzlbM9Yh09eNm2m+xwqxKfUrOe1vWXJF2koyEDE4Q/nkppl6k7Tq22ZYw4c1ZFKiisA5rDyrkCjeEdjJWWTUIiUoRsiL1bBCX7CGb7AcBKCgWQ8Z14KM1GYhxqBawAOJ7CqbasZWaSaWcnYDi6Pg2E5pAYaysM2McbfKpA045kI3eIrajpPOHtMyVbkgHLB9ykKR6XFWFsZCoT1Gmo8JVULqhwVb122xKHgpDqWCrC1zmn0bdS+GnVTNaVK5kJVU8aNh09etiQBEhxPflMrYGTYkKpvlLyCFVrL4A0t27A618H6FMNif+bYLtNnBFbBfk9GjnQhizcODIr/rB/C1YePlM1A0R/9yFApL7uehB2cxiE7co97oAp8JN+DKs108oTKr9NjaKGRegeVxlC9lTvVq/6tMee2Wk1DfvTKg/qzr0nwGT3AenkY3eFLr7xD00dONNgxFbcgbLCCzjpmEfTcjVuxjNKjh8/CMivK0rkO6YbnthgQneHWHlnRaVNmp5WwYmZQYVxMdZPogY0ttrztedI2DDZ2dhN16xYESsb8iJsdzFDlxLKrdT801TXmrovTVnM12FgxLQLrZg1Mx34Q4tKsT3q/4cY6rV1wFLbDYYJ9FR8ZSo76waJLnHgo3vSvh1IMpsfp1vZEPuW3JUNtsMG5Iv0IrerwY5EQfUeNoknTIsHo4bAkRSOlOTe7Ezq66oouIClSkYJybW7Lo9QVnbbkYYMNpk1bYnMNalKYc1B45LsWSbU5rY7aI2vT4EKNAFM6KNWFZWVLx/vWl5k2DoqTZ1907FfRJgPzRXVaYgi1lBaHOobLWNX8RDiR6nQi1JZ0+1ZFD7FIhrLILDhYmYPAFT1hS0iwUNecKRMrdc2wMjrFqpneTRrvxyDtrjvljw/gliomlTJe6eFaD19x3hMqeinmnuZHws2OEG2gQhAi4xir1DLHcKdMTgE6hDjUUmFZ7bumA43TXIxV7QycPxdEGE21b5oG41zpGgoKRT4kzsEMEflPq/yjTm/LnRRNS+FYT/ltdrXSg1TpgvyaW1DDqUuuTDOVisc0EXjoqdWNOz2EnweCDhFDSMQymhYaapgOmTPO9QVwcfAwHbgBT+nG0xawKVLQ2dtEGw2W/InCQ97CBoKB0BvpGxssDqXvW1TRyxkW6LqG5OttJuQxrJNpb1LX1egVNG2wNd56EgXkfgrQLhKE1BTjQbrzeNKw7Ck49m1BQro0+4N/rdDbnFWZzCrrETajhC3pYNNiMC3AS/bH53NShOm4JroHqStoDbPZ08tG2dvWI3+8Fp+ZJKho9FojkqPZw2B7dxRQwRttBkhD1i52tAV03zK9VmNENP7oY5tc7dogop5NjwM1ckzGVXVoX6HvvM+mKpY09D7v1tXzYRu6IQ7PIDfUZjuOXb3kXsCkOxyjEJyOc2PqnqRkADImwFT0d6IKxQ1aGD1yJoLbqn8jJTaGCJuBO+khw2pqyWkDySpx+B2mpWeY0mJb45GN6ZHs3186FE6SojGJDHmTbbU6zHEIEBv38uiT0svXQWNCiE1p0dFskksnbcpuxNassTljkkfIK1iol7GG7ZmVPVaqfj0AYzCzZbHa4BQogXxmnrbu3YagdmVH+0ib4zl6oRqlEgZYyde6OenPyw1Ry3w6aT53b4DGNKt4GU5D+WxfQ8w291obs46gMOT2nQbEdKhz8+D+TgS1ReutSp4l06hp+1LFkgLR2p+Z9n7mhsbmjkJgAu5ONnWfufJB4u4HVWb42ixaXyHRhpEj3mb7ZIKj3WxuXEiBQ5Oil5dnPXO/ZfXTC68U72yO37wvi8ZX8iY8+OrM9RtiAoVIUfWnqZMz13nMGmTT/vZVfdq8H7TBhUzJi9rNfvOy8R9eC/8y7abPd/f3755+u7++3D08Pvxx/fTYv7vcfd/V0256fnl6/LX/fr37m4v05R59uuh37hc3dvNvl/A//gXf3oZtKxgAAA==</data>
+        <length>3008</length>
+        <position>1</position>
+        <sys_attachment display_value="image" sys_id="41547763972131508fa1db24a253af85">41547763972131508fa1db24a253af85</sys_attachment>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-10-04 12:36:56</sys_created_on>
+        <sys_id>05547763972131508fa1db24a253af85</sys_id>
+    </sys_attachment_doc>
+</record_update>

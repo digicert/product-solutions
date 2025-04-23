@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update sys_domain="global" table="sys_complex_object">
+    <sys_complex_object action="INSERT_OR_UPDATE">
+        <label/>
+        <name>FDb6d6950a26172110d34eb0ea74a5aa5a</name>
+        <namespace>FlowDesigner</namespace>
+        <scope_name>775fcb0f87bda510939bfc07cebb35a3</scope_name>
+        <serialized_content>{"FlowDesigner:FDb6d6950a26172110d34eb0ea74a5aa5a":{"error":"String","error.$field_facets":{"SimpleMapFacet":"{\"uiTypeLabel\":\"String\",\"read_only\":\"false\",\"hint\":\"\",\"uiType\":\"string\",\"mapped\":\"{\\\"error\\\":\\\"{{step[3dc5828f-53b7-4198-a494-7bf985c216ca].error_reason}}\\\"}\",\"default_value\":\"\",\"label\":\"Error\",\"mandatory\":\"true\",\"order\":\"1\",\"max_length\":\"0\"}"}},"FlowDesigner:FDb6d6950a26172110d34eb0ea74a5aa5a.$type_facets":{"SimpleMapFacet":"{\"uiTypeLabel\":\"Object\",\"co_type_name\":\"FDb6d6950a26172110d34eb0ea74a5aa5a\",\"element_mapping_provider\":\"com.glide.flow_design.action.data.FlowDesignVariableMapper\",\"read_only\":\"false\",\"hint\":\"\",\"uiType\":\"object\",\"default_value\":\"\",\"label\":\"Result\",\"mandatory\":\"false\",\"order\":\"1\",\"max_length\":\"65000\",\"uiUniqueId\":\"1efe8e1f-d220-4ac3-8db5-2961e1ecbaa4\"}"}}</serialized_content>
+        <sys_class_name>sys_complex_object</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-06-09 12:56:46</sys_created_on>
+        <sys_domain>global</sys_domain>
+        <sys_domain_path>/</sys_domain_path>
+        <sys_id>7ad6950ac31721103e0a1c5ce001315a</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>FDb6d6950a26172110d34eb0ea74a5aa5a</sys_name>
+        <sys_overrides/>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_complex_object_7ad6950ac31721103e0a1c5ce001315a</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2023-06-09 12:56:46</sys_updated_on>
+        <type>complex_object_schema</type>
+    </sys_complex_object>
+</record_update>

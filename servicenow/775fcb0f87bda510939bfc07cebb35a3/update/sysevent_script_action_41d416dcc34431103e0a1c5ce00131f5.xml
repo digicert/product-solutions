@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update sys_domain="global" table="sysevent_script_action">
+    <sysevent_script_action action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <condition_script/>
+        <description/>
+        <event_name>x_dice_digicertone.EnrollmentCreated</event_name>
+        <name>EnrollmentCreatedHandler</name>
+        <order>100</order>
+        <script><![CDATA[// Handler for x_dice_digicertone.EnrollmentCreated
+// Fired when the Certificate Request, created basing on profile with DTA enrollment, is approved
+var logger = new Logger('EnrollmentCreatedHandler');
+logger.debug('Starting script action');
+
+var MAX_EVENTS = 2;
+var payload = JSON.parse(event.parm1);
+var eventNumber = payload.eventNumber; // event number in this event's chain
+var certificateRequestSysId = payload.certificateRequestSysId;
+var enrollmentId = payload.enrollmentId;
+
+logger.debug('Handling the event {0}, related to certificate request record. Payload: {1}.', event.name, event.parm1);
+
+var certificateRequestService = new CertificateRequestService();
+var result = certificateRequestService.getCertsForCreatedEnrollments(enrollmentId);
+
+if (result === true) {
+  logger.debug('Certificate has been added already, nothing to update. enrollmentId - {0}', enrollmentId);
+} else if (result.length === 1 && result[0].enrollmentId === enrollmentId) {
+  logger.debug('Certificate has been retrieved and added. enrollmentId - {0}', enrollmentId);
+} else if (eventNumber < MAX_EVENTS) {
+  // In general we should poll DC1 API for certificate 2 times:
+  //   - in 1 hour after enrollment creation
+  //   - then in 2 hours
+  // After that, stop polling, even though the certificate has not been installed.
+  // The certificate will be retrieved by Scheduled Executed Script - GetCertsForCreatedEnrollments.
+  logger.debug('No certificate retrieved. Submit event to run an action again. enrollmentId - {0}', enrollmentId);
+
+  var eventName = 'x_dice_digicertone.EnrollmentCreated';
+  var nextEventNumber = eventNumber + 1;
+  var expiration = new GlideDateTime();
+  expiration.addSeconds(3600 * nextEventNumber); // 3600 * eventNumber seconds
+  var payload = JSON.stringify({
+    eventNumber: nextEventNumber,
+    certificateRequestSysId: certificateRequestSysId,
+    enrollmentId: enrollmentId,
+  });
+  gs.eventQueueScheduled(eventName, '', payload, gs.getUserName(), expiration);
+}
+
+logger.debug('Finished script action');
+]]></script>
+        <synchronous>false</synchronous>
+        <sys_class_name>sysevent_script_action</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-07-11 13:46:56</sys_created_on>
+        <sys_domain>global</sys_domain>
+        <sys_domain_path>/</sys_domain_path>
+        <sys_id>41d416dcc34431103e0a1c5ce00131f5</sys_id>
+        <sys_mod_count>22</sys_mod_count>
+        <sys_name>EnrollmentCreatedHandler</sys_name>
+        <sys_overrides/>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sysevent_script_action_41d416dcc34431103e0a1c5ce00131f5</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2023-07-13 09:44:04</sys_updated_on>
+    </sysevent_script_action>
+</record_update>

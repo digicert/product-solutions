@@ -1,0 +1,345 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_dice_digicertone.HttpRequestUtils</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>HttpRequestUtils</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var HttpRequestUtils = Class.create();
+
+HttpRequestUtils.prototype = {
+  initialize: function () {
+    this.logger = new Logger('HttpRequestUtils');
+  },
+
+  /**
+   * Send get request to given
+   *
+   * @param {String} url String Name of the api endpoint.
+   * @return {String}
+   */
+  get: function (url, headers) {
+    var request = this.prepareRequest(url, 'get', {}, headers);
+
+    var response = request.executeAsync();
+    response.waitForResponse(Constants.REQUEST_TIME_OUT);
+
+    var status = response.getStatusCode();
+    var body = response.getBody();
+
+	this.logger.debug("get(): GET {0} status={1}", url, status);
+
+    if (status === 200) {
+      return body;
+    } else {
+      var errorMessage = response.getErrorMessage();
+      this.logger.error('get(): Error message: {0}, body: {1}', errorMessage, body);
+      throw new HttpError(errorMessage, status, body);
+    }
+  },
+
+  /**
+   * Download file from given url and save it as attachment to record with sysId in table.
+   *
+   * @param {String} url Endpoint.
+   * @param {String} table Table name where file will be attached.
+   * @param {String} sysId Id of record.
+   * @param {String} fileName Name of new file.
+   * @return {String} sysId of attachment.
+   */
+  saveFile: function (url, table, sysId, fileName) {
+    var request = this.prepareRequest(url, 'get');
+
+    // Configure the request to save the response as an attachment
+    request.saveResponseBodyAsAttachment(table, sysId, fileName);
+
+    var response = request.executeAsync(); 
+    response.waitForResponse(Constants.REQUEST_TIME_OUT);
+
+    var status = response.getStatusCode();
+    var body = response.getBody();
+
+	this.logger.debug("saveFile(): GET {0} status={1}", url, status);
+
+    if (status === 200) {
+      return response.getResponseAttachmentSysid();
+    } else {
+      var errorMessage = response.getErrorMessage();
+      this.logger.error('saveFile(): Error message: {0}, body: {1}', errorMessage, body);
+      throw new HttpError(errorMessage, status, body);
+    }
+  },
+
+  /**
+   * Send post request with data to given endpoint.
+   *
+   * @param {String} url
+   * @param {Object} params Object with post params.
+   * @return {String}
+   */
+  post: function (url, params) {
+    var response = this.sendRequest(url, 'post', params);
+
+    var status = response.getStatusCode();
+    var body = response.getBody();
+
+	this.logger.debug("post(): POST {0} status={1}", url, status);
+
+    if (status === 200 || status === 201 || status === 204) {
+      return body;
+    } else {
+      var errorMessage = response.getErrorMessage();
+      this.logger.error('post(): Error message: {0}, body: {1}', errorMessage, body);
+      throw new HttpError(errorMessage, status, body);
+    }
+  },
+
+  /**
+   * Send put request with data to given endpoint.
+   *
+   * @param {String} url
+   * @param {Object} params Object with post params.
+   * @return {String} Response from string.
+   */
+  put: function (url, params) {
+    var response = this.sendRequest(url, 'put', params);
+
+    var status = response.getStatusCode();
+    var body = response.getBody();
+
+	this.logger.debug("put(): PUT {0} status={1}", url, status);
+
+    if (status === 200 || status === 201 || status === 204) {
+		return body;
+    } else {
+      var errorMessage = response.getErrorMessage();
+      this.logger.error('put(): Error message: {0}, body: {1}', errorMessage, body);
+      throw new HttpError(errorMessage, status, body);
+    }
+  },
+
+  /**
+   * Send request to @url with @method and @params return raw
+   * @param {String} url
+   * @param {String} method
+   * @param {Object=} requestBody
+   * @return {Response}
+   */
+  sendRequest: function (url, method, requestBody) {
+    var request = this.prepareRequest(url, method, requestBody);
+
+    return this._sendRequest(request);
+  },
+
+  /**
+   * Send form-data request
+   * @param {Object} options
+   * @param {String} options.url
+   * @param {String=} options.method
+   * @param {Object=} options.requestData
+   * @return {ResponseBody}
+   */
+  sendFormDataRequest: function (options) {
+    var requestData = options.requestData || {};
+    var requestBody = '';
+    Object.keys(requestData).forEach(function (field) {
+      requestBody +=
+        '--boundary\r\nContent-Disposition: form-data; name="' + field + '"' + '\r\n\r\n' + requestData[field] + '\r\n';
+    });
+    requestBody += '--boundary--';
+
+    var headers = {
+      'content-type': 'multipart/form-data; boundary=boundary',
+    };
+
+    var request = this._prepareRequest({
+      method: options.method,
+      headers: headers,
+      requestBody: requestBody,
+      url: options.url,
+    });
+    var response = this._sendRequest(request);
+
+    if (response.haveError()) {
+      this.logger.error(
+        'sendFormDataRequest(): Error message: {0}, body: {1}',
+        response.getErrorMessage(),
+        response.getBody()
+      );
+      throw new Error(response.getErrorMessage(), response.getStatusCode(), response.getBody());
+    } else {
+      return response.getBody();
+    }
+  },
+
+  /**
+   * Send request to @url with @method and @params return raw
+   * @param {Object} options
+   * @param {String} options.url
+   * @param {String=} options.method default method 'get'
+   * @param {Object=} options.headers
+   * @param {Object=} options.requestBody
+   * @return {Response}
+   */
+  _sendRequest: function (request) {
+    var response = request.executeAsync();
+    response.waitForResponse(Constants.REQUEST_TIME_OUT);
+
+    return response;
+  },
+  _defaultDCOneHeaders: function () {
+    var headers = {};
+
+    headers['Content-Type'] = 'application/json';
+    headers[Constants.DC_ONE_AUTH_HEADER] = this.getKey();
+
+    return headers;
+  },
+  /**
+   * This is important that default headers don't override send headers
+   * @param {*} headers
+   */
+  _mergeDefaultHeaders: function (headers) {
+    for (key in this._defaultDCOneHeaders()) {
+      if (headers.hasOwnProperty(key)) {
+        continue;
+      }
+
+      headers[key] = this._defaultDCOneHeaders()[key];
+    }
+  },
+
+  /**
+   * Preparing new request to link with defined data.
+   *
+   * @param {String} link
+   * @param {String} method
+   * @param {Object=} requestBody
+   * @param {Object=} headers
+   * @return {sn_ws.RESTMessageV2} Request object.
+   */
+  prepareRequest: function (url, method, requestBody, headers) {
+    headers = headers || {};
+
+    this._mergeDefaultHeaders(headers);
+
+    return this._prepareRequest({
+      url: url,
+      headers: headers,
+      method: method,
+      requestBody: requestBody ? JSON.stringify(requestBody) : null,
+    });
+  },
+
+  /**
+   * Preparing new request to link with defined data.
+   *
+   * @param {Object} options
+   * @param {String} options.url
+   * @param {String} options.method default method 'get'
+   * @param {Object=} options.headers
+   * @param {String=} options.requestBody
+   * @return {sn_ws.RESTMessageV2} Request object.
+   */
+  _prepareRequest: function (options) {
+    var DEFAULT_METHOD = 'get';
+    var request = new sn_ws.RESTMessageV2();
+
+    var method = options.method || DEFAULT_METHOD;
+    var headers = options.headers || {};
+    var requestBody = options.requestBody;
+
+    request.setHttpMethod(method);
+    request.setEndpoint(options.url);
+	
+	// use MID server only for development
+	if (gs.getProperty(Constants.SYS_PROPS.use_mid_server) === "true") {
+		request.setMIDServer(Constants.MIDServerName);
+		request.setHttpTimeout(Constants.REQUEST_TIME_OUT * 1000);
+		request.setEccParameter('skip_sensor', 'true');
+	}
+
+    Object.keys(headers).forEach(function (header) {
+      request.setRequestHeader(header, headers[header]);
+    });
+
+    if (requestBody && requestBody.length > 0) {
+      request.setRequestBody(requestBody);
+    }
+
+    return request;
+  },
+
+  /**
+   * Return API key for Digicert ONE.
+   *
+   * @return {String} Api key for DigiCert ONE.
+   */
+  getKey: function () {
+    var keyPropertyGR = new GlideRecord('x_dice_digicertone_application_secure_properties');
+    if (keyPropertyGR.get('property', Constants.APPLICATION_SECURITY_PROPERTY.digicertOneApiKey)) {
+      return keyPropertyGR.getValue('value');
+    }
+
+    return '';
+  },
+
+  /**
+   * Prepare success response with data.
+   *
+   * @param {*=} data
+   * @return {string}
+   */
+  responseSuccess: function (data) {
+    return JSON.stringify({
+      success: true,
+      data: data,
+      errors: [],
+    });
+  },
+
+  /**
+   * Prepare error response with the list of errors.
+   *
+   * @param {*=} errors
+   * @return {string}
+   */
+  responseFail: function (errors) {
+    return JSON.stringify({
+      success: false,
+      data: {},
+      errors: errors,
+    });
+  },
+
+  objectizeGlideRecord: function (gRecord) {
+    var obj = {};
+    for (var prop in gRecord) {
+      if (gRecord[prop]) {
+        obj[prop] = gRecord.getValue(prop);
+      }
+    }
+
+    return obj;
+  },
+  type: 'HttpRequestUtils',
+};
+]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2023-03-30 14:55:55</sys_created_on>
+        <sys_id>ba1980d7c3f521103e0a1c5ce00131cf</sys_id>
+        <sys_mod_count>41</sys_mod_count>
+        <sys_name>HttpRequestUtils</sys_name>
+        <sys_package display_value="DigiCert Trust Lifecycle Manager" source="x_dice_digicertone">775fcb0f87bda510939bfc07cebb35a3</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="DigiCert Trust Lifecycle Manager">775fcb0f87bda510939bfc07cebb35a3</sys_scope>
+        <sys_update_name>sys_script_include_ba1980d7c3f521103e0a1c5ce00131cf</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2024-07-16 12:06:29</sys_updated_on>
+    </sys_script_include>
+</record_update>
