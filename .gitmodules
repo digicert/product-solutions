@@ -1,0 +1,3 @@
+[submodule "servicenow/servicenow-tlm"]
+	path = servicenow/servicenow-tlm
+	url = https://github.com/digicert/servicenow-tlm.git
