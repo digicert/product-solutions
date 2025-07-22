@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?><database>
-    <element db_object_id="23033530974231108fa1db24a253aff5" label="Application Properties" max_length="40" name="x_dice_digicertone_application_properties" type="collection">
-        <element display="true" label="Property" max_length="200" name="property" type="string"/>
-        <element label="Value" max_length="4000" name="value" type="string"/>
-    </element>
-</database>
