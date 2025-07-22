@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?><database>
-    <element db_object_id="7004252797b961108fa1db24a253afdf" label="Application Secure Properties" max_length="40" name="x_dice_digicertone_application_secure_properties" type="collection">
-        <element display="true" label="Property" mandatory="true" max_length="200" name="property" type="string"/>
-        <element hint="Click here to be redirected to API key generation documentation." label="Value" mandatory="true" max_length="2000" name="value" type="password2"/>
-    </element>
-</database>
