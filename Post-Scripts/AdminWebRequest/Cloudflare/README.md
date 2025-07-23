@@ -8,3 +8,27 @@ There are two main requirements for a successful API call.
 
 * ZoneID
 * API Token
+
+## Zone ID
+
+Click on `Overview`
+
+![](assets/20250723_145243_image.png)
+
+On the right-hand side scroll all the way down to `ZoneID`
+
+
+
+![](assets/20250723_145335_image.png)
+
+
+## API Token
+
+To create an API Token, select your profile `My Profile`
+
+![](assets/20250723_145423_image.png)
+
+
+Create an API Token with the following permissions
+
+![](assets/20250723_145445_image.png)
