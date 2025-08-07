@@ -33,12 +33,18 @@ LEGAL_NOTICE
 # Configuration
 LEGAL_NOTICE_ACCEPT="false"
 LOGFILE="/home/ubuntu/tlm_agent_3.0.15_linux64/log/template.log"
+API_CALL_LOGFILE="/home/ubuntu/tlm_agent_3.0.15_linux64/log/api-call.log"
 
 
 
 # Function to log messages with timestamp
 log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOGFILE"
+}
+
+# Function to log API call details
+log_api_call() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$API_CALL_LOGFILE"
 }
 
 # Start logging
@@ -61,6 +67,7 @@ fi
 log_message "Configuration:"
 log_message "  LEGAL_NOTICE_ACCEPT: $LEGAL_NOTICE_ACCEPT"
 log_message "  LOGFILE: $LOGFILE"
+log_message "  API_CALL_LOGFILE: $API_CALL_LOGFILE"
 
 # Log environment variable check
 log_message "Checking DC1_POST_SCRIPT_DATA environment variable..."
@@ -98,7 +105,7 @@ log_message "ARGUMENT_2 length: ${#ARGUMENT_2}"
 
 # Extract Argument_3 - third argument
 ARGUMENT_3=$(echo "$ARGS_ARRAY" | awk -F',' '{print $3}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
-log_message "ARGUMENT_3 extracted: '$ARGUMENT_3'"
+log_message "ARGUMENT_3 extracted: '${ARGUMENT_3:0:5}...'"
 log_message "ARGUMENT_3 length: ${#ARGUMENT_3}"
 
 # Extract Argument_4 - fourth argument
@@ -115,7 +122,7 @@ log_message "ARGUMENT_5 length: ${#ARGUMENT_5}"
 log_message "Extracted arguments summary:"
 log_message "  ARGUMENT_1: '$ARGUMENT_1'"
 log_message "  ARGUMENT_2: '$ARGUMENT_2'"
-log_message "  ARGUMENT_3: '$ARGUMENT_3'"
+log_message "  ARGUMENT_3: '${ARGUMENT_3:0:5}...'"
 log_message "  ARGUMENT_4: '$ARGUMENT_4'"
 log_message "  ARGUMENT_5: '$ARGUMENT_5'"
 
@@ -177,10 +184,26 @@ log_message "Key content length: ${#KEY} characters"
 # Extract certificate data without headers and footers (single line)
 log_message "Extracting certificate and key data without headers/footers..."
 
-# Extract certificate data (remove BEGIN/END CERTIFICATE lines and join all lines)
-CERT_DATA_ONLY=$(cat "${CRT_FILE_PATH}" | grep -v "BEGIN CERTIFICATE" | grep -v "END CERTIFICATE" | tr -d '\n' | tr -d '\r' | tr -d ' ')
-log_message "Certificate data extracted (without headers/footers)"
+# Extract ONLY the first certificate (leaf certificate) from the chain
+# This will get everything between the first BEGIN CERTIFICATE and first END CERTIFICATE
+FIRST_CERT=$(awk '/-----BEGIN CERTIFICATE-----/{flag=1; next} /-----END CERTIFICATE-----/{if(flag) {flag=0; exit}} flag' "${CRT_FILE_PATH}")
+CERT_DATA_ONLY=$(echo "$FIRST_CERT" | tr -d '\n' | tr -d '\r' | tr -d ' ')
+log_message "First certificate extracted (without headers/footers)"
 log_message "CERT_DATA_ONLY length: ${#CERT_DATA_ONLY} characters"
+
+# Debug: show the raw extracted certificate content (first and last 30 chars)
+if [ ${#CERT_DATA_ONLY} -gt 60 ]; then
+    CERT_START="${CERT_DATA_ONLY:0:30}"
+    CERT_END="${CERT_DATA_ONLY: -30}"
+    log_message "Certificate starts with: $CERT_START"
+    log_message "Certificate ends with: $CERT_END"
+else
+    log_message "Certificate content: $CERT_DATA_ONLY"
+fi
+
+# Count total certificates in the file for logging purposes
+CERT_COUNT=$(grep -c "BEGIN CERTIFICATE" "${CRT_FILE_PATH}")
+log_message "Total certificates in file: $CERT_COUNT (extracting only the first one)"
 
 # Extract private key data (remove BEGIN/END PRIVATE KEY lines and join all lines)
 KEY_DATA_ONLY=$(cat "${KEY_FILE_PATH}" | grep -v "BEGIN.*PRIVATE KEY" | grep -v "END.*PRIVATE KEY" | tr -d '\n' | tr -d '\r' | tr -d ' ')
@@ -196,22 +219,46 @@ log_message "Private key data (truncated to 20 chars): $KEY_TRUNCATED"
 
 # Validate that we have actual data
 if [ -z "$CERT_DATA_ONLY" ]; then
-    log_message "WARNING: Certificate data extraction resulted in empty string"
+    log_message "ERROR: Certificate data extraction resulted in empty string"
+    log_message "Attempting to debug certificate file content..."
+    log_message "First 10 lines of certificate file:"
+    head -10 "$CRT_FILE_PATH" >> "$LOGFILE"
+    exit 1
 else
-    log_message "Certificate data extraction successful"
+    log_message "Certificate data extraction successful (first certificate only)"
+    # Validate certificate format (should start with MII or similar Base64)
+    CERT_START="${CERT_DATA_ONLY:0:3}"
+    log_message "Certificate data starts with: $CERT_START"
+    if [[ "$CERT_START" =~ ^[A-Za-z0-9] ]]; then
+        log_message "Certificate data format appears valid (Base64)"
+    else
+        log_message "WARNING: Certificate data format may be invalid"
+    fi
 fi
 
 if [ -z "$KEY_DATA_ONLY" ]; then
-    log_message "WARNING: Private key data extraction resulted in empty string"
+    log_message "ERROR: Private key data extraction resulted in empty string"
+    log_message "Attempting to debug private key file content..."
+    log_message "First 10 lines of private key file:"
+    head -10 "$KEY_FILE_PATH" >> "$LOGFILE"
+    exit 1
 else
     log_message "Private key data extraction successful"
+    # Validate private key format (should start with MII or similar Base64)
+    KEY_START="${KEY_DATA_ONLY:0:3}"
+    log_message "Private key data starts with: $KEY_START"
+    if [[ "$KEY_START" =~ ^[A-Za-z0-9] ]]; then
+        log_message "Private key data format appears valid (Base64)"
+    else
+        log_message "WARNING: Private key data format may be invalid"
+    fi
 fi
 
 # Write variables to output
 log_message "Writing extracted variables:"
 log_message "  Argument 1: $ARGUMENT_1"
 log_message "  Argument 2: $ARGUMENT_2"
-log_message "  Argument 3: $ARGUMENT_3"
+log_message "  Argument 3: ${ARGUMENT_3:0:5}..."
 log_message "  Argument 4: $ARGUMENT_4"
 log_message "  Argument 5: $ARGUMENT_5"
 log_message "  Certificate folder: $CERT_FOLDER"
@@ -223,7 +270,7 @@ log_message "  Certificate data only (length): ${#CERT_DATA_ONLY} characters"
 log_message "  Private key data only (length): ${#KEY_DATA_ONLY} characters"
 
 # Prepare certificate and key data for API call (without headers/footers)
-log_message "Preparing certificate and key data for API call (without headers/footers)..."
+log_message "Preparing certificate and key data for API call (first certificate only)..."
 
 # Use the certificate and key data without headers/footers for API
 CERT_FOR_API="$CERT_DATA_ONLY"
@@ -246,23 +293,90 @@ API_KEY="$ARGUMENT_3"
 log_message "API call parameters:"
 log_message "  Site ID: $SITE_ID"
 log_message "  API ID: $API_ID"
-log_message "  API Key: ${API_KEY:0:10}..." # Only show first 10 chars of API key for security
+log_message "  API Key: ${API_KEY:0:5}..." # Only show first 5 chars of API key for security
 
-# Determine auth_type based on key content
-if echo "$KEY_DATA_ONLY" | grep -q "BEGIN RSA PRIVATE KEY\|RSA"; then
+# Determine auth_type based on private key file content (not just the extracted data)
+log_message "Analyzing private key file for auth_type detection..."
+KEY_FILE_CONTENT=$(cat "${KEY_FILE_PATH}")
+log_message "Private key file first few lines:"
+head -5 "${KEY_FILE_PATH}" >> "$LOGFILE"
+
+if echo "$KEY_FILE_CONTENT" | grep -q "BEGIN RSA PRIVATE KEY"; then
     AUTH_TYPE="RSA"
-elif echo "$KEY_DATA_ONLY" | grep -q "BEGIN EC PRIVATE KEY\|EC"; then
+    log_message "Detected RSA private key (BEGIN RSA PRIVATE KEY found)"
+elif echo "$KEY_FILE_CONTENT" | grep -q "BEGIN EC PRIVATE KEY"; then
     AUTH_TYPE="ECC"
+    log_message "Detected ECC private key (BEGIN EC PRIVATE KEY found)"
+elif echo "$KEY_FILE_CONTENT" | grep -q "BEGIN PRIVATE KEY"; then
+    # PKCS#8 format - need to determine if it's RSA or ECC
+    # For now, let's check the certificate to determine the key type
+    CERT_FILE_CONTENT=$(cat "${CRT_FILE_PATH}")
+    if echo "$CERT_FILE_CONTENT" | openssl x509 -noout -text 2>/dev/null | grep -q "rsaEncryption\|RSA"; then
+        AUTH_TYPE="RSA"
+        log_message "Detected RSA private key (PKCS#8 format, determined from certificate)"
+    elif echo "$CERT_FILE_CONTENT" | openssl x509 -noout -text 2>/dev/null | grep -q "id-ecPublicKey\|EC"; then
+        AUTH_TYPE="ECC"
+        log_message "Detected ECC private key (PKCS#8 format, determined from certificate)"
+    else
+        AUTH_TYPE="RSA"  # Default to RSA
+        log_message "Could not determine key type from certificate, defaulting to RSA"
+    fi
 else
     AUTH_TYPE="RSA"  # Default to RSA
+    log_message "Could not determine key type, defaulting to RSA"
 fi
 
-log_message "Detected auth_type: $AUTH_TYPE"
+log_message "Final auth_type: $AUTH_TYPE"
+
+# Prepare JSON payload for logging (with truncated cert/key data)
+CERT_FOR_LOG="${CERT_FOR_API:0:50}..."
+KEY_FOR_LOG="${KEY_FOR_API:0:50}..."
+JSON_PAYLOAD="{
+  \"certificate\": \"$CERT_FOR_API\",
+  \"private_key\": \"$KEY_FOR_API\",
+  \"auth_type\": \"$AUTH_TYPE\"
+}"
+
+# Log the complete curl command to api-call.log
+log_api_call "=========================================="
+log_api_call "COMPLETE CURL COMMAND:"
+log_api_call "=========================================="
+log_api_call "curl -s -w \"\\nHTTP_STATUS:%{http_code}\\n\" -X 'PUT' \\"
+log_api_call "  \"https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate\" \\"
+log_api_call "  -H 'accept: application/json' \\"
+log_api_call "  -H \"x-API-Id: $API_ID\" \\"
+log_api_call "  -H \"x-API-Key: ${API_KEY:0:5}...\" \\"
+log_api_call "  -H 'Content-Type: application/json' \\"
+log_api_call "  -d '$JSON_PAYLOAD'"
+log_api_call "=========================================="
+
+# Also log a version that matches your working manual call format
+log_api_call "MANUAL CURL COMMAND FORMAT:"
+log_api_call "=========================================="
+log_api_call "curl --location --request PUT 'https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate' \\"
+log_api_call "--header 'Content-Type: application/json' \\"
+log_api_call "--header 'x-API-Key: ${API_KEY:0:5}...' \\"
+log_api_call "--header 'x-API-Id: $API_ID' \\"
+log_api_call "--data '$JSON_PAYLOAD'"
+log_api_call "=========================================="
 
 # Make API call to Imperva
 log_message "=========================================="
 log_message "Making API call to Imperva..."
 log_message "URL: https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate"
+log_message "Headers:"
+log_message "  accept: application/json"
+log_message "  x-API-Id: $API_ID"
+log_message "  x-API-Key: ${API_KEY:0:5}..."
+log_message "  Content-Type: application/json"
+log_message "Payload preview (truncated):"
+log_message "  certificate: $CERT_FOR_LOG"
+log_message "  private_key: $KEY_FOR_LOG"
+log_message "  auth_type: $AUTH_TYPE"
+log_message "Full JSON payload character count: ${#JSON_PAYLOAD}"
+log_message "Certificate data character count: ${#CERT_FOR_API}"
+log_message "Private key data character count: ${#KEY_FOR_API}"
+log_message "See $API_CALL_LOGFILE for complete curl command"
 log_message "=========================================="
 
 API_RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}\n" -X 'PUT' \
@@ -271,11 +385,7 @@ API_RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}\n" -X 'PUT' \
   -H "x-API-Id: $API_ID" \
   -H "x-API-Key: $API_KEY" \
   -H 'Content-Type: application/json' \
-  -d "{
-  \"certificate\": \"$CERT_FOR_API\",
-  \"private_key\": \"$KEY_FOR_API\",
-  \"auth_type\": \"$AUTH_TYPE\"
-}")
+  -d "$JSON_PAYLOAD")
 
 # Extract HTTP status code and response body
 HTTP_STATUS=$(echo "$API_RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
@@ -298,9 +408,9 @@ log_message "Variable extraction and API upload completed"
 log_message "Available variables:"
 log_message "  CERT - Full certificate with headers/footers (escaped newlines)"
 log_message "  KEY - Full private key with headers/footers (escaped newlines)"
-log_message "  CERT_DATA_ONLY - Certificate data without headers/footers (single line)"
+log_message "  CERT_DATA_ONLY - First certificate data only without headers/footers (single line)"
 log_message "  KEY_DATA_ONLY - Private key data without headers/footers (single line)"
-log_message "  CERT_FOR_API - Certificate without headers/footers for API (same as CERT_DATA_ONLY)"
+log_message "  CERT_FOR_API - First certificate without headers/footers for API (same as CERT_DATA_ONLY)"
 log_message "  KEY_FOR_API - Private key without headers/footers for API (same as KEY_DATA_ONLY)"
 log_message "=========================================="
 

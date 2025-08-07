@@ -32,10 +32,8 @@ LEGAL_NOTICE
 
 # Configuration
 LEGAL_NOTICE_ACCEPT="false"
-LOGFILE="/home/ubuntu/tlm_agent_3.0.15_linux64/log/template.log"
-API_CALL_LOGFILE="/home/ubuntu/tlm_agent_3.0.15_linux64/log/api-call.log"
-
-
+LOGFILE="/home/ubuntu/tlm_agent_3.0.15_linux64/log/imperva.log"
+API_CALL_LOGFILE="/home/ubuntu/tlm_agent_3.0.15_linux64/log/imperva-curl-command.log"
 
 # Function to log messages with timestamp
 log_message() {
@@ -93,17 +91,17 @@ log_message "Extracting arguments from JSON..."
 ARGS_ARRAY=$(echo "$JSON_STRING" | grep -oP '"args":\[\K[^]]*')
 log_message "Raw args array: $ARGS_ARRAY"
 
-# Extract Argument_1 - first argument
+# Extract Argument_1 - first argument (Site ID)
 ARGUMENT_1=$(echo "$ARGS_ARRAY" | awk -F',' '{print $1}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
 log_message "ARGUMENT_1 extracted: '$ARGUMENT_1'"
 log_message "ARGUMENT_1 length: ${#ARGUMENT_1}"
 
-# Extract Argument_2 - second argument
+# Extract Argument_2 - second argument (API ID)
 ARGUMENT_2=$(echo "$ARGS_ARRAY" | awk -F',' '{print $2}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
 log_message "ARGUMENT_2 extracted: '$ARGUMENT_2'"
 log_message "ARGUMENT_2 length: ${#ARGUMENT_2}"
 
-# Extract Argument_3 - third argument
+# Extract Argument_3 - third argument (API Key)
 ARGUMENT_3=$(echo "$ARGS_ARRAY" | awk -F',' '{print $3}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
 log_message "ARGUMENT_3 extracted: '${ARGUMENT_3:0:5}...'"
 log_message "ARGUMENT_3 length: ${#ARGUMENT_3}"
@@ -172,134 +170,72 @@ else
     exit 1
 fi
 
-# Read certificate and key using dynamically constructed paths
-log_message "Reading certificate and key files..."
-CERT=$(cat "${CRT_FILE_PATH}" | sed 's/$/\\n/' | tr -d '\n')
-KEY=$(cat "${KEY_FILE_PATH}" | sed 's/$/\\n/' | tr -d '\n')
-
-# Log certificate and key lengths
-log_message "Certificate content length: ${#CERT} characters"
-log_message "Key content length: ${#KEY} characters"
-
-# Extract certificate data without headers and footers (single line)
-log_message "Extracting certificate and key data without headers/footers..."
-
-# Extract ONLY the first certificate (leaf certificate) from the chain
-# This will get everything between the first BEGIN CERTIFICATE and first END CERTIFICATE
-FIRST_CERT=$(awk '/-----BEGIN CERTIFICATE-----/{flag=1; next} /-----END CERTIFICATE-----/{if(flag) {flag=0; exit}} flag' "${CRT_FILE_PATH}")
-CERT_DATA_ONLY=$(echo "$FIRST_CERT" | tr -d '\n' | tr -d '\r' | tr -d ' ')
-log_message "First certificate extracted (without headers/footers)"
-log_message "CERT_DATA_ONLY length: ${#CERT_DATA_ONLY} characters"
-
-# Debug: show the raw extracted certificate content (first and last 30 chars)
-if [ ${#CERT_DATA_ONLY} -gt 60 ]; then
-    CERT_START="${CERT_DATA_ONLY:0:30}"
-    CERT_END="${CERT_DATA_ONLY: -30}"
-    log_message "Certificate starts with: $CERT_START"
-    log_message "Certificate ends with: $CERT_END"
-else
-    log_message "Certificate content: $CERT_DATA_ONLY"
-fi
-
 # Count total certificates in the file for logging purposes
 CERT_COUNT=$(grep -c "BEGIN CERTIFICATE" "${CRT_FILE_PATH}")
-log_message "Total certificates in file: $CERT_COUNT (extracting only the first one)"
+log_message "Total certificates in file: $CERT_COUNT"
 
-# Extract private key data (remove BEGIN/END PRIVATE KEY lines and join all lines)
-KEY_DATA_ONLY=$(cat "${KEY_FILE_PATH}" | grep -v "BEGIN.*PRIVATE KEY" | grep -v "END.*PRIVATE KEY" | tr -d '\n' | tr -d '\r' | tr -d ' ')
-log_message "Private key data extracted (without headers/footers)"
-log_message "KEY_DATA_ONLY length: ${#KEY_DATA_ONLY} characters"
+# ========================================
+# NEW: Base64 encode the entire certificate chain and private key
+# ========================================
+log_message "=========================================="
+log_message "Base64 encoding certificate chain and private key..."
+log_message "=========================================="
 
-# Log truncated certificate and key data (first 20 characters)
-CERT_TRUNCATED="${CERT_DATA_ONLY:0:20}"
-KEY_TRUNCATED="${KEY_DATA_ONLY:0:20}"
+# Base64 encode the entire certificate chain (including all headers/footers)
+# The -w 0 flag ensures no line wrapping (Linux)
+# For macOS, omit the -w flag
+CERT_CHAIN_BASE64=$(cat "$CRT_FILE_PATH" | base64 -w 0)
+if [ $? -ne 0 ]; then
+    # Fallback for macOS or systems where -w flag doesn't work
+    log_message "Base64 with -w 0 failed, trying without -w flag (macOS compatible)..."
+    CERT_CHAIN_BASE64=$(cat "$CRT_FILE_PATH" | base64)
+fi
+log_message "Certificate chain Base64 encoded successfully"
+log_message "Certificate chain Base64 length: ${#CERT_CHAIN_BASE64} characters"
 
-log_message "Certificate data (truncated to 20 chars): $CERT_TRUNCATED"
-log_message "Private key data (truncated to 20 chars): $KEY_TRUNCATED"
-
-# Validate that we have actual data
-if [ -z "$CERT_DATA_ONLY" ]; then
-    log_message "ERROR: Certificate data extraction resulted in empty string"
-    log_message "Attempting to debug certificate file content..."
-    log_message "First 10 lines of certificate file:"
-    head -10 "$CRT_FILE_PATH" >> "$LOGFILE"
-    exit 1
+# Log first and last 50 characters of Base64 encoded certificate for verification
+if [ ${#CERT_CHAIN_BASE64} -gt 100 ]; then
+    CERT_B64_START="${CERT_CHAIN_BASE64:0:50}"
+    CERT_B64_END="${CERT_CHAIN_BASE64: -50}"
+    log_message "Certificate Base64 starts with: $CERT_B64_START"
+    log_message "Certificate Base64 ends with: $CERT_B64_END"
 else
-    log_message "Certificate data extraction successful (first certificate only)"
-    # Validate certificate format (should start with MII or similar Base64)
-    CERT_START="${CERT_DATA_ONLY:0:3}"
-    log_message "Certificate data starts with: $CERT_START"
-    if [[ "$CERT_START" =~ ^[A-Za-z0-9] ]]; then
-        log_message "Certificate data format appears valid (Base64)"
-    else
-        log_message "WARNING: Certificate data format may be invalid"
-    fi
+    log_message "Certificate Base64: $CERT_CHAIN_BASE64"
 fi
 
-if [ -z "$KEY_DATA_ONLY" ]; then
-    log_message "ERROR: Private key data extraction resulted in empty string"
-    log_message "Attempting to debug private key file content..."
-    log_message "First 10 lines of private key file:"
-    head -10 "$KEY_FILE_PATH" >> "$LOGFILE"
-    exit 1
+# Base64 encode the private key (including headers/footers)
+KEY_BASE64=$(cat "$KEY_FILE_PATH" | base64 -w 0)
+if [ $? -ne 0 ]; then
+    # Fallback for macOS or systems where -w flag doesn't work
+    log_message "Base64 with -w 0 failed, trying without -w flag (macOS compatible)..."
+    KEY_BASE64=$(cat "$KEY_FILE_PATH" | base64)
+fi
+log_message "Private key Base64 encoded successfully"
+log_message "Private key Base64 length: ${#KEY_BASE64} characters"
+
+# Log first 50 characters of Base64 encoded key for verification (truncated for security)
+KEY_B64_START="${KEY_BASE64:0:50}"
+log_message "Private key Base64 starts with: $KEY_B64_START..."
+
+# Verify Base64 encoding by attempting to decode back
+log_message "Verifying Base64 encoding..."
+VERIFY_CERT=$(echo "$CERT_CHAIN_BASE64" | base64 -d 2>&1 | head -1)
+if [[ "$VERIFY_CERT" == *"BEGIN CERTIFICATE"* ]]; then
+    log_message "Certificate Base64 verification: SUCCESS (decodes to valid PEM)"
 else
-    log_message "Private key data extraction successful"
-    # Validate private key format (should start with MII or similar Base64)
-    KEY_START="${KEY_DATA_ONLY:0:3}"
-    log_message "Private key data starts with: $KEY_START"
-    if [[ "$KEY_START" =~ ^[A-Za-z0-9] ]]; then
-        log_message "Private key data format appears valid (Base64)"
-    else
-        log_message "WARNING: Private key data format may be invalid"
-    fi
+    log_message "WARNING: Certificate Base64 may be invalid. First line after decode: $VERIFY_CERT"
 fi
 
-# Write variables to output
-log_message "Writing extracted variables:"
-log_message "  Argument 1: $ARGUMENT_1"
-log_message "  Argument 2: $ARGUMENT_2"
-log_message "  Argument 3: ${ARGUMENT_3:0:5}..."
-log_message "  Argument 4: $ARGUMENT_4"
-log_message "  Argument 5: $ARGUMENT_5"
-log_message "  Certificate folder: $CERT_FOLDER"
-log_message "  Certificate file: $CRT_FILE"
-log_message "  Key file: $KEY_FILE"
-log_message "  Certificate file path: $CRT_FILE_PATH"
-log_message "  Key file path: $KEY_FILE_PATH"
-log_message "  Certificate data only (length): ${#CERT_DATA_ONLY} characters"
-log_message "  Private key data only (length): ${#KEY_DATA_ONLY} characters"
+VERIFY_KEY=$(echo "$KEY_BASE64" | base64 -d 2>&1 | head -1)
+if [[ "$VERIFY_KEY" == *"BEGIN"*"PRIVATE KEY"* ]]; then
+    log_message "Private key Base64 verification: SUCCESS (decodes to valid PEM)"
+else
+    log_message "WARNING: Private key Base64 may be invalid. First line after decode: $VERIFY_KEY"
+fi
 
-# Prepare certificate and key data for API call (without headers/footers)
-log_message "Preparing certificate and key data for API call (first certificate only)..."
-
-# Use the certificate and key data without headers/footers for API
-CERT_FOR_API="$CERT_DATA_ONLY"
-KEY_FOR_API="$KEY_DATA_ONLY"
-
-log_message "Certificate prepared for API (length: ${#CERT_FOR_API} characters)"
-log_message "Private key prepared for API (length: ${#KEY_FOR_API} characters)"
-
-# Log truncated plaintext values for verification
-CERT_API_TRUNCATED="${CERT_FOR_API:0:20}"
-KEY_API_TRUNCATED="${KEY_FOR_API:0:20}"
-log_message "Certificate for API (truncated to 20 chars): $CERT_API_TRUNCATED"
-log_message "Private key for API (truncated to 20 chars): $KEY_API_TRUNCATED"
-
-# Prepare API call parameters
-SITE_ID="$ARGUMENT_1"
-API_ID="$ARGUMENT_2"
-API_KEY="$ARGUMENT_3"
-
-log_message "API call parameters:"
-log_message "  Site ID: $SITE_ID"
-log_message "  API ID: $API_ID"
-log_message "  API Key: ${API_KEY:0:5}..." # Only show first 5 chars of API key for security
-
-# Determine auth_type based on private key file content (not just the extracted data)
+# Determine auth_type based on private key file content
 log_message "Analyzing private key file for auth_type detection..."
 KEY_FILE_CONTENT=$(cat "${KEY_FILE_PATH}")
-log_message "Private key file first few lines:"
-head -5 "${KEY_FILE_PATH}" >> "$LOGFILE"
 
 if echo "$KEY_FILE_CONTENT" | grep -q "BEGIN RSA PRIVATE KEY"; then
     AUTH_TYPE="RSA"
@@ -309,7 +245,7 @@ elif echo "$KEY_FILE_CONTENT" | grep -q "BEGIN EC PRIVATE KEY"; then
     log_message "Detected ECC private key (BEGIN EC PRIVATE KEY found)"
 elif echo "$KEY_FILE_CONTENT" | grep -q "BEGIN PRIVATE KEY"; then
     # PKCS#8 format - need to determine if it's RSA or ECC
-    # For now, let's check the certificate to determine the key type
+    # Check the certificate to determine the key type
     CERT_FILE_CONTENT=$(cat "${CRT_FILE_PATH}")
     if echo "$CERT_FILE_CONTENT" | openssl x509 -noout -text 2>/dev/null | grep -q "rsaEncryption\|RSA"; then
         AUTH_TYPE="RSA"
@@ -328,64 +264,85 @@ fi
 
 log_message "Final auth_type: $AUTH_TYPE"
 
-# Prepare JSON payload for logging (with truncated cert/key data)
-CERT_FOR_LOG="${CERT_FOR_API:0:50}..."
-KEY_FOR_LOG="${KEY_FOR_API:0:50}..."
-JSON_PAYLOAD="{
-  \"certificate\": \"$CERT_FOR_API\",
-  \"private_key\": \"$KEY_FOR_API\",
+# Prepare API call parameters
+SITE_ID="$ARGUMENT_1"
+API_ID="$ARGUMENT_2"
+API_KEY="$ARGUMENT_3"
+
+log_message "API call parameters:"
+log_message "  Site ID: $SITE_ID"
+log_message "  API ID: $API_ID"
+log_message "  API Key: ${API_KEY:0:5}..." # Only show first 5 chars of API key for security
+
+# ========================================
+# Prepare JSON payload with Base64 encoded certificate chain and key
+# ========================================
+log_message "Preparing JSON payload with Base64 encoded data..."
+
+# Create the API payload
+API_PAYLOAD=$(cat <<EOF
+{
+  "certificate": "${CERT_CHAIN_BASE64}",
+  "private_key": "${KEY_BASE64}",
+  "auth_type": "${AUTH_TYPE}"
+}
+EOF
+)
+
+log_message "JSON payload prepared successfully"
+log_message "Total payload size: ${#API_PAYLOAD} characters"
+
+# Prepare truncated payload for logging
+CERT_FOR_LOG="${CERT_CHAIN_BASE64:0:100}..."
+KEY_FOR_LOG="${KEY_BASE64:0:100}..."
+JSON_PAYLOAD_FOR_LOG="{
+  \"certificate\": \"$CERT_FOR_LOG\",
+  \"private_key\": \"$KEY_FOR_LOG\",
   \"auth_type\": \"$AUTH_TYPE\"
 }"
 
 # Log the complete curl command to api-call.log
 log_api_call "=========================================="
-log_api_call "COMPLETE CURL COMMAND:"
-log_api_call "=========================================="
-log_api_call "curl -s -w \"\\nHTTP_STATUS:%{http_code}\\n\" -X 'PUT' \\"
-log_api_call "  \"https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate\" \\"
-log_api_call "  -H 'accept: application/json' \\"
-log_api_call "  -H \"x-API-Id: $API_ID\" \\"
-log_api_call "  -H \"x-API-Key: ${API_KEY:0:5}...\" \\"
-log_api_call "  -H 'Content-Type: application/json' \\"
-log_api_call "  -d '$JSON_PAYLOAD'"
-log_api_call "=========================================="
-
-# Also log a version that matches your working manual call format
-log_api_call "MANUAL CURL COMMAND FORMAT:"
+log_api_call "COMPLETE CURL COMMAND (with Base64 encoded chain):"
 log_api_call "=========================================="
 log_api_call "curl --location --request PUT 'https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate' \\"
 log_api_call "--header 'Content-Type: application/json' \\"
 log_api_call "--header 'x-API-Key: ${API_KEY:0:5}...' \\"
 log_api_call "--header 'x-API-Id: $API_ID' \\"
-log_api_call "--data '$JSON_PAYLOAD'"
+log_api_call "--data '${JSON_PAYLOAD_FOR_LOG}'"
+log_api_call "=========================================="
+log_api_call "Note: Certificate and key are Base64 encoded entire PEM files (including headers/footers)"
+log_api_call "Certificate chain contains $CERT_COUNT certificate(s)"
 log_api_call "=========================================="
 
 # Make API call to Imperva
 log_message "=========================================="
-log_message "Making API call to Imperva..."
+log_message "Making API call to Imperva with Base64 encoded certificate chain..."
 log_message "URL: https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate"
+log_message "Method: PUT"
 log_message "Headers:"
-log_message "  accept: application/json"
+log_message "  Content-Type: application/json"
 log_message "  x-API-Id: $API_ID"
 log_message "  x-API-Key: ${API_KEY:0:5}..."
-log_message "  Content-Type: application/json"
 log_message "Payload preview (truncated):"
-log_message "  certificate: $CERT_FOR_LOG"
-log_message "  private_key: $KEY_FOR_LOG"
+log_message "  certificate (Base64): $CERT_FOR_LOG"
+log_message "  private_key (Base64): $KEY_FOR_LOG"
 log_message "  auth_type: $AUTH_TYPE"
-log_message "Full JSON payload character count: ${#JSON_PAYLOAD}"
-log_message "Certificate data character count: ${#CERT_FOR_API}"
-log_message "Private key data character count: ${#KEY_FOR_API}"
+log_message "Certificate chain info:"
+log_message "  Number of certificates in chain: $CERT_COUNT"
+log_message "  Base64 encoded size: ${#CERT_CHAIN_BASE64} characters"
+log_message "  Private key Base64 size: ${#KEY_BASE64} characters"
 log_message "See $API_CALL_LOGFILE for complete curl command"
 log_message "=========================================="
 
-API_RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}\n" -X 'PUT' \
-  "https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate" \
-  -H 'accept: application/json' \
-  -H "x-API-Id: $API_ID" \
-  -H "x-API-Key: $API_KEY" \
-  -H 'Content-Type: application/json' \
-  -d "$JSON_PAYLOAD")
+# Make the actual API call
+API_RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}\n" \
+  --location \
+  --request PUT "https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate" \
+  --header 'Content-Type: application/json' \
+  --header "x-API-Key: $API_KEY" \
+  --header "x-API-Id: $API_ID" \
+  --data "${API_PAYLOAD}")
 
 # Extract HTTP status code and response body
 HTTP_STATUS=$(echo "$API_RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
@@ -397,21 +354,41 @@ log_message "Response Body: $RESPONSE_BODY"
 
 # Check if API call was successful
 if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 201 ]; then
-    log_message "SUCCESS: Certificate uploaded successfully to Imperva"
+    log_message "SUCCESS: Certificate chain uploaded successfully to Imperva"
+    log_message "Certificate chain with $CERT_COUNT certificate(s) has been installed"
 else
     log_message "ERROR: API call failed with status $HTTP_STATUS"
     log_message "Response: $RESPONSE_BODY"
+    
+    # Additional debugging for common issues
+    if [[ "$RESPONSE_BODY" == *"certificate"* ]]; then
+        log_message "DEBUG: Error appears to be certificate-related"
+        log_message "DEBUG: Verify that the certificate chain is in correct order (domain -> intermediate -> root)"
+    fi
+    if [[ "$RESPONSE_BODY" == *"private"* ]] || [[ "$RESPONSE_BODY" == *"key"* ]]; then
+        log_message "DEBUG: Error appears to be private key-related"
+        log_message "DEBUG: Verify that the private key matches the certificate"
+    fi
+    if [[ "$RESPONSE_BODY" == *"auth_type"* ]]; then
+        log_message "DEBUG: Error appears to be auth_type-related"
+        log_message "DEBUG: Current auth_type: $AUTH_TYPE"
+    fi
 fi
 
 log_message "=========================================="
-log_message "Variable extraction and API upload completed"
-log_message "Available variables:"
-log_message "  CERT - Full certificate with headers/footers (escaped newlines)"
-log_message "  KEY - Full private key with headers/footers (escaped newlines)"
-log_message "  CERT_DATA_ONLY - First certificate data only without headers/footers (single line)"
-log_message "  KEY_DATA_ONLY - Private key data without headers/footers (single line)"
-log_message "  CERT_FOR_API - First certificate without headers/footers for API (same as CERT_DATA_ONLY)"
-log_message "  KEY_FOR_API - Private key without headers/footers for API (same as KEY_DATA_ONLY)"
+log_message "Script execution completed"
+log_message "Summary:"
+log_message "  Certificate file: $CRT_FILE_PATH"
+log_message "  Private key file: $KEY_FILE_PATH"
+log_message "  Certificates in chain: $CERT_COUNT"
+log_message "  Auth type: $AUTH_TYPE"
+log_message "  API endpoint: https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate"
+log_message "  HTTP status: $HTTP_STATUS"
+if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 201 ]; then
+    log_message "  Result: SUCCESS - Certificate chain uploaded"
+else
+    log_message "  Result: FAILED - Check response for details"
+fi
 log_message "=========================================="
 
 exit 0
