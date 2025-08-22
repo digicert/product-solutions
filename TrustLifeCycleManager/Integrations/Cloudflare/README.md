@@ -112,21 +112,15 @@ DEBUG_MODE="false"  # Set to "true" for verbose logging
 
 ### DigiCert TLM Agent Integration
 
-When used with DigiCert TLM Agent, configure the post-script parameters:
+When used with DigiCert TLM Agent, configure the post-script parameters during the Admin Web Reques in this order:
 
 ```json
 {
   "args": [
     "your_zone_id_here",
     "your_api_token_here",
-    "bundle_method_optional"
-  ],
-  "certfolder": "/path/to/certificates",
-  "files": [
-    "certificate.crt",
-    "private.key"
-  ]
-}
+      ],
+  
 ```
 
 ## 📘 Usage
@@ -143,7 +137,7 @@ export DC1_POST_SCRIPT_DATA=$(echo '{"args":["zone_id","api_token","force"],"cer
 
 ### Integration with DigiCert TLM Agent
 
-The script is designed to be called automatically by the TLM Agent during certificate lifecycle events. Configure it as a post-installation script in your TLM Agent configuration.
+The script is designed to be called automatically by the TLM Agent during certificate lifecycle events. Configure it as a post-installation script in your AWR TLM Agent configuration.
 
 ### Bundle Methods
 
