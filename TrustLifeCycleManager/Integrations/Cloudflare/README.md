@@ -4,7 +4,7 @@
 [![Bash](https://img.shields.io/badge/bash-%3E%3D4.0-blue.svg)](https://www.gnu.org/software/bash/)
 [![Cloudflare API](https://img.shields.io/badge/Cloudflare%20API-v4-orange.svg)](https://developers.cloudflare.com/api/)
 
-A robust Bash script for automating SSL certificate uploads to Cloudflare via their API v4, designed for integration with DigiCert TLM Agent workflows.
+A robust Bash script for automating SSL certificate uploads to Cloudflare via their API v4, designed for integration with DigiCert TLM Agent Admin Web Request Post Script workflows.
 
 ## 📋 Table of Contents
 
@@ -23,7 +23,7 @@ A robust Bash script for automating SSL certificate uploads to Cloudflare via th
 
 ## 🎯 Overview
 
-This script automates the process of uploading SSL certificates to Cloudflare zones using the Cloudflare API. It's specifically designed to work as a post-processing script within the DigiCert Trust Lifecycle Manager (TLM) Agent environment, handling certificate renewal and deployment workflows seamlessly.
+This Admin Web Request Post Script automates the process of uploading SSL certificates to Cloudflare zones using the Cloudflare API. It's specifically designed to work as a post-processing script within the DigiCert Trust Lifecycle Manager (TLM) Agent environment, handling certificate renewal and deployment workflows seamlessly.
 
 ### Key Capabilities
 
