@@ -1,0 +1,1 @@
+As of October 6th, 2024, firmware version 7.2.60.0.22484 and later have a native Digicert ACME client included
