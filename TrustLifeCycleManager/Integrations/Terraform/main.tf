@@ -17,7 +17,7 @@ terraform {
 
 # Configure DigiCert provider
 provider "digicert" {
-  api_key = "REMOVED_SECRET"
+  api_key = "Change_Me"
   url     = "https://demo.one.digicert.com"
 }
 
@@ -32,34 +32,34 @@ resource "tls_cert_request" "server_csr" {
   private_key_pem = tls_private_key.server_key.private_key_pem
 
   subject {
-    common_name  = "tlsguru.io"
+    common_name  = "Common_Name"
     organization = "Your Organization"
     country      = "US"
   }
 
   dns_names = [
-    "tlsguru.io",
-    "www.tlsguru.io"
+    "Change_Me.io",
+    "www.Change_Me.io"
   ]
 }
 
 # Request certificate from DigiCert
 resource "digicert_certificate" "server_cert" {
-  profile_id  = "f1887d29-ee87-48f7-a873-1a0254dc99a9"
-  common_name = "tlsguru.io"
+  profile_id  = "Change_Me"
+  common_name = "Change_Me"
   csr         = tls_cert_request.server_csr.cert_request_pem
 }
 
 # Save files locally
 resource "local_file" "private_key" {
   content         = tls_private_key.server_key.private_key_pem
-  filename        = "tlsguru.io.key"
+  filename        = "Change_Me.key"
   file_permission = "0600"
 }
 
 resource "local_file" "certificate" {
   content         = digicert_certificate.server_cert.certificate
-  filename        = "tlsguru.io.crt"
+  filename        = "Change_Me.crt"
   file_permission = "0644"
 }
 
@@ -70,7 +70,7 @@ output "certificate_serial_number" {
 
 output "files_created" {
   value = {
-    private_key = "tlsguru.io.key"
-    certificate = "tlsguru.io.crt"
+    private_key = "Change_Me.key"
+    certificate = "Change_Me.crt"
   }
 }
