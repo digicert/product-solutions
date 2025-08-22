@@ -292,4 +292,4 @@ For issues related to:
 
 **Version**: 1.0.0  
 **Last Updated**: January 2025  
-**Maintained By**: Your Organization Name
+**Maintained By**: Digicert Product Team
