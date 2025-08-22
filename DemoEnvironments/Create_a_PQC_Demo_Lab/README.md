@@ -186,7 +186,7 @@ EOF
 # Make the API call using the temporary file
 curl --location 'https://demo.one.digicert.com/mpki/api/v1/certificate' \
 --header 'Content-Type: application/json' \
---header 'x-api-key: 013b98d6c0e34155bda3a6d0e2_93d6675eeeed2205e31cf750e7c5c0ddd893085454c9abb6ec59a704965c0d41' \
+--header 'x-api-key: 013b98d6c0e34155 < Change Me > 04965c0d41' \
 --data @"$TEMP_JSON"
 
 # Clean up temporary file
