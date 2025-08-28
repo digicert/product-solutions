@@ -1,7 +1,7 @@
 # Cloudflare-DigiCert Certificate Automation Script
 
 [![Cloudflare](https://img.shields.io/badge/Cloudflare-API%20v4-orange.svg)](https://developers.cloudflare.com/api/)
-[![DigiCert](ューしいhttps://img.shields.io/badge/DigiCert-TLM%20API-blue.svg)](https://dev.digicert.com/)
+[![DigiCert](https://img.shields.io/badge/DigiCert-TLM%20API-blue.svg)](https://dev.digicert.com/)
 [![Bash](https://img.shields.io/badge/bash-%3E%3D4.0-green.svg)](https://www.gnu.org/software/bash/)
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
 
