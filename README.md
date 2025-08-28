@@ -1,7 +1,7 @@
 # DigiCert Trust Lifecycle Manager Integrations
 
 <div align="center">
-  <img src="https://en.wikipedia.org/wiki/File:DigiCert_logo.svg" alt="DigiCert Logo" width="300">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/4/48/DigiCert_logo.svg" alt="DigiCert Logo" width="300">
   
   <h3>Enterprise Certificate Automation Solutions</h3>
   
