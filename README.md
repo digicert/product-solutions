@@ -104,8 +104,8 @@ Streamline your certificate management with our production-ready integration scr
 
 ### General Resources
 - [DigiCert Trust Lifecycle Manager Documentation](https://docs.digicert.com/)
-- [API Reference](https://dev.digicert.com/)
-- [Best Practices Guide](https://www.digicert.com/kb/)
+- [API Reference](https://demo.one.digicert.com/mpki/docs/swagger-ui/index.html/)
+
 
 ### Integration Guides
 Each integration folder contains:
@@ -113,38 +113,6 @@ Each integration folder contains:
 - Configuration examples
 - Troubleshooting guides
 - Security recommendations
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
-
-### How to Contribute
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🆘 Support
-
-### Get Help
-- 📧 **Email**: support@digicert.com
-- 💬 **Community**: [DigiCert Community Forum](https://community.digicert.com/)
-- 📚 **Knowledge Base**: [DigiCert KB Articles](https://knowledge.digicert.com/)
-- 🎫 **Support Portal**: [DigiCert Support](https://www.digicert.com/support)
-
-### Report Issues
-Found a bug or have a feature request? Please [open an issue](https://github.com/digicert/product-solutions/issues).
 
 ---
 
