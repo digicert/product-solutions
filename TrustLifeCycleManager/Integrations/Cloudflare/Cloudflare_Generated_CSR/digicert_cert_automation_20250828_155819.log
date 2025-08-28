@@ -1,0 +1,25 @@
+============================== Certificate Automation Log ==============================
+Started: Thu 28 Aug 2025 15:58:25 BST
+Mode: Interactive
+Configuration: CSR Retention = 5
+========================================================================================
+
+
+Starting certificate automation process...
+Log file: ./digicert_cert_automation_20250828_155819.log
+============================================================================
+
+Step 0: Fetching zone details from Cloudflare...
+Zone Details Response: {"result":null,"success":false,"errors":[{"code":7003,"message":"Could not route to /client/v4/zones/c3aae%3Credacted%3Eaafab8, perhaps your object identifier is invalid?"}],"messages":[]}
+Error: Could not fetch zone details
+{
+  "result": null,
+  "success": false,
+  "errors": [
+    {
+      "code": 7003,
+      "message": "Could not route to /client/v4/zones/c3aae%3Credacted%3Eaafab8, perhaps your object identifier is invalid?"
+    }
+  ],
+  "messages": []
+}
