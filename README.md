@@ -52,7 +52,7 @@ Streamline your certificate management with our production-ready integration scr
   <tr>
     <td align="center" width="50%">
       <!-- Palo Alto Firewall - PANOS Generated CSR -->
-      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/PaloAlto/PANOS_Generated_CSR">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/PaloAltoFirewall/PaloAlto_Generated_CSR">
         <img src="https://img.shields.io/badge/PaloAlto-PANOS_CSR-FF6C37?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0wLTE0Yy0zLjMxIDAtNiAyLjY5LTYgNnMyLjY5IDYgNiA2IDYtMi42OSA2LTYtMi42OS02LTYtNnoiLz48L3N2Zz4=" alt="Palo Alto PANOS">
         <br><br>
         <strong>PaloAlto Firewall (PANOS Generated CSR)</strong>
@@ -62,7 +62,7 @@ Streamline your certificate management with our production-ready integration scr
     </td>
     <td align="center" width="50%">
       <!-- Palo Alto Firewall - DigiCert/TLM Generated CSR -->
-      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/PaloAlto/Digicert_Generated_CSR">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/PaloAltoFirewall/Digicert_Generated_CSR">
         <img src="https://img.shields.io/badge/PaloAlto-TLM_CSR-FF6C37?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0wLTE0Yy0zLjMxIDAtNiAyLjY5LTYgNnMyLjY5IDYgNiA2IDYtMi42OSA2LTYtMi42OS02LTYtNnoiLz48L3N2Zz4=" alt="Palo Alto TLM">
         <br><br>
         <strong>PaloAlto Firewall (TLM Generated CSR)</strong>
