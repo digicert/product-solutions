@@ -43,6 +43,26 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Deploy certificates with DigiCert-generated CSRs for enhanced control and compatibility.</sub>
     </td>
+
+
+     <td align="center" width="33%">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Cloudflare/Cloudflare_Generated_CSR">
+        <img src="https://img.shields.io/badge/Cloudflare-CSR-F38020?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Cloudflare CSR">
+        <br><br>
+        <strong>Cloudflare (CF Generated CSR)</strong>
+      </a>
+      <br><br>
+      <sub>Deploy certificates using Cloudflare-generated CSRs for seamless zone integration.</sub>
+    </td>
+    <td align="center" width="33%">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Cloudflare/Digicert_Generated_CSR">
+        <img src="https://img.shields.io/badge/Cloudflare-DigiCert_CSR-F38020?style=for-the-badge&logo=cloudflare&logoColor=white" alt="DigiCert CSR">
+        <br><br>
+        <strong>Cloudflare (DigiCert CSR)</strong>
+      </a>
+      <br><br>
+      <sub>Deploy certificates with DigiCert-generated CSRs for enhanced control and compatibility.</sub>
+    </td>
   </tr>
 </table>
 
