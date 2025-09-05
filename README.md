@@ -14,6 +14,7 @@
 
 Streamline your certificate management with our production-ready integration scripts for DigiCert Trust Lifecycle Manager.
 
+<!-- First Row: Imperva and Cloudflare Integrations -->
 <table>
   <tr>
     <td align="center" width="33%">
@@ -43,24 +44,32 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Deploy certificates with DigiCert-generated CSRs for enhanced control and compatibility.</sub>
     </td>
-    <td align="center" width="33%">
-      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Cloudflare/Cloudflare_Generated_CSR">
-        <img src="https://img.shields.io/badge/Cloudflare-CSR-F38020?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Cloudflare CSR">
+  </tr>
+</table>
+
+<!-- Second Row: Palo Alto Firewall Integrations -->
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <!-- Palo Alto Firewall - PANOS Generated CSR -->
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/PaloAlto/PANOS_Generated_CSR">
+        <img src="https://img.shields.io/badge/PaloAlto-PANOS_CSR-FF6C37?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0wLTE0Yy0zLjMxIDAtNiAyLjY5LTYgNnMyLjY5IDYgNiA2IDYtMi42OSA2LTYtMi42OS02LTYtNnoiLz48L3N2Zz4=" alt="Palo Alto PANOS">
         <br><br>
         <strong>PaloAlto Firewall (PANOS Generated CSR)</strong>
       </a>
       <br><br>
-      <sub>Deploy certificates using PaloAlto-generated CSRs for seamless zone integration.</sub>
+      <sub>Deploy certificates using PaloAlto PANOS-generated CSRs for seamless firewall integration and management.</sub>
     </td>
-    <td align="center" width="33%">
-      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Cloudflare/Digicert_Generated_CSR">
-        <img src="https://img.shields.io/badge/Cloudflare-DigiCert_CSR-F38020?style=for-the-badge&logo=cloudflare&logoColor=white" alt="DigiCert CSR">
+    <td align="center" width="50%">
+      <!-- Palo Alto Firewall - DigiCert/TLM Generated CSR -->
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/PaloAlto/Digicert_Generated_CSR">
+        <img src="https://img.shields.io/badge/PaloAlto-TLM_CSR-FF6C37?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0wLTE0Yy0zLjMxIDAtNiAyLjY5LTYgNnMyLjY5IDYgNiA2IDYtMi42OSA2LTYtMi42OS02LTYtNnoiLz48L3N2Zz4=" alt="Palo Alto TLM">
         <br><br>
-        <strong>PaloAlto Firewall (DigiCert Generated CSR)</strong>
+        <strong>PaloAlto Firewall (TLM Generated CSR)</strong>
       </a>
       <br><br>
-      <sub>Deploy certificates with TLM-generated CSRs for enhanced control and compatibility.</sub>
-    </td>    
+      <sub>Deploy certificates with TLM-generated CSRs for enhanced control, compatibility, and centralized key management.</sub>
+    </td>
   </tr>
 </table>
 
