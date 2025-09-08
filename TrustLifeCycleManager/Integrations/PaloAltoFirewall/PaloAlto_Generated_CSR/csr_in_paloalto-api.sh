@@ -30,57 +30,174 @@ as applicable, and the Technical Data - Commercial Items clause at DFARS 252.227
 The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
-# Configuration - MUST BE SET TO "true" TO ACCEPT THE LEGAL NOTICE AND RUN THE SCRIPT
-LEGAL_NOTICE_ACCEPT="true"
+# Function to clear screen
+clear_screen() {
+    clear 2>/dev/null || printf "\033c"
+}
 
-# Auto-commit configuration - Set to "true" to automatically commit changes, "false" to skip
-AUTO_COMMIT="true"
+# Function to prompt with default value
+prompt_with_default() {
+    local prompt="$1"
+    local default="$2"
+    local value
+    
+    if [ -n "$default" ]; then
+        read -p "$prompt [$default]: " value
+    else
+        read -p "$prompt: " value
+    fi
+    
+    if [ -z "$value" ]; then
+        echo "$default"
+    else
+        echo "$value"
+    fi
+}
 
-# Check legal notice acceptance
+# Function to prompt yes/no
+prompt_yes_no() {
+    local prompt="$1"
+    local default="$2"
+    local value
+    local default_str="n"
+    
+    if [ "$default" = "true" ]; then
+        default_str="y"
+    fi
+    
+    read -p "$prompt [$default_str]: " value
+    value=$(echo "$value" | tr '[:upper:]' '[:lower:]')
+    
+    if [ -z "$value" ]; then
+        if [ "$default" = "true" ]; then
+            echo "true"
+        else
+            echo "false"
+        fi
+    elif [ "$value" = "y" ] || [ "$value" = "yes" ]; then
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
+# Display welcome message
+clear_screen
+echo "Welcome to the PAN-OS Certificate Automation Tool!"
+echo ""
+
+# Display and accept legal notice
+echo "============================================================================"
+echo "LEGAL NOTICE"
+echo "============================================================================"
+cat << 'EOF'
+Legal Notice (version October 29, 2024)
+Copyright © 2024 DigiCert. All rights reserved.
+DigiCert and its logo are registered trademarks of DigiCert, Inc.
+Other names may be trademarks of their respective owners.
+For the purposes of this Legal Notice, "DigiCert" refers to:
+- DigiCert, Inc., if you are located in the United States;
+- DigiCert Ireland Limited, if you are located outside of the United States or Japan;
+- DigiCert Japan G.K., if you are located in Japan.
+The software described in this notice is provided by DigiCert and distributed under licenses
+restricting its use, copying, distribution, and decompilation or reverse engineering.
+No part of the software may be reproduced in any form by any means without prior written authorization
+of DigiCert and its licensors, if any.
+Use of the software is subject to the terms and conditions of your agreement with DigiCert, including
+any dispute resolution and applicable law provisions. The terms set out herein are supplemental to
+your agreement and, in the event of conflict, these terms control.
+THE SOFTWARE IS PROVIDED "AS IS" AND ALL EXPRESS OR IMPLIED CONDITIONS, REPRESENTATIONS AND WARRANTIES,
+INCLUDING ANY IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT,
+ARE DISCLAIMED, EXCEPT TO THE EXTENT THAT SUCH DISCLAIMERS ARE HELD TO BE LEGALLY INVALID.
+Export Regulation: The software and related technical data and services (collectively "Controlled Technology")
+are subject to the import and export laws of the United States, specifically the U.S. Export Administration
+Regulations (EAR), and the laws of any country where Controlled Technology is imported or re-exported.
+US Government Restricted Rights: The software is provided with "Restricted Rights," Use, duplication, or
+disclosure by the U.S. Government is subject to restrictions as set forth in subparagraph (c)(1)(ii) of the
+Rights in Technical Data and Computer Software clause at DFARS 252.227-7013,
+subparagraphs (c)(1) and (2) of the Commercial Computer Software—Restricted Rights at 48 CFR 52.227-19,
+as applicable, and the Technical Data - Commercial Items clause at DFARS 252.227-7015 (Nov 1995) and any successor regulations.
+The contractor/manufacturer is DIGICERT, INC.
+EOF
+echo "============================================================================"
+echo ""
+
+# Prompt for legal notice acceptance
+LEGAL_NOTICE_ACCEPT=$(prompt_yes_no "Do you accept the above legal notice and terms?" "false")
+
 if [ "$LEGAL_NOTICE_ACCEPT" != "true" ]; then
-    echo "============================================================================"
-    echo "LEGAL NOTICE NOT ACCEPTED"
-    echo "============================================================================"
-    echo ""
-    echo "To use this script, you must accept the DigiCert Legal Notice."
-    echo ""
-    echo "Please review the legal notice at the beginning of this script,"
-    echo "and if you accept the terms, change the line:"
-    echo "  LEGAL_NOTICE_ACCEPT=\"false\""
-    echo "to:"
-    echo "  LEGAL_NOTICE_ACCEPT=\"true\""
-    echo ""
-    echo "Script execution terminated."
-    echo "============================================================================"
+    echo "Legal notice must be accepted to proceed."
     exit 1
 fi
 
-# PAN-OS Configuration
-FIREWALL_IP="ec2-3-145-216-176.us-east-2.compute.amazonaws.com"
-API_KEY="LUFRPT1FbHhwTEFkNHhaMWZkQy9jR2hINnk1ZkdoOWs9dEdlQVg1OXVOMkFUVHdFSkRVNjhqWTMrSDJmNXNYWVRSSDJmS0tTR1ZreUVBMkFNc3hxWEVVeWdyWlNtUVhERA=="
-CERT_NAME="tlsguru.io"
-COMMON_NAME="tlsguru.io"
-ORGANIZATION="Digicert"
-LOCALITY="Lehi"
-STATE="Utah"
-COUNTRY="US"
+# Clear screen after legal acceptance for clean configuration interface
+clear_screen
 
-# DigiCert API Configuration
-DIGICERT_API_KEY="01e615c60f4e874a1a6d0d66dc_87d297ee13fb16ac4bade5b94bb6486043532397c921f665b09a1ff689c7ea5c"
-DIGICERT_PROFILE_ID="f1887d29-ee87-48f7-a873-1a0254dc99a9"
-DIGICERT_SEAT_ID="tlsguru.io"
+echo "=== PAN-OS Certificate Automation - Configuration ==="
+echo "Legal notice accepted ✅"
+echo "Press Enter to use default values shown in brackets"
+echo ""
+
+# PAN-OS Firewall Configuration
+echo "--- PAN-OS Firewall Configuration ---"
+FIREWALL_IP=$(prompt_with_default "Firewall IP/Hostname" "ec2-3-145-216-176.us-east-2.compute.amazonaws.com")
+API_KEY=$(prompt_with_default "API Key" "LUFRPT1FbHhwTEFkNHhaMWZkQy9jR2hINnk1ZkdoOWs9dEdlQVg1OXVOMkFUVHdFSkRVNjhqWTMrSDJmNXNYWVRSSDJmS0tTR1ZreUVBMkFNc3hxWEVVeWdyWlNtUVhERA==")
+
+echo ""
+echo "--- Advanced Options ---"
+AUTO_COMMIT=$(prompt_yes_no "Automatically commit configuration changes to PAN-OS?" "false")
+
+echo ""
+echo "--- Certificate Configuration ---"
+CERT_NAME=$(prompt_with_default "Certificate Name" "tlsguru.io")
+COMMON_NAME=$(prompt_with_default "Common Name (CN)" "tlsguru.io")
+ORGANIZATION=$(prompt_with_default "Organization (O)" "Digicert")
+LOCALITY=$(prompt_with_default "Locality/City (L)" "Lehi")
+STATE=$(prompt_with_default "State/Province (ST)" "Utah")
+COUNTRY=$(prompt_with_default "Country Code (C)" "US")
+
+echo ""
+echo "--- DigiCert API Configuration ---"
+DIGICERT_API_KEY=$(prompt_with_default "DigiCert API Key" "01e615c60f4e874a1a6d0d66dc_87d297ee13fb16ac4bade5b94bb6486043532397c921f665b09a1ff689c7ea5c")
+DIGICERT_PROFILE_ID=$(prompt_with_default "DigiCert Profile ID" "f1887d29-ee87-48f7-a873-1a0254dc99a9")
+DIGICERT_SEAT_ID=$(prompt_with_default "DigiCert Seat ID" "tlsguru.io")
+
+echo ""
+echo "--- File Configuration ---"
+OUTPUT_DIR=$(prompt_with_default "Output Directory" "./certs")
 
 # File Path Configuration
-OUTPUT_DIR="./certs"
 CSR_CLEAN_FILE="${OUTPUT_DIR}/${CERT_NAME}_clean.csr"
 CSR_SINGLE_LINE_FILE="${OUTPUT_DIR}/${CERT_NAME}_single_line.txt"
 DIGICERT_RESPONSE_FILE="${OUTPUT_DIR}/${CERT_NAME}_digicert_response.json"
 SIGNED_CERT_FILE="${OUTPUT_DIR}/${CERT_NAME}_signed_certificate.crt"
 RAW_RESPONSE_FILE="${OUTPUT_DIR}/${CERT_NAME}_raw_response.xml"
 
+# Display configuration summary
+echo ""
+echo "=== Configuration Summary ==="
+echo "Firewall: $FIREWALL_IP"
+echo "Certificate: $CERT_NAME ($COMMON_NAME)"
+echo "Organization: $ORGANIZATION, $LOCALITY, $STATE, $COUNTRY"
+echo "Output Directory: $OUTPUT_DIR"
+if [ "$AUTO_COMMIT" = "true" ]; then
+    echo "Auto-commit: Yes ✅"
+else
+    echo "Auto-commit: No ⚠️  (manual commit required)"
+fi
+echo ""
+
+# Confirm before proceeding
+PROCEED=$(prompt_yes_no "Proceed with certificate automation?" "true")
+if [ "$PROCEED" != "true" ]; then
+    echo "Operation cancelled."
+    exit 0
+fi
+
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"
 
+echo ""
 echo "=== PAN-OS Certificate Automation Script ==="
 echo "Certificate Name: $CERT_NAME"
 echo "Common Name: $COMMON_NAME"
