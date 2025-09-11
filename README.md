@@ -191,7 +191,7 @@ Streamline your certificate management with our production-ready integration scr
   </tr>
 </table>
 
-<!-- Sixth Row: Enterprise Application Servers -->
+<!-- Sixth Row: Enterprise Application Servers & Security Platforms -->
 <table>
   <tr>
     <td align="center" width="33%">
@@ -213,6 +213,35 @@ Streamline your certificate management with our production-ready integration scr
       </a>
       <br><br>
       <sub>High-performance web application server with SSL certificate automation for enterprise applications.</sub>
+    </td>
+    <td align="center" width="33%">
+      <!-- F5 Distributed Cloud Services -->
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/F5-XC">
+        <img src="https://img.shields.io/badge/F5-XC_Services-E4002B?style=for-the-badge&logo=f5&logoColor=white" alt="F5 XC">
+        <br><br>
+        <strong>F5 Distributed Cloud Services</strong>
+      </a>
+      <br><br>
+      <sub>Multi-cloud application delivery and security with automated certificate management across distributed environments.</sub>
+    </td>
+  </tr>
+</table>
+
+<!-- Seventh Row: Security Appliances -->
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <!-- Fortigate Fortiweb -->
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Fortiweb">
+        <img src="https://img.shields.io/badge/Fortinet-FortiWeb-EE3124?style=for-the-badge&logo=fortinet&logoColor=white" alt="FortiWeb">
+        <br><br>
+        <strong>Fortinet FortiWeb</strong>
+      </a>
+      <br><br>
+      <sub>Web Application Firewall certificate automation for advanced threat protection and SSL/TLS inspection.</sub>
+    </td>
+    <td align="center" width="33%">
+      <!-- Empty cell for proper alignment -->
     </td>
     <td align="center" width="33%">
       <!-- Empty cell for proper alignment -->
