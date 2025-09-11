@@ -4,7 +4,7 @@
 TENANT="digicert"
 NAMESPACE="default"
 CERT_NAME="tls"
-API_TOKEN="REMOVED_SECRET"
+API_TOKEN="<token>"
 CERT_FILE="f5.tlsguru.io.crt"
 KEY_FILE="f5.tlsguru.io.key"
 BASE_URL="https://${TENANT}.console.ves.volterra.io/api/config/namespaces/${NAMESPACE}/certificates"

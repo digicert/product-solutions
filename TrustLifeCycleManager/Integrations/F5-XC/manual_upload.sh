@@ -1,6 +1,6 @@
 curl -X PUT \
   https://digicert.console.ves.volterra.io/api/config/namespaces/default/certificates/tls \
-  -H "Authorization: APIToken REMOVED_SECRET" \
+  -H "Authorization: APIToken <token>" \
   -H "Content-Type: application/json" \
   -d '{
     "metadata": {
