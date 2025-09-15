@@ -31,8 +31,8 @@ The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
 # Configuration
-LEGAL_NOTICE_ACCEPT="false"
-LOGFILE="/home/ubuntu/tlm_agent_3.0.15_linux64/log/cloudflare-awr.log"
+LEGAL_NOTICE_ACCEPT="true"
+LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/cloudflare-awr.log"
 
 BUNDLE_METHOD="force"  # Can be "ubiquitous", "optimal", or "force"
 

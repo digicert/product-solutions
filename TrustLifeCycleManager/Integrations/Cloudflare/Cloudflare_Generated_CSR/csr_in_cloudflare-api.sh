@@ -79,10 +79,10 @@ if [ "$RENEWAL_MODE" = true ]; then
 fi
 
 # Default values
-DEFAULT_ZONE_ID="c3aae<redacted>aafab8"
-DEFAULT_AUTH_TOKEN="0u15SP<redacted>vpYYsO"
-DEFAULT_DIGICERT_API_KEY="01e61<redacted>c7ea5c"
-DEFAULT_PROFILE_ID="f1887<redacted>99a9"
+DEFAULT_ZONE_ID="c3aaef7ffc39aa38f9d33b8dbdaafab8"
+DEFAULT_AUTH_TOKEN="0u15SPrrJ883pi0muIciseEzu2huKLTVC9vpYYsO"
+DEFAULT_DIGICERT_API_KEY="01e615c60f4e874a1a6d0d66dc_87d297ee13fb16ac4bade5b94bb6486043532397c921f665b09a1ff689c7ea5c"
+DEFAULT_PROFILE_ID="f1887d29-ee87-48f7-a873-1a0254dc99a9"
 DEFAULT_LOG_FILE="./digicert_cert_automation_$(date +%Y%m%d_%H%M%S).log"
 DEFAULT_CSR_RETENTION="5"
 
