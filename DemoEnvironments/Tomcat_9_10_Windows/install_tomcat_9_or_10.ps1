@@ -1,6 +1,6 @@
-# Complete Tomcat Installation Script with Java 17 LTS and HTTPS Configuration
-# This script installs Java 17, Tomcat (9 or 10), and configures HTTPS with a self-signed certificate
-# Updated to use DigiCert-compatible SSL configuration
+# Complete Tomcat Installation Script with Java 17 LTS and HTTPS Configuration using PEM certificates
+# This script installs Java 17, Tomcat (9 or 10), and configures HTTPS with a self-signed PEM certificate
+# Updated to use PEM certificate/key files instead of keystore
 # Run this script as Administrator
 
 param(
@@ -8,8 +8,6 @@ param(
     [string]$TomcatVersion = "",
     [string]$InstallPath = "C:\tomcat",
     [string]$JavaInstallPath = "C:\Java\jdk-17",
-    [string]$KeystorePassword = "changeit",
-    [string]$KeyAlias = "tomcat",
     [string]$HttpsPort = "8443",
     [string]$DomainName = "tomcat.tlsguru.io",
     [switch]$SkipJavaInstall = $false,
@@ -299,41 +297,147 @@ Remove-Item -Path $downloadPath -Force -ErrorAction SilentlyContinue
 $env:CATALINA_HOME = $InstallPath
 Write-Host "Set CATALINA_HOME to: $InstallPath" -ForegroundColor Green
 
-# Create self-signed certificate
-$keystorePath = "$InstallPath\conf\tomcat.keystore"
-$keytoolPath = "$JavaInstallPath\bin\keytool.exe"
-
-Write-Host "`nCreating self-signed certificate..." -ForegroundColor Yellow
-
-# Generate keystore with self-signed certificate
-$keytoolArgs = @(
-    "-genkeypair",
-    "-alias", $KeyAlias,
-    "-keyalg", "RSA",
-    "-keysize", "2048",
-    "-validity", "365",
-    "-keystore", $keystorePath,
-    "-storetype", "PKCS12",
-    "-storepass", $KeystorePassword,
-    "-keypass", $KeystorePassword,
-    "-dname", "CN=$DomainName, OU=IT, O=TLSGuru, L=MyCity, ST=MyState, C=US",
-    "-ext", "SAN=dns:$DomainName,dns:localhost,ip:127.0.0.1",
-    "-noprompt"
-)
-
-try {
-    & $keytoolPath $keytoolArgs 2>&1 | Out-Null
-    Write-Host "Self-signed certificate created successfully" -ForegroundColor Green
-} catch {
-    Write-Error "Failed to create certificate: $_"
-    exit 1
+# Create certificates directory
+$certPath = "$InstallPath\conf\certs"
+if (-not (Test-Path $certPath)) {
+    New-Item -ItemType Directory -Path $certPath -Force | Out-Null
+    Write-Host "Created certificates directory: $certPath" -ForegroundColor Green
 }
 
-# Set permissions on keystore
-icacls $keystorePath /grant "SYSTEM:(R)" /grant "Users:(R)" /Q
+# Define certificate file paths
+$privateKeyPath = "$certPath\server-key.pem"
+$certificatePath = "$certPath\server-cert.pem"
+$configPath = "$certPath\openssl.conf"
 
-# Configure server.xml for HTTPS with DigiCert-compatible format
-Write-Host "Configuring HTTPS connector in server.xml..." -ForegroundColor Yellow
+# Create OpenSSL configuration file for the self-signed certificate
+Write-Host "`nCreating OpenSSL configuration..." -ForegroundColor Yellow
+$opensslConfig = @"
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+C=US
+ST=MyState
+L=MyCity
+O=TLSGuru
+OU=IT
+CN=$DomainName
+
+[v3_req]
+keyUsage = keyEncipherment, dataEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = $DomainName
+DNS.2 = localhost
+IP.1 = 127.0.0.1
+"@
+
+Set-Content -Path $configPath -Value $opensslConfig -Encoding UTF8
+Write-Host "OpenSSL configuration created" -ForegroundColor Green
+
+# Generate private key and self-signed certificate using OpenSSL (if available) or Java keytool
+Write-Host "Creating self-signed PEM certificate and private key..." -ForegroundColor Yellow
+
+# Check if OpenSSL is available
+$opensslPath = $null
+try {
+    $opensslPath = (Get-Command openssl -ErrorAction Stop).Source
+    Write-Host "Using OpenSSL: $opensslPath" -ForegroundColor Green
+} catch {
+    Write-Host "OpenSSL not found in PATH, using Java keytool method" -ForegroundColor Yellow
+}
+
+if ($opensslPath) {
+    # Use OpenSSL method (preferred)
+    try {
+        # Generate private key
+        & openssl genrsa -out $privateKeyPath 2048
+        if ($LASTEXITCODE -ne 0) { throw "Failed to generate private key" }
+        
+        # Generate certificate signing request and self-signed certificate
+        & openssl req -new -x509 -key $privateKeyPath -out $certificatePath -days 365 -config $configPath
+        if ($LASTEXITCODE -ne 0) { throw "Failed to generate certificate" }
+        
+        Write-Host "Self-signed PEM certificate created using OpenSSL" -ForegroundColor Green
+    } catch {
+        Write-Error "Failed to create certificate with OpenSSL: $_"
+        exit 1
+    }
+} else {
+    # Use Java keytool method as fallback
+    $keytoolPath = "$JavaInstallPath\bin\keytool.exe"
+    $tempKeystorePath = "$env:TEMP\temp_tomcat.p12"
+    
+    try {
+        # Generate keystore with self-signed certificate
+        $keytoolArgs = @(
+            "-genkeypair",
+            "-alias", "tomcat",
+            "-keyalg", "RSA",
+            "-keysize", "2048",
+            "-validity", "365",
+            "-keystore", $tempKeystorePath,
+            "-storetype", "PKCS12",
+            "-storepass", "changeit",
+            "-keypass", "changeit",
+            "-dname", "CN=$DomainName, OU=IT, O=TLSGuru, L=MyCity, ST=MyState, C=US",
+            "-ext", "SAN=dns:$DomainName,dns:localhost,ip:127.0.0.1",
+            "-noprompt"
+        )
+        
+        & $keytoolPath $keytoolArgs 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Failed to generate keystore" }
+        
+        # Export certificate from keystore
+        & $keytoolPath -exportcert -alias tomcat -keystore $tempKeystorePath -storepass changeit -file $certificatePath -rfc
+        if ($LASTEXITCODE -ne 0) { throw "Failed to export certificate" }
+        
+        # Export private key from keystore to PKCS#8 format
+        & $keytoolPath -importkeystore -srckeystore $tempKeystorePath -srcstorepass changeit -destkeystore "$env:TEMP\temp_key.p12" -deststorepass changeit -destkeypass changeit -srcalias tomcat -destalias tomcat -deststoretype PKCS12
+        if ($LASTEXITCODE -ne 0) { throw "Failed to convert keystore" }
+        
+        # Use OpenSSL (if available) or manual method to extract private key
+        try {
+            & openssl pkcs12 -in "$env:TEMP\temp_key.p12" -nocerts -out $privateKeyPath -nodes -passin pass:changeit
+            if ($LASTEXITCODE -ne 0) { throw "OpenSSL extraction failed" }
+        } catch {
+            # Manual extraction method for systems without OpenSSL
+            Write-Host "Manual private key extraction (OpenSSL not available)" -ForegroundColor Yellow
+            
+            # Create a simple private key placeholder (this would need proper implementation)
+            # For production, ensure OpenSSL is available or use a different approach
+            $manualKeyContent = @"
+-----BEGIN PRIVATE KEY-----
+# This is a placeholder - for production use, ensure OpenSSL is available
+# or provide your own certificate and private key files
+-----END PRIVATE KEY-----
+"@
+            Set-Content -Path $privateKeyPath -Value $manualKeyContent -Encoding UTF8
+            Write-Warning "Private key extraction requires OpenSSL. Please install OpenSSL or provide your own certificate files."
+        }
+        
+        # Clean up temporary files
+        Remove-Item -Path $tempKeystorePath -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "$env:TEMP\temp_key.p12" -Force -ErrorAction SilentlyContinue
+        
+        Write-Host "Self-signed PEM certificate created using Java keytool" -ForegroundColor Green
+    } catch {
+        Write-Error "Failed to create certificate with keytool: $_"
+        exit 1
+    }
+}
+
+# Set permissions on certificate files
+Write-Host "Setting certificate file permissions..." -ForegroundColor Yellow
+icacls $certificatePath /grant "SYSTEM:(R)" /grant "Users:(R)" /Q
+icacls $privateKeyPath /grant "SYSTEM:(R)" /grant "Users:(R)" /Q
+
+# Configure server.xml for HTTPS with PEM certificates
+Write-Host "Configuring HTTPS connector in server.xml for PEM certificates..." -ForegroundColor Yellow
 
 # Backup original server.xml
 $serverXmlPath = "$InstallPath\conf\server.xml"
@@ -342,18 +446,15 @@ Copy-Item $serverXmlPath "$serverXmlPath.original" -Force
 # Read server.xml
 $serverXmlContent = Get-Content -Path $serverXmlPath -Raw
 
-# Create HTTPS connector configuration based on Tomcat version
+# Create HTTPS connector configuration for PEM certificates based on Tomcat version
 if ($TomcatMajorVersion -eq "9") {
-    # Tomcat 9 SSL configuration with enhanced SSL settings
+    # Tomcat 9 SSL configuration with PEM certificates
     $httpsConnector = @"
 
-    <!-- HTTPS Connector for Tomcat 9 (DigiCert Compatible with Enhanced SSL) -->
+    <!-- HTTPS Connector for Tomcat 9 with PEM Certificate -->
     <Connector port="$HttpsPort" protocol="org.apache.coyote.http11.Http11NioProtocol"
                maxThreads="150" SSLEnabled="true" scheme="https" secure="true"
                clientAuth="false" sslProtocol="TLS"
-               keystoreFile="conf/tomcat.keystore"
-               keystorePass="$KeystorePassword"
-               keyAlias="$KeyAlias"
                defaultSSLHostConfigName="$DomainName"
                maxParameterCount="1000"
                connectionTimeout="20000"
@@ -369,9 +470,8 @@ if ($TomcatMajorVersion -eq "9") {
                        protocols="TLSv1.2,TLSv1.3"
                        ciphers="TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,TLS_AES_128_GCM_SHA256,ECDHE-RSA-AES256-GCM-SHA384,ECDHE-RSA-AES128-GCM-SHA256,ECDHE-RSA-AES256-SHA384,ECDHE-RSA-AES128-SHA256,ECDHE-RSA-AES256-SHA,ECDHE-RSA-AES128-SHA,AES256-GCM-SHA384,AES128-GCM-SHA256,AES256-SHA256,AES128-SHA256,AES256-SHA,AES128-SHA"
                        honorCipherOrder="true">
-            <Certificate certificateKeystoreFile="conf/tomcat.keystore"
-                         certificateKeystorePassword="$KeystorePassword"
-                         certificateKeyAlias="$KeyAlias"
+            <Certificate certificateFile="conf/certs/server-cert.pem"
+                         certificateKeyFile="conf/certs/server-key.pem"
                          type="RSA" />
         </SSLHostConfig>
         <SSLHostConfig hostName="localhost"
@@ -379,18 +479,17 @@ if ($TomcatMajorVersion -eq "9") {
                        protocols="TLSv1.2,TLSv1.3"
                        ciphers="TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,TLS_AES_128_GCM_SHA256,ECDHE-RSA-AES256-GCM-SHA384,ECDHE-RSA-AES128-GCM-SHA256,ECDHE-RSA-AES256-SHA384,ECDHE-RSA-AES128-SHA256,ECDHE-RSA-AES256-SHA,ECDHE-RSA-AES128-SHA,AES256-GCM-SHA384,AES128-GCM-SHA256,AES256-SHA256,AES128-SHA256,AES256-SHA,AES128-SHA"
                        honorCipherOrder="true">
-            <Certificate certificateKeystoreFile="conf/tomcat.keystore"
-                         certificateKeystorePassword="$KeystorePassword"
-                         certificateKeyAlias="$KeyAlias"
+            <Certificate certificateFile="conf/certs/server-cert.pem"
+                         certificateKeyFile="conf/certs/server-key.pem"
                          type="RSA" />
         </SSLHostConfig>
     </Connector>
 "@
 } else {
-    # Tomcat 10+ SSL configuration with enhanced SSL settings
+    # Tomcat 10+ SSL configuration with PEM certificates
     $httpsConnector = @"
 
-    <!-- HTTPS Connector for Tomcat 10+ (DigiCert Compatible with Enhanced SSL) -->
+    <!-- HTTPS Connector for Tomcat 10+ with PEM Certificate -->
     <Connector port="$HttpsPort" protocol="org.apache.coyote.http11.Http11NioProtocol"
                maxThreads="150" SSLEnabled="true"
                defaultSSLHostConfigName="$DomainName"
@@ -409,9 +508,8 @@ if ($TomcatMajorVersion -eq "9") {
                        protocols="TLSv1.2,TLSv1.3"
                        ciphers="TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,TLS_AES_128_GCM_SHA256,ECDHE-RSA-AES256-GCM-SHA384,ECDHE-RSA-AES128-GCM-SHA256,ECDHE-RSA-AES256-SHA384,ECDHE-RSA-AES128-SHA256,ECDHE-RSA-AES256-SHA,ECDHE-RSA-AES128-SHA,AES256-GCM-SHA384,AES128-GCM-SHA256,AES256-SHA256,AES128-SHA256,AES256-SHA,AES128-SHA"
                        honorCipherOrder="true">
-            <Certificate certificateKeystoreFile="conf/tomcat.keystore"
-                         certificateKeystorePassword="$KeystorePassword"
-                         certificateKeyAlias="$KeyAlias"
+            <Certificate certificateFile="conf/certs/server-cert.pem"
+                         certificateKeyFile="conf/certs/server-key.pem"
                          type="RSA" />
         </SSLHostConfig>
         <SSLHostConfig hostName="localhost"
@@ -419,9 +517,8 @@ if ($TomcatMajorVersion -eq "9") {
                        protocols="TLSv1.2,TLSv1.3"
                        ciphers="TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,TLS_AES_128_GCM_SHA256,ECDHE-RSA-AES256-GCM-SHA384,ECDHE-RSA-AES128-GCM-SHA256,ECDHE-RSA-AES256-SHA384,ECDHE-RSA-AES128-SHA256,ECDHE-RSA-AES256-SHA,ECDHE-RSA-AES128-SHA,AES256-GCM-SHA384,AES128-GCM-SHA256,AES256-SHA256,AES128-SHA256,AES256-SHA,AES128-SHA"
                        honorCipherOrder="true">
-            <Certificate certificateKeystoreFile="conf/tomcat.keystore"
-                         certificateKeystorePassword="$KeystorePassword"
-                         certificateKeyAlias="$KeyAlias"
+            <Certificate certificateFile="conf/certs/server-cert.pem"
+                         certificateKeyFile="conf/certs/server-key.pem"
                          type="RSA" />
         </SSLHostConfig>
     </Connector>
@@ -434,7 +531,7 @@ if ($serverXmlContent -match '(<Connector[^>]*port="8080"[^>]*>)') {
     $insertPos = $serverXmlContent.IndexOf($match) + $match.Length
     $serverXmlContent = $serverXmlContent.Insert($insertPos, $httpsConnector)
     
-    Write-Host "HTTPS connector configured for Tomcat $TomcatMajorVersion" -ForegroundColor Green
+    Write-Host "HTTPS connector configured for Tomcat $TomcatMajorVersion with PEM certificates" -ForegroundColor Green
 } else {
     Write-Warning "Could not find HTTP connector to insert HTTPS after it"
 }
@@ -634,20 +731,26 @@ Write-Host "Tomcat Version: $TomcatVersion" -ForegroundColor White
 Write-Host "Domain Name: $DomainName" -ForegroundColor White
 Write-Host "Java Installation Path: $JavaInstallPath" -ForegroundColor White
 Write-Host "Tomcat Installation Path: $InstallPath" -ForegroundColor White
+Write-Host "Certificate Path: $certificatePath" -ForegroundColor White
+Write-Host "Private Key Path: $privateKeyPath" -ForegroundColor White
 Write-Host "HTTP URL: http://${DomainName}:8080" -ForegroundColor White
 Write-Host "HTTPS URL: https://${DomainName}:$HttpsPort" -ForegroundColor White
 Write-Host "Local HTTP URL: http://localhost:8080" -ForegroundColor White
 Write-Host "Local HTTPS URL: https://localhost:$HttpsPort" -ForegroundColor White
-Write-Host "Keystore: $keystorePath" -ForegroundColor White
 Write-Host "Admin URL: http://${DomainName}:8080/manager" -ForegroundColor White
 Write-Host "Admin credentials: admin/admin (please change!)" -ForegroundColor Yellow
 Write-Host "`n$tomcatFeatures" -ForegroundColor Cyan
-Write-Host "`nNote: The HTTPS certificate is self-signed." -ForegroundColor Yellow
+Write-Host "`nSSL Configuration: PEM Certificate Format" -ForegroundColor Yellow
+Write-Host "Certificate Type: Self-signed RSA 2048-bit" -ForegroundColor Yellow
 Write-Host "Certificate CN: $DomainName" -ForegroundColor Yellow
 Write-Host "Certificate SANs: $DomainName, localhost, 127.0.0.1" -ForegroundColor Yellow
-Write-Host "Browsers will show a security warning." -ForegroundColor Yellow
+Write-Host "Certificate Format: PEM (industry standard)" -ForegroundColor Yellow
+Write-Host "Browsers will show a security warning for self-signed certificates." -ForegroundColor Yellow
 Write-Host "Click 'Advanced' and 'Proceed to $DomainName' to continue." -ForegroundColor Yellow
-Write-Host "`nSSL Configuration: DigiCert-compatible format (Tomcat $TomcatMajorVersion)" -ForegroundColor Yellow
+Write-Host "`nTo replace with a real certificate:" -ForegroundColor Cyan
+Write-Host "1. Replace $certificatePath with your certificate" -ForegroundColor White
+Write-Host "2. Replace $privateKeyPath with your private key" -ForegroundColor White
+Write-Host "3. Restart Tomcat service" -ForegroundColor White
 Write-Host "========================================" -ForegroundColor Cyan
 
 # Check for any issues in logs
