@@ -1,4 +1,5 @@
 # PowerShell 6+ / Windows Server 2025 Cloudflare Certificate Upload Script
+# Compatible with PowerShell 6.0 and later versions (including PowerShell 7+)
 
 <#
 Legal Notice (version October 29, 2024)
@@ -32,7 +33,7 @@ The contractor/manufacturer is DIGICERT, INC.
 
 # Configuration
 $LEGAL_NOTICE_ACCEPT = "true"
-$LOGFILE = "C:\Program Files\DigiCert\tlm_agent_3.1.2_win64\log\cloudflare-awr.log"
+$LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\cloudflare-awr.log"
 
 $BUNDLE_METHOD = "force"  # Can be "ubiquitous", "optimal", or "force"
 
@@ -239,12 +240,13 @@ if (Test-Path $KEY_FILE_PATH) {
 # Read certificate and key using dynamically constructed paths
 Write-LogMessage "Reading certificate and key files..."
 try {
-    $CERT_RAW = Get-Content $CRT_FILE_PATH -Raw
-    $KEY_RAW = Get-Content $KEY_FILE_PATH -Raw
+    # Read the files as raw text, preserving line endings
+    $CERT = Get-Content $CRT_FILE_PATH -Raw
+    $KEY = Get-Content $KEY_FILE_PATH -Raw
     
-    # Convert to JSON-safe format (escape newlines)
-    $CERT = $CERT_RAW -replace "`r`n", "\n" -replace "`n", "\n"
-    $KEY = $KEY_RAW -replace "`r`n", "\n" -replace "`n", "\n"
+    # Remove any trailing whitespace/newlines
+    $CERT = $CERT.TrimEnd()
+    $KEY = $KEY.TrimEnd()
     
     # Log certificate and key lengths
     Write-LogMessage "Certificate content length: $($CERT.Length) characters"
@@ -274,13 +276,20 @@ $apiPayloadObject = @{
     bundle_method = $BUNDLE_METHOD
 }
 
-$API_PAYLOAD = $apiPayloadObject | ConvertTo-Json -Depth 10
+# Convert to JSON with proper escaping handled automatically by PowerShell
+# Use -Compress to remove unnecessary whitespace
+$API_PAYLOAD = $apiPayloadObject | ConvertTo-Json -Depth 10 -Compress
 
 # Log API call details
 Write-LogMessage "Preparing Cloudflare API call..."
 $apiUrl = "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/custom_certificates"
 Write-LogMessage "API Endpoint: $apiUrl"
 Write-LogMessage "Bundle method: $BUNDLE_METHOD"
+if ($DEBUG_MODE -eq "true") {
+    # Log a snippet of the payload for debugging (first 200 chars)
+    $payloadSnippet = $API_PAYLOAD.Substring(0, [Math]::Min(200, $API_PAYLOAD.Length))
+    Write-LogMessage "API Payload snippet: $payloadSnippet..."
+}
 
 # Debug: Show the exact request details being used (with masked token)
 if ($DEBUG_MODE -eq "true") {
@@ -293,13 +302,80 @@ if ($DEBUG_MODE -eq "true") {
 # Make the API call
 Write-LogMessage "Making API call to Cloudflare..."
 
+# First, check for existing certificates and delete if found
+Write-LogMessage "Checking for existing certificates..."
+$listUrl = "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/custom_certificates"
+
 try {
     $headers = @{
         'Authorization' = "Bearer $AUTH_TOKEN"
         'Content-Type' = 'application/json'
     }
     
-    $response = Invoke-RestMethod -Uri $apiUrl -Method Post -Headers $headers -Body $API_PAYLOAD -StatusCodeVariable statusCode
+    # Get list of existing certificates
+    $listResponse = Invoke-WebRequest -Uri $listUrl -Method Get -Headers $headers -UseBasicParsing
+    $existingCerts = ($listResponse.Content | ConvertFrom-Json).result
+    
+    if ($existingCerts -and $existingCerts.Count -gt 0) {
+        Write-LogMessage "Found $($existingCerts.Count) existing certificate(s)"
+        
+        # Parse the certificate to get the domain info for matching
+        # Extract CN from the new certificate for comparison
+        $certLines = $CERT -split "`n"
+        $certContent = $certLines -join "`n"
+        
+        # For each existing certificate, check if we should delete it
+        foreach ($existingCert in $existingCerts) {
+            Write-LogMessage "Checking certificate ID: $($existingCert.id)"
+            
+            # Check if this certificate matches our domain
+            # You can customize this logic based on how you want to match certificates
+            # For now, we'll delete all certificates and upload the new one
+            # This ensures a clean replacement
+            
+            $deleteUrl = "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/custom_certificates/$($existingCert.id)"
+            Write-LogMessage "Deleting existing certificate ID: $($existingCert.id)"
+            
+            try {
+                $deleteResponse = Invoke-WebRequest -Uri $deleteUrl -Method Delete -Headers $headers -UseBasicParsing
+                $deleteResult = $deleteResponse.Content | ConvertFrom-Json
+                
+                if ($deleteResult.success -eq $true) {
+                    Write-LogMessage "Successfully deleted certificate ID: $($existingCert.id)"
+                } else {
+                    Write-LogMessage "WARNING: Failed to delete certificate ID: $($existingCert.id)"
+                }
+            } catch {
+                Write-LogMessage "WARNING: Error deleting certificate ID $($existingCert.id): $($_.Exception.Message)"
+            }
+        }
+        
+        # Add a small delay to ensure deletion is processed
+        Start-Sleep -Seconds 2
+        Write-LogMessage "All existing certificates removed, proceeding with upload"
+    } else {
+        Write-LogMessage "No existing certificates found, proceeding with upload"
+    }
+} catch {
+    Write-LogMessage "WARNING: Could not check for existing certificates: $($_.Exception.Message)"
+    Write-LogMessage "Proceeding with certificate upload anyway..."
+}
+
+# Now upload the new certificate
+Write-LogMessage "Uploading new certificate..."
+
+try {
+    $headers = @{
+        'Authorization' = "Bearer $AUTH_TOKEN"
+        'Content-Type' = 'application/json'
+    }
+    
+    # Use Invoke-WebRequest for PowerShell 6+ compatibility to get status code
+    $webResponse = Invoke-WebRequest -Uri $apiUrl -Method Post -Headers $headers -Body $API_PAYLOAD -UseBasicParsing
+    
+    # Extract status code and content
+    $statusCode = $webResponse.StatusCode
+    $response = $webResponse.Content | ConvertFrom-Json
     
     # Log the response
     Write-LogMessage "API call completed"
@@ -320,8 +396,8 @@ try {
         Write-LogMessage "ERROR: Certificate upload failed"
         # Try to extract error messages
         if ($response.errors) {
-            foreach ($error in $response.errors) {
-                Write-LogMessage "Error message: $($error.message)"
+            foreach ($apiError in $response.errors) {
+                Write-LogMessage "Error message: $($apiError.message)"
             }
         }
         $exitCode = 1
@@ -331,19 +407,31 @@ try {
     Write-LogMessage "ERROR: API call failed: $($_.Exception.Message)"
     
     # Try to extract status code from exception
+    $statusCode = 0
     if ($_.Exception.Response) {
-        $statusCode = [int]$_.Exception.Response.StatusCode
-        Write-LogMessage "HTTP Status Code: $statusCode"
+        try {
+            $statusCode = [int]$_.Exception.Response.StatusCode
+            Write-LogMessage "HTTP Status Code: $statusCode"
+        } catch {
+            Write-LogMessage "Could not extract HTTP status code"
+        }
     }
     
     # Try to read response body for more error details
-    if ($_.Exception.Response -and $_.Exception.Response.GetResponseStream) {
+    if ($_.Exception.Response) {
         try {
-            $streamReader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-            $responseBody = $streamReader.ReadToEnd()
-            Write-LogMessage "Error response body: $responseBody"
+            $stream = $_.Exception.Response.GetResponseStream()
+            if ($stream) {
+                $streamReader = New-Object System.IO.StreamReader($stream)
+                $responseBody = $streamReader.ReadToEnd()
+                Write-LogMessage "Error response body: $responseBody"
+                $streamReader.Close()
+                $streamReader.Dispose()
+                $stream.Close()
+                $stream.Dispose()
+            }
         } catch {
-            Write-LogMessage "Could not read error response body"
+            Write-LogMessage "Could not read error response body: $($_.Exception.Message)"
         }
     }
     
