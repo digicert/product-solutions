@@ -224,8 +224,78 @@ log_message "Bundle method: $BUNDLE_METHOD"
 RESPONSE_FILE=$(mktemp)
 log_message "Created temporary response file: $RESPONSE_FILE"
 
-# Make the API call
-log_message "Making API call to Cloudflare..."
+# ========================================
+# CHECK FOR EXISTING CERTIFICATES AND DELETE
+# ========================================
+log_message "Checking for existing certificates..."
+
+# Get list of existing certificates
+LIST_RESPONSE_FILE=$(mktemp)
+LIST_HTTP_STATUS=$(curl -s -w "%{http_code}" -X GET "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/custom_certificates" \
+     -H "Authorization: Bearer ${AUTH_TOKEN}" \
+     -H "Content-Type: application/json" \
+     -o "$LIST_RESPONSE_FILE" 2>&1)
+
+LIST_RESPONSE=$(cat "$LIST_RESPONSE_FILE")
+
+if [ "$DEBUG_MODE" = "true" ]; then
+    log_message "List certificates HTTP Status: $LIST_HTTP_STATUS"
+    log_message "List certificates response: $LIST_RESPONSE"
+fi
+
+# Check if we got the list successfully
+if [ "$LIST_HTTP_STATUS" -eq 200 ]; then
+    # Extract certificate IDs from the response
+    CERT_IDS=$(echo "$LIST_RESPONSE" | grep -oP '"id":"\K[^"]+')
+    
+    if [ -n "$CERT_IDS" ]; then
+        # Count the number of certificates
+        CERT_COUNT=$(echo "$CERT_IDS" | wc -l)
+        log_message "Found $CERT_COUNT existing certificate(s)"
+        
+        # Delete each certificate
+        while IFS= read -r CERT_ID; do
+            if [ -n "$CERT_ID" ]; then
+                log_message "Deleting existing certificate ID: $CERT_ID"
+                
+                DELETE_RESPONSE_FILE=$(mktemp)
+                DELETE_HTTP_STATUS=$(curl -s -w "%{http_code}" -X DELETE "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/custom_certificates/${CERT_ID}" \
+                     -H "Authorization: Bearer ${AUTH_TOKEN}" \
+                     -H "Content-Type: application/json" \
+                     -o "$DELETE_RESPONSE_FILE" 2>&1)
+                
+                DELETE_RESPONSE=$(cat "$DELETE_RESPONSE_FILE")
+                
+                if [ "$DELETE_HTTP_STATUS" -eq 200 ] || [ "$DELETE_HTTP_STATUS" -eq 204 ]; then
+                    log_message "Successfully deleted certificate ID: $CERT_ID"
+                else
+                    log_message "WARNING: Failed to delete certificate ID: $CERT_ID (HTTP Status: $DELETE_HTTP_STATUS)"
+                    if [ "$DEBUG_MODE" = "true" ]; then
+                        log_message "Delete response: $DELETE_RESPONSE"
+                    fi
+                fi
+                
+                rm -f "$DELETE_RESPONSE_FILE"
+            fi
+        done <<< "$CERT_IDS"
+        
+        # Add a small delay to ensure deletion is processed
+        sleep 2
+        log_message "All existing certificates removed, proceeding with upload"
+    else
+        log_message "No existing certificates found, proceeding with upload"
+    fi
+else
+    log_message "WARNING: Could not check for existing certificates (HTTP Status: $LIST_HTTP_STATUS)"
+    log_message "Proceeding with certificate upload anyway..."
+fi
+
+rm -f "$LIST_RESPONSE_FILE"
+
+# ========================================
+# UPLOAD NEW CERTIFICATE
+# ========================================
+log_message "Uploading new certificate..."
 
 # Debug: Show the exact curl command being used (with masked token)
 if [ "$DEBUG_MODE" = "true" ]; then
@@ -235,13 +305,12 @@ if [ "$DEBUG_MODE" = "true" ]; then
     log_message "  Content-Type: application/json"
 fi
 
-# Let's also create the curl command with verbose output for debugging
+# Upload the new certificate
 HTTP_STATUS=$(curl -s -w "%{http_code}" -X POST "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/custom_certificates" \
      -H "Authorization: Bearer ${AUTH_TOKEN}" \
      -H "Content-Type: application/json" \
      --data "${API_PAYLOAD}" \
      -o "$RESPONSE_FILE" 2>&1)
-
 
 # Read the response
 RESPONSE=$(cat "$RESPONSE_FILE")
