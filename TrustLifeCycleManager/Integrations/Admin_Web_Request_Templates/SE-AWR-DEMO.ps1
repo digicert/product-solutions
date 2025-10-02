@@ -41,7 +41,7 @@
 
 # Configuration
 $LEGAL_NOTICE_ACCEPT = "true"
-$LOGFILE = "C:\Program Files\DigiCert\TLM Agent\awr-demo\awr-demo.log"
+$LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\awr-demo.log"
 
 # Function to log messages with timestamp
 function Write-LogMessage {
@@ -325,9 +325,9 @@ if ($CERT_FILE) {
 
 # Define paths
 $SECRETS_PATH = "C:\Program Files\DigiCert\TLM Agent\.secrets"
-$DATA_DIR = "C:\Program Files\DigiCert\TLM Agent\awr-demo"
-$CSV_PATH = Join-Path $DATA_DIR "certificate_data.csv"
-$HTML_OUTPUT_PATH = Join-Path $DATA_DIR "index.html"
+$DATA_DIR = "C:\inetpub\wwwroot"
+$CSV_PATH = Join-Path $DATA_DIR "awr-demo-certificate_data.csv"
+$HTML_OUTPUT_PATH = Join-Path $DATA_DIR "awr-demo.html"
 
 Write-LogMessage "Data directory: $DATA_DIR"
 Write-LogMessage "CSV path: $CSV_PATH"
@@ -357,7 +357,7 @@ if (Test-Path $CSV_PATH) {
                         CertificateFormat = $values[2]
                         FileName = $values[3]
                         FolderName = $values[4]
-                        Source = if ($values.Count -gt 5) { $values[5] } else { "Local" }
+                        PostScript = if ($values.Count -gt 5) { $values[5] } else { "False" }
                         Argument1 = if ($values.Count -gt 6) { $values[6] } else { "" }
                         Argument2 = if ($values.Count -gt 7) { $values[7] } else { "" }
                         Argument3 = if ($values.Count -gt 8) { $values[8] } else { "" }
@@ -405,11 +405,11 @@ if (Test-Path $SECRETS_PATH) {
         # Check if this certificate already exists in CSV data
         $existingCert = $existingData | Where-Object { "$($_.FolderName)|$($_.FileName)" -eq $certKey }
         
-        # Determine source: if this certificate is in the current AWR folder, mark it as AWR
-        $source = "Local"
+        # Determine post-script status: if this certificate is in the current AWR folder, mark it as True
+        $postScript = "False"
         if ($currentAWRFolderName -and ($folderName -eq $currentAWRFolderName)) {
-            $source = "AWR"
-            Write-LogMessage "Certificate $fileName is in current AWR folder, marking as AWR"
+            $postScript = "True"
+            Write-LogMessage "Certificate $fileName is in current AWR folder, marking as True"
         }
         
         if ($existingCert) {
@@ -418,10 +418,10 @@ if (Test-Path $SECRETS_PATH) {
             $existingCert.CommonName = $commonName
             $existingCert.CertificateFormat = $format
             
-            # Update source if this is in the current AWR folder
-            if ($source -eq "AWR") {
-                $existingCert.Source = "AWR"
-                # Also update arguments for AWR certificates
+            # Update post-script status if this is in the current AWR folder
+            if ($postScript -eq "True") {
+                $existingCert.PostScript = "True"
+                # Also update arguments for post-script certificates
                 if ($currentAWRFolderName -and ($folderName -eq $currentAWRFolderName)) {
                     $existingCert.Argument1 = $ARGUMENT_1
                     $existingCert.Argument2 = $ARGUMENT_2
@@ -432,7 +432,7 @@ if (Test-Path $SECRETS_PATH) {
             }
             
             $allCertificates += $existingCert
-            Write-LogMessage "Updated existing certificate: $fileName (Source: $($existingCert.Source))"
+            Write-LogMessage "Updated existing certificate: $fileName (Post-Script: $($existingCert.PostScript))"
         } else {
             # Add new certificate from scan
             $newCert = [PSCustomObject]@{
@@ -441,15 +441,15 @@ if (Test-Path $SECRETS_PATH) {
                 CertificateFormat = $format
                 FileName = $fileName
                 FolderName = $folderName
-                Source = $source
-                Argument1 = if ($source -eq "AWR") { $ARGUMENT_1 } else { "" }
-                Argument2 = if ($source -eq "AWR") { $ARGUMENT_2 } else { "" }
-                Argument3 = if ($source -eq "AWR") { $ARGUMENT_3 } else { "" }
-                Argument4 = if ($source -eq "AWR") { $ARGUMENT_4 } else { "" }
-                Argument5 = if ($source -eq "AWR") { $ARGUMENT_5 } else { "" }
+                PostScript = $postScript
+                Argument1 = if ($postScript -eq "True") { $ARGUMENT_1 } else { "" }
+                Argument2 = if ($postScript -eq "True") { $ARGUMENT_2 } else { "" }
+                Argument3 = if ($postScript -eq "True") { $ARGUMENT_3 } else { "" }
+                Argument4 = if ($postScript -eq "True") { $ARGUMENT_4 } else { "" }
+                Argument5 = if ($postScript -eq "True") { $ARGUMENT_5 } else { "" }
             }
             $allCertificates += $newCert
-            Write-LogMessage "Added new certificate from scan: $fileName (Source: $source)"
+            Write-LogMessage "Added new certificate from scan: $fileName (Post-Script: $postScript)"
         }
     }
 } else {
@@ -465,7 +465,7 @@ $allCertificates = $allCertificates | Sort-Object { [DateTime]$_.DateTime }
 try {
     # Convert to CSV format manually to avoid encoding issues
     $csvContent = @()
-    $csvContent += '"DateTime","CommonName","CertificateFormat","FileName","FolderName","Source","Argument1","Argument2","Argument3","Argument4","Argument5"'
+    $csvContent += '"DateTime","CommonName","CertificateFormat","FileName","FolderName","Post-Script","Post-Script Arg 1","Post-Script Arg 2","Post-Script Arg 3","Post-Script Arg 4","Post-Script Arg 5"'
     
     foreach ($cert in $allCertificates) {
         $line = @(
@@ -474,7 +474,7 @@ try {
             "`"$($cert.CertificateFormat)`"",
             "`"$($cert.FileName)`"",
             "`"$($cert.FolderName)`"",
-            "`"$($cert.Source)`"",
+            "`"$($cert.PostScript)`"",
             "`"$($cert.Argument1)`"",
             "`"$($cert.Argument2)`"",
             "`"$($cert.Argument3)`"",
@@ -520,7 +520,7 @@ if ($csvData.Count -eq 0 -and (Test-Path $CSV_PATH)) {
                         CertificateFormat = $values[2]
                         FileName = $values[3]
                         FolderName = $values[4]
-                        Source = if ($values.Count -gt 5) { $values[5] } else { "Local" }
+                        PostScript = if ($values.Count -gt 5) { $values[5] } else { "False" }
                         Argument1 = if ($values.Count -gt 6) { $values[6] } else { "" }
                         Argument2 = if ($values.Count -gt 7) { $values[7] } else { "" }
                         Argument3 = if ($values.Count -gt 8) { $values[8] } else { "" }
@@ -545,9 +545,9 @@ $crtCount = 0
 $pemCount = 0
 $pfxCount = 0
 
-# Count certificates by source
-$awrCount = 0
-$localCount = 0
+# Count certificates by post-script status
+$trueCount = 0
+$falseCount = 0
 
 if ($csvData.Count -gt 0) {
     # Use a more robust counting method
@@ -559,15 +559,15 @@ if ($csvData.Count -gt 0) {
     $pemCount = $pemCerts.Count
     $pfxCount = $pfxCerts.Count
     
-    # Count by source
-    $awrCerts = @($csvData | Where-Object { $_.Source -eq "AWR" })
-    $localCerts = @($csvData | Where-Object { $_.Source -eq "Local" })
+    # Count by post-script status
+    $trueCerts = @($csvData | Where-Object { $_.PostScript -eq "True" })
+    $falseCerts = @($csvData | Where-Object { $_.PostScript -eq "False" })
     
-    $awrCount = $awrCerts.Count
-    $localCount = $localCerts.Count
+    $trueCount = $trueCerts.Count
+    $falseCount = $falseCerts.Count
     
     Write-LogMessage "Certificate counts: CRT=$crtCount, PEM=$pemCount, PFX=$pfxCount"
-    Write-LogMessage "Source counts: AWR=$awrCount, Local=$localCount"
+    Write-LogMessage "Post-Script counts: True=$trueCount, False=$falseCount"
 }
 
 # Determine if any certificate has arguments
@@ -624,8 +624,8 @@ $htmlLines += '        th { background-color: #2c5aa0; color: white; padding: 12
 $htmlLines += '        td { padding: 12px; border-bottom: 1px solid #e9ecef; }'
 $htmlLines += '        tr:nth-child(even) { background-color: #f8f9fa; }'
 $htmlLines += '        tr:hover { background-color: #e3f2fd; }'
-$htmlLines += '        .source-awr { background-color: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600; }'
-$htmlLines += '        .source-local { background-color: #6c757d; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600; }'
+$htmlLines += '        .postscript-true { background-color: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600; }'
+$htmlLines += '        .postscript-false { background-color: #6c757d; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600; }'
 $htmlLines += '        .no-data { text-align: center; padding: 40px; color: #666; font-style: italic; }'
 $htmlLines += '        .footer { margin-top: 20px; text-align: center; color: #666; font-size: 12px; }'
 $htmlLines += '    </style>'
@@ -648,8 +648,16 @@ $htmlLines += '            <div class="format-item"><span class="format-name">CR
 $htmlLines += '            <div class="format-item"><span class="format-name">PEM:</span> X509 with encrypted, password protected private key (single file)</div>'
 $htmlLines += '            <div class="format-item"><span class="format-name">PFX:</span> PKCS12 with embedded private key (single file)</div>'
 $htmlLines += '        </div>'
-$htmlLines += '        <p>You can enter up to five Parameters / Arguments to simulate details such as API Key etc. These parameters will be passed through to the agent and parsed in the below table.</p>'
-$htmlLines += "        <p>Any certificates present in the certificate folder, either through a local operation or admin web request without post script operation, will be marked 'Local'. Certificates placed in the folder and utilizing the admin web request script are marked 'AWR'</p>"
+$htmlLines += '        <p><strong>Post-Script Arguments:</strong> When initiating an Admin Web Request from Trust Lifecycle Manager, you can specify up to five arguments that will be passed from the request to the TLM Agent. These arguments are captured and made available to the post-script for use in automation. Common use cases include:</p>'
+$htmlLines += '        <ul>'
+$htmlLines += '            <li>API keys or authentication tokens for third-party services</li>'
+$htmlLines += '            <li>Target server hostnames or IP addresses</li>'
+$htmlLines += '            <li>Configuration parameters or environment identifiers</li>'
+$htmlLines += '            <li>Notification endpoints or webhook URLs</li>'
+$htmlLines += '            <li>Custom metadata or tracking identifiers</li>'
+$htmlLines += '        </ul>'
+$htmlLines += '        <p>The arguments passed during the Admin Web Request are displayed in the table below for tracking and audit purposes.</p>'
+$htmlLines += "        <p>Any certificates present in the certificate folder, either through a local operation or admin web request without post script operation, will be marked 'False'. Certificates placed in the folder and utilizing the admin web request script are marked 'True'</p>"
 $htmlLines += "        <p>An Admin Web Request Post Script can essentially do anything. In fact, this webpage was generated by an Admin Web Request, also. Another example could be a series of API calls to upload the generated certificates to a 3rd party appliance (i.e. Firewall, CDN etc.)</p>"
 $htmlLines += "        <p>Please note though that this page only gets updated when the script is being executed by an Admin Web Request. If you add certificates locally, they will not appear here until the next Admin Web Request is executed.</p>"
 $htmlLines += '    </div>'
@@ -679,12 +687,12 @@ $htmlLines += '                    <th>Common Name</th>'
 $htmlLines += '                    <th>Certificate Format</th>'
 $htmlLines += '                    <th>File Name</th>'
 $htmlLines += '                    <th>Folder Name</th>'
-$htmlLines += '                    <th>Source</th>'
+$htmlLines += '                    <th>Post-Script</th>'
 
 # Add argument columns if needed
 if ($hasArguments) {
     for ($i = 1; $i -le $maxArguments; $i++) {
-        $htmlLines += "                    <th>Argument $i</th>"
+        $htmlLines += "                    <th>Post-Script Arg $i</th>"
     }
 }
 
@@ -704,11 +712,11 @@ if ($csvData.Count -gt 0) {
         $htmlLines += "                    <td>$($row.FileName)</td>"
         $htmlLines += "                    <td>$($row.FolderName)</td>"
         
-        # Add source with styling
-        if ($row.Source -eq "AWR") {
-            $htmlLines += '                    <td><span class="source-awr">AWR</span></td>'
+        # Add post-script status with styling
+        if ($row.PostScript -eq "True") {
+            $htmlLines += '                    <td><span class="postscript-true">True</span></td>'
         } else {
-            $htmlLines += '                    <td><span class="source-local">Local</span></td>'
+            $htmlLines += '                    <td><span class="postscript-false">False</span></td>'
         }
         
         # Add argument cells if needed
@@ -724,7 +732,7 @@ if ($csvData.Count -gt 0) {
     }
 } else {
     Write-LogMessage "No data found, adding 'no data' row"
-    $colspanCount = 6  # Updated to include Source column
+    $colspanCount = 6  # Updated to include Post-Script column
     if ($hasArguments) { $colspanCount += $maxArguments }
     $htmlLines += "                <tr><td colspan='$colspanCount' class='no-data'>No certificate data available</td></tr>"
 }
@@ -746,7 +754,7 @@ try {
     Write-LogMessage "HTML report successfully generated: $HTML_OUTPUT_PATH"
     Write-LogMessage "Report contains $($csvData.Count) certificate entries"
     Write-LogMessage "Summary: CRT: $crtCount, PEM: $pemCount, PFX: $pfxCount"
-    Write-LogMessage "Sources: AWR: $awrCount, Local: $localCount"
+    Write-LogMessage "Post-Script Status: True: $trueCount, False: $falseCount"
 } catch {
     Write-LogMessage "ERROR: Failed to write HTML file: $_"
 }
