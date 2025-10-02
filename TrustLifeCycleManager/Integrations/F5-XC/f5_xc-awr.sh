@@ -31,7 +31,7 @@ The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
 # Configuration
-LEGAL_NOTICE_ACCEPT="true"
+LEGAL_NOTICE_ACCEPT="false"
 LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/f5_xc-data.log"
 
 # Function to log messages with timestamp
@@ -94,11 +94,13 @@ log_message "JSON_STRING decoded successfully"
 # Log the raw JSON for debugging (with API token obfuscated)
 log_message "=========================================="
 log_message "Raw JSON content (sensitive data obfuscated):"
+
 # Extract and obfuscate the 4th argument (API token) before logging
 ARGS_ARRAY_TEMP=$(echo "$JSON_STRING" | grep -oP '"args":\[\K[^]]*')
 ARG4_TEMP=$(echo "$ARGS_ARRAY_TEMP" | awk -F',' '{print $4}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
 if [ -n "$ARG4_TEMP" ]; then
     OBFUSCATED_ARG4=$(obfuscate_token "$ARG4_TEMP")
+
     # Replace the actual token with obfuscated version in the logged JSON
     JSON_STRING_OBFUSCATED=$(echo "$JSON_STRING" | sed "s/${ARG4_TEMP}/${OBFUSCATED_ARG4}/g")
     log_message "$JSON_STRING_OBFUSCATED"
@@ -112,6 +114,7 @@ log_message "Extracting arguments from JSON..."
 
 # First, let's log the args array (with API token obfuscated)
 ARGS_ARRAY=$(echo "$JSON_STRING" | grep -oP '"args":\[\K[^]]*')
+
 # Create obfuscated version for logging
 ARGS_ARRAY_LOG=$(echo "$ARGS_ARRAY")
 ARG4_RAW=$(echo "$ARGS_ARRAY" | awk -F',' '{print $4}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
@@ -142,7 +145,7 @@ ARGUMENT_4_OBFUSCATED=$(obfuscate_token "$ARGUMENT_4")
 log_message "ARGUMENT_4 extracted: '$ARGUMENT_4_OBFUSCATED'"
 log_message "ARGUMENT_4 length: ${#ARGUMENT_4}"
 
-# Extract Argument_5 - fifth argument
+# Extract Argument_5 - fifth argument (not used in F5 XC upload, but extracted for completeness)
 ARGUMENT_5=$(echo "$ARGS_ARRAY" | awk -F',' '{print $5}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
 log_message "ARGUMENT_5 extracted: '$ARGUMENT_5'"
 log_message "ARGUMENT_5 length: ${#ARGUMENT_5}"
