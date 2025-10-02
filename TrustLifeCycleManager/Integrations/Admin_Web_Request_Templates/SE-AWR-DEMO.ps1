@@ -41,7 +41,7 @@
 
 # Configuration
 $LEGAL_NOTICE_ACCEPT = "true"
-$LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\dc1_data.log"
+$LOGFILE = "C:\Program Files\DigiCert\TLM Agent\awr-demo\awr-demo.log"
 
 # Function to log messages with timestamp
 function Write-LogMessage {
@@ -357,7 +357,7 @@ if (Test-Path $CSV_PATH) {
                         CertificateFormat = $values[2]
                         FileName = $values[3]
                         FolderName = $values[4]
-                        Source = if ($values.Count -gt 5) { $values[5] } else { "Switch" }
+                        Source = if ($values.Count -gt 5) { $values[5] } else { "Local" }
                         Argument1 = if ($values.Count -gt 6) { $values[6] } else { "" }
                         Argument2 = if ($values.Count -gt 7) { $values[7] } else { "" }
                         Argument3 = if ($values.Count -gt 8) { $values[8] } else { "" }
@@ -374,6 +374,13 @@ if (Test-Path $CSV_PATH) {
     }
 } else {
     Write-LogMessage "No existing CSV found, will create new one"
+}
+
+# Keep track of the current AWR folder name if we have one
+$currentAWRFolderName = ""
+if ($CERT_FOLDER) {
+    $currentAWRFolderName = Split-Path $CERT_FOLDER -Leaf
+    Write-LogMessage "Current AWR folder name: $currentAWRFolderName"
 }
 
 # Scan .secrets directory for all certificates and update CSV
@@ -398,83 +405,56 @@ if (Test-Path $SECRETS_PATH) {
         # Check if this certificate already exists in CSV data
         $existingCert = $existingData | Where-Object { "$($_.FolderName)|$($_.FileName)" -eq $certKey }
         
+        # Determine source: if this certificate is in the current AWR folder, mark it as AWR
+        $source = "Local"
+        if ($currentAWRFolderName -and ($folderName -eq $currentAWRFolderName)) {
+            $source = "AWR"
+            Write-LogMessage "Certificate $fileName is in current AWR folder, marking as AWR"
+        }
+        
         if ($existingCert) {
-            # Update existing entry (preserve arguments and source)
+            # Update existing entry
             $existingCert.DateTime = $dateTime
             $existingCert.CommonName = $commonName
             $existingCert.CertificateFormat = $format
-            # Keep existing Source value
+            
+            # Update source if this is in the current AWR folder
+            if ($source -eq "AWR") {
+                $existingCert.Source = "AWR"
+                # Also update arguments for AWR certificates
+                if ($currentAWRFolderName -and ($folderName -eq $currentAWRFolderName)) {
+                    $existingCert.Argument1 = $ARGUMENT_1
+                    $existingCert.Argument2 = $ARGUMENT_2
+                    $existingCert.Argument3 = $ARGUMENT_3
+                    $existingCert.Argument4 = $ARGUMENT_4
+                    $existingCert.Argument5 = $ARGUMENT_5
+                }
+            }
+            
             $allCertificates += $existingCert
             Write-LogMessage "Updated existing certificate: $fileName (Source: $($existingCert.Source))"
         } else {
-            # Add new certificate from scan - mark as "Switch"
+            # Add new certificate from scan
             $newCert = [PSCustomObject]@{
                 DateTime = $dateTime
                 CommonName = $commonName
                 CertificateFormat = $format
                 FileName = $fileName
                 FolderName = $folderName
-                Source = "Switch"
-                Argument1 = ""
-                Argument2 = ""
-                Argument3 = ""
-                Argument4 = ""
-                Argument5 = ""
+                Source = $source
+                Argument1 = if ($source -eq "AWR") { $ARGUMENT_1 } else { "" }
+                Argument2 = if ($source -eq "AWR") { $ARGUMENT_2 } else { "" }
+                Argument3 = if ($source -eq "AWR") { $ARGUMENT_3 } else { "" }
+                Argument4 = if ($source -eq "AWR") { $ARGUMENT_4 } else { "" }
+                Argument5 = if ($source -eq "AWR") { $ARGUMENT_5 } else { "" }
             }
             $allCertificates += $newCert
-            Write-LogMessage "Added new certificate from scan: $fileName (Source: Switch)"
+            Write-LogMessage "Added new certificate from scan: $fileName (Source: $source)"
         }
     }
 } else {
     Write-LogMessage "WARNING: Secrets directory not found: $SECRETS_PATH"
     $allCertificates = $existingData
-}
-
-# Add/update current certificate with arguments if it exists
-if ($CERT_FILE -and $CERT_FOLDER) {
-    $currentDateTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $currentCommonName = Get-CommonNameFromPath $CERT_FOLDER
-    $currentFolderName = Split-Path $CERT_FOLDER -Leaf
-    $currentCertKey = "$currentFolderName|$CERT_FILE"
-    
-    Write-LogMessage "Processing current certificate: $CERT_FILE with format: $CERT_FILE_FORMAT"
-    Write-LogMessage "Current certificate arguments: 1='$ARGUMENT_1', 2='$ARGUMENT_2', 3='$ARGUMENT_3', 4='$ARGUMENT_4', 5='$ARGUMENT_5'"
-    
-    # Find and update current certificate
-    $currentCert = $allCertificates | Where-Object { "$($_.FolderName)|$($_.FileName)" -eq $currentCertKey }
-    
-    if ($currentCert) {
-        # Update existing entry with current arguments and mark as "AWR"
-        $currentCert.DateTime = $currentDateTime
-        $currentCert.CommonName = $currentCommonName
-        $currentCert.CertificateFormat = $CERT_FILE_FORMAT
-        $currentCert.Source = "AWR"
-        $currentCert.Argument1 = $ARGUMENT_1
-        $currentCert.Argument2 = $ARGUMENT_2
-        $currentCert.Argument3 = $ARGUMENT_3
-        $currentCert.Argument4 = $ARGUMENT_4
-        $currentCert.Argument5 = $ARGUMENT_5
-        Write-LogMessage "Updated existing current certificate with arguments: $CERT_FILE (Source: AWR)"
-    } else {
-        # Add new current certificate - mark as "AWR"
-        $newCurrentCert = [PSCustomObject]@{
-            DateTime = $currentDateTime
-            CommonName = $currentCommonName
-            CertificateFormat = $CERT_FILE_FORMAT
-            FileName = $CERT_FILE
-            FolderName = $currentFolderName
-            Source = "AWR"
-            Argument1 = $ARGUMENT_1
-            Argument2 = $ARGUMENT_2
-            Argument3 = $ARGUMENT_3
-            Argument4 = $ARGUMENT_4
-            Argument5 = $ARGUMENT_5
-        }
-        $allCertificates += $newCurrentCert
-        Write-LogMessage "Added new current certificate with arguments: $CERT_FILE (Source: AWR)"
-    }
-} else {
-    Write-LogMessage "WARNING: No current certificate file found or cert folder missing. CERT_FILE='$CERT_FILE', CERT_FOLDER='$CERT_FOLDER'"
 }
 
 # Sort certificates by date (oldest first)
@@ -540,7 +520,7 @@ if ($csvData.Count -eq 0 -and (Test-Path $CSV_PATH)) {
                         CertificateFormat = $values[2]
                         FileName = $values[3]
                         FolderName = $values[4]
-                        Source = if ($values.Count -gt 5) { $values[5] } else { "Switch" }
+                        Source = if ($values.Count -gt 5) { $values[5] } else { "Local" }
                         Argument1 = if ($values.Count -gt 6) { $values[6] } else { "" }
                         Argument2 = if ($values.Count -gt 7) { $values[7] } else { "" }
                         Argument3 = if ($values.Count -gt 8) { $values[8] } else { "" }
@@ -567,7 +547,7 @@ $pfxCount = 0
 
 # Count certificates by source
 $awrCount = 0
-$switchCount = 0
+$localCount = 0
 
 if ($csvData.Count -gt 0) {
     # Use a more robust counting method
@@ -581,13 +561,13 @@ if ($csvData.Count -gt 0) {
     
     # Count by source
     $awrCerts = @($csvData | Where-Object { $_.Source -eq "AWR" })
-    $switchCerts = @($csvData | Where-Object { $_.Source -eq "Switch" })
+    $localCerts = @($csvData | Where-Object { $_.Source -eq "Local" })
     
     $awrCount = $awrCerts.Count
-    $switchCount = $switchCerts.Count
+    $localCount = $localCerts.Count
     
     Write-LogMessage "Certificate counts: CRT=$crtCount, PEM=$pemCount, PFX=$pfxCount"
-    Write-LogMessage "Source counts: AWR=$awrCount, Switch=$switchCount"
+    Write-LogMessage "Source counts: AWR=$awrCount, Local=$localCount"
 }
 
 # Determine if any certificate has arguments
@@ -624,6 +604,14 @@ $htmlLines += '        .header { background-color: #2c5aa0; color: white; paddin
 $htmlLines += '        .header h1 { margin: 0; font-size: 28px; }'
 $htmlLines += '        .report-info { background-color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }'
 $htmlLines += '        .report-info h3 { margin-top: 0; color: #2c5aa0; }'
+$htmlLines += '        .synopsis { background-color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }'
+$htmlLines += '        .synopsis h3 { margin-top: 0; color: #2c5aa0; }'
+$htmlLines += '        .synopsis p { margin-bottom: 10px; line-height: 1.6; }'
+$htmlLines += '        .synopsis ul { margin-top: 10px; margin-bottom: 10px; }'
+$htmlLines += '        .synopsis li { margin-bottom: 5px; }'
+$htmlLines += '        .synopsis .format-list { background-color: #f8f9fa; padding: 10px; border-radius: 4px; margin: 10px 0; }'
+$htmlLines += '        .synopsis .format-item { margin-bottom: 8px; }'
+$htmlLines += '        .synopsis .format-name { font-weight: bold; color: #2c5aa0; }'
 $htmlLines += '        .summary { background-color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }'
 $htmlLines += '        .summary h3 { margin-top: 0; color: #2c5aa0; }'
 $htmlLines += '        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }'
@@ -637,7 +625,7 @@ $htmlLines += '        td { padding: 12px; border-bottom: 1px solid #e9ecef; }'
 $htmlLines += '        tr:nth-child(even) { background-color: #f8f9fa; }'
 $htmlLines += '        tr:hover { background-color: #e3f2fd; }'
 $htmlLines += '        .source-awr { background-color: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600; }'
-$htmlLines += '        .source-switch { background-color: #6c757d; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600; }'
+$htmlLines += '        .source-local { background-color: #6c757d; color: white; padding: 2px 8px; border-radius: 4px; font-weight: 600; }'
 $htmlLines += '        .no-data { text-align: center; padding: 40px; color: #666; font-style: italic; }'
 $htmlLines += '        .footer { margin-top: 20px; text-align: center; color: #666; font-size: 12px; }'
 $htmlLines += '    </style>'
@@ -648,9 +636,22 @@ $htmlLines += '        <h1>Solution Engineering Admin Web Request Demo</h1>'
 $htmlLines += '    </div>'
 $htmlLines += '    <div class="report-info">'
 $htmlLines += '        <h3>Report Information</h3>'
-$htmlLines += '        <p><strong>Server:</strong> awr-demo</p>'
-$htmlLines += '        <p><strong>Location:</strong> Cloudshare</p>'
-$htmlLines += "        <p><strong>Generated:</strong> $currentDateTime</p>"
+$htmlLines += '        <p><strong>Server:</strong> Cloudshare (uvo1eleeqhoqp63nmxa.vm.cld.sr)</p>'
+$htmlLines += "        <p><strong>Server Time:</strong> $currentDateTime</p>"
+$htmlLines += '    </div>'
+$htmlLines += '    <div class="synopsis">'
+$htmlLines += '        <h3>Synopsis</h3>'
+$htmlLines += '        <p>This is to demonstrate the Admin Web Request initiated from Trust Lifecycle Manager.</p>'
+$htmlLines += '        <p>This can demonstrate three certificate delivery formats:</p>'
+$htmlLines += '        <div class="format-list">'
+$htmlLines += '            <div class="format-item"><span class="format-name">CRT:</span> Plain Text X509 containing two files, cert + private key</div>'
+$htmlLines += '            <div class="format-item"><span class="format-name">PEM:</span> X509 with encrypted, password protected private key (single file)</div>'
+$htmlLines += '            <div class="format-item"><span class="format-name">PFX:</span> PKCS12 with embedded private key (single file)</div>'
+$htmlLines += '        </div>'
+$htmlLines += '        <p>You can enter up to five Parameters / Arguments to simulate details such as API Key etc. These parameters will be passed through to the agent and parsed in the below table.</p>'
+$htmlLines += "        <p>Any certificates present in the certificate folder, either through a local operation or admin web request without post script operation, will be marked 'Local'. Certificates placed in the folder and utilizing the admin web request script are marked 'AWR'</p>"
+$htmlLines += "        <p>An Admin Web Request Post Script can essentially do anything. In fact, this webpage was generated by an Admin Web Request, also. Another example could be a series of API calls to upload the generated certificates to a 3rd party appliance (i.e. Firewall, CDN etc.)</p>"
+$htmlLines += "        <p>Please note though that this page only gets updated when the script is being executed by an Admin Web Request. If you add certificates locally, they will not appear here until the next Admin Web Request is executed.</p>"
 $htmlLines += '    </div>'
 $htmlLines += '    <div class="summary">'
 $htmlLines += '        <h3>Certificate Summary</h3>'
@@ -707,7 +708,7 @@ if ($csvData.Count -gt 0) {
         if ($row.Source -eq "AWR") {
             $htmlLines += '                    <td><span class="source-awr">AWR</span></td>'
         } else {
-            $htmlLines += '                    <td><span class="source-switch">Switch</span></td>'
+            $htmlLines += '                    <td><span class="source-local">Local</span></td>'
         }
         
         # Add argument cells if needed
@@ -745,7 +746,7 @@ try {
     Write-LogMessage "HTML report successfully generated: $HTML_OUTPUT_PATH"
     Write-LogMessage "Report contains $($csvData.Count) certificate entries"
     Write-LogMessage "Summary: CRT: $crtCount, PEM: $pemCount, PFX: $pfxCount"
-    Write-LogMessage "Sources: AWR: $awrCount, Switch: $switchCount"
+    Write-LogMessage "Sources: AWR: $awrCount, Local: $localCount"
 } catch {
     Write-LogMessage "ERROR: Failed to write HTML file: $_"
 }
