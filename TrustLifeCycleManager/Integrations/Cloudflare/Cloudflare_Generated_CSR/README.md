@@ -1,485 +1,379 @@
-# Cloudflare-DigiCert Certificate Automation Script
+# Cloudflare Certificate Automation with DigiCert
 
-[![Cloudflare](https://img.shields.io/badge/Cloudflare-API%20v4-orange.svg)](https://developers.cloudflare.com/api/)
-[![DigiCert](https://img.shields.io/badge/DigiCert-TLM%20API-blue.svg)](https://dev.digicert.com/)
-[![Bash](https://img.shields.io/badge/bash-%3E%3D4.0-green.svg)](https://www.gnu.org/software/bash/)
-[![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
+Automated certificate provisioning and renewal script that integrates DigiCert certificate issuance with Cloudflare custom certificate deployment.
 
-Automated SSL/TLS certificate lifecycle management for Cloudflare zones using DigiCert Trust Lifecycle Manager (TLM). This script automates CSR generation, certificate issuance, deployment, and renewal with intelligent CSR cleanup capabilities.
+## 📋 Overview
 
-## 📋 Table of Contents
-
-- [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Usage](#usage)
-  - [Interactive Mode](#interactive-mode)
-  - [Renewal Mode](#renewal-mode)
-- [Automation Setup](#automation-setup)
-- [CSR Management](#csr-management)
-- [Logging](#logging)
-- [Security](#security)
-- [Troubleshooting](#troubleshooting)
-- [API Reference](#api-reference)
-- [Legal Notice](#legal-notice)
+This bash script automates the complete certificate lifecycle:
+1. Creates a Certificate Signing Request (CSR) in Cloudflare
+2. Submits the CSR to DigiCert for certificate issuance
+3. Retrieves the issued certificate from DigiCert
+4. Uploads the certificate to Cloudflare
+5. Manages certificate and CSR cleanup based on retention policies
 
 ## ✨ Features
 
-### Core Capabilities
-- **Automated Certificate Lifecycle**: End-to-end automation from CSR generation to certificate deployment
-- **Dual Mode Operation**: Interactive mode for manual execution, renewal mode for scheduled automation
-- **Intelligent CSR Management**: Automatic cleanup of old CSRs with configurable retention policies
-- **Certificate Replacement**: Seamless replacement of existing certificates with zero downtime
-- **SAN Support**: Automatic inclusion of www subdomain in certificate SANs
-- **Comprehensive Logging**: Detailed logging with sensitive data protection
+- **Fully Automated Workflow**: End-to-end certificate provisioning without manual intervention
+- **Interactive & Renewal Modes**: Run manually with prompts or schedule for automatic renewal
+- **Smart Certificate Management**: Three deletion strategies for existing certificates
+- **CSR Retention Policy**: Configurable cleanup of old Certificate Signing Requests
+- **Comprehensive Logging**: Detailed logs for auditing and troubleshooting
+- **Secure Credential Handling**: Masks sensitive tokens in logs (unless debug mode enabled)
+- **Cron-Ready**: Built for scheduled execution with detailed scheduling examples
 
-### Advanced Features
-- **Zone Auto-Detection**: Automatically determines domain from Cloudflare zone ID
-- **Existing Certificate Detection**: Checks for and manages existing certificates
-- **CSR Retention Policy**: Configurable retention of historical CSRs (0-unlimited)
-- **Bundle Method Support**: Force bundle method for optimal compatibility
-- **Certificate Validation**: Automatic validation of issued certificates
-- **Error Recovery**: Robust error handling with detailed diagnostics
+## 🔧 Prerequisites
 
-## 📦 Prerequisites
+### Required Tools
+- `bash` (v4.0+)
+- `curl`
+- `jq` (JSON processor)
+- `openssl` (for certificate parsing)
 
-### System Requirements
-- **Operating System**: Linux/Unix with Bash 4.0+
-- **Required Tools**:
-  - `curl` - API communication
-  - `jq` - JSON processing
-  - `openssl` - Certificate validation (optional)
-  - `tee` - Logging functionality
+### Required Credentials
+1. **Cloudflare**:
+   - Zone ID (32-character alphanumeric)
+   - API Token with permissions:
+     - Zone.SSL and Certificates: Edit
+     - Zone.Zone: Read
 
-### Account Requirements
+2. **DigiCert**:
+   - API Key with certificate issuance permissions
+   - Profile ID for certificate template
 
-#### Cloudflare
-- Active Cloudflare account with zone management access
-- API Token with permissions:
-  - `Zone:SSL and Certificates:Edit`
-  - `Zone:SSL and Certificates:Read`
-  - `Zone:Read`
+## 📥 Installation
 
-#### DigiCert
-- DigiCert ONE account with TLM access
-- API Key with certificate issuance permissions
-- Configured certificate profile in TLM
-
-## 🚀 Installation
-
-### 1. Download the Script
-
+1. Clone or download the script:
 ```bash
-# Using wget
-wget https://raw.githubusercontent.com/your-org/cert-automation/main/cert_automation.sh
-
-# Or using curl
-curl -O https://raw.githubusercontent.com/your-org/cert-automation/main/cert_automation.sh
+wget https://your-repo/csr_in_cloudflare-api.sh
+chmod +x csr_in_cloudflare-api.sh
 ```
 
-### 2. Make Executable
-
+2. Review and accept the legal notice by ensuring this line is set:
 ```bash
-chmod +x cert_automation.sh
-```
-
-### 3. Accept Legal Notice
-
-Edit the script and change the legal notice acceptance:
-
-```bash
-# Change from:
-LEGAL_NOTICE_ACCEPT="false"
-
-# To:
 LEGAL_NOTICE_ACCEPT="true"
-```
-
-### 4. Verify Dependencies
-
-```bash
-# Check required commands
-for cmd in curl jq tee; do
-    command -v $cmd >/dev/null 2>&1 || echo "Missing: $cmd"
-done
-
-# Install missing dependencies (Ubuntu/Debian)
-sudo apt-get update
-sudo apt-get install -y curl jq
 ```
 
 ## ⚙️ Configuration
 
-### Default Configuration Values
-
-The script includes default values that can be customized:
+The script uses default values that can be overridden during runtime:
 
 ```bash
-DEFAULT_ZONE_ID="your_cloudflare_zone_id"
-DEFAULT_AUTH_TOKEN="your_cloudflare_auth_token"
-DEFAULT_DIGICERT_API_KEY="your_digicert_api_key"
-DEFAULT_PROFILE_ID="your_digicert_profile_id"
+DEFAULT_ZONE_ID="your-cloudflare-zone-id"
+DEFAULT_AUTH_TOKEN="your-cloudflare-api-token"
+DEFAULT_DIGICERT_API_KEY="your-digicert-api-key"
+DEFAULT_PROFILE_ID="your-digicert-profile-id"
 DEFAULT_LOG_FILE="./digicert_cert_automation_$(date +%Y%m%d_%H%M%S).log"
 DEFAULT_CSR_RETENTION="5"
+DEFAULT_CERT_DELETE_MODE="matching"
 ```
 
-### Configuration Methods
+### Certificate Deletion Modes
 
-#### Method 1: Edit Script Defaults
-Modify the default values directly in the script for permanent configuration.
+| Mode | Behavior | Use Case |
+|------|----------|----------|
+| `none` | Keep all existing certificates | Multiple certificates for different purposes |
+| `matching` | Delete only certificates covering the same hostnames | **Recommended** - Clean certificate replacement |
+| `all` | Delete ALL existing certificates | Clean slate deployment |
 
-#### Method 2: Interactive Input
-Run the script without modifications and enter values when prompted.
+### CSR Retention Policy
 
-#### Method 3: Environment Variables (Future Enhancement)
-```bash
-export CLOUDFLARE_ZONE_ID="your_zone_id"
-export CLOUDFLARE_AUTH_TOKEN="your_token"
-export DIGICERT_API_KEY="your_api_key"
-export DIGICERT_PROFILE_ID="your_profile_id"
-```
+Controls how many historical CSRs to retain:
+- `0` - Delete all old CSRs (keep only current)
+- `5` - Keep 5 most recent CSRs (default)
+- `10+` - Keep more for audit trail
 
-## 📘 Usage
+## 🚀 Usage
 
 ### Interactive Mode
 
-Default mode with user prompts for configuration and confirmation:
+Run the script with prompts for all configuration:
 
 ```bash
-./cert_automation.sh
+./csr_in_cloudflare-api.sh
 ```
 
-#### Interactive Mode Flow:
-1. Legal notice acceptance check
-2. Configuration prompts (with defaults)
-3. Zone verification and domain detection
-4. Existing certificate check
-5. CSR generation at Cloudflare
-6. Certificate issuance via DigiCert
-7. Certificate upload to Cloudflare
-8. Old CSR cleanup
-9. Optional certificate file saving
+You'll be prompted for:
+- Cloudflare Zone ID
+- Cloudflare Auth Token
+- DigiCert API Key
+- DigiCert Profile ID
+- Log file location
+- CSR retention count
+- Certificate deletion mode
 
-### Renewal Mode
+Press Enter to accept default values shown in brackets.
 
-Automated mode for scheduled execution without prompts:
+### Renewal Mode (Automated)
+
+Run with `--renewal` flag to use all default values without prompts:
 
 ```bash
-./cert_automation.sh --renewal
+./csr_in_cloudflare-api.sh --renewal
 ```
 
-#### Renewal Mode Features:
-- Uses all default configuration values
-- No user interaction required
-- Automatically replaces existing certificates
-- Saves certificate files without prompting
-- Perfect for cron jobs and automation
+Perfect for cron jobs and scheduled automation.
 
-### Command Line Options
+### Help
+
+Display usage information:
 
 ```bash
-# Show help
-./cert_automation.sh --help
-
-# Run in renewal mode
-./cert_automation.sh --renewal
+./csr_in_cloudflare-api.sh --help
 ```
 
-## 🔄 Automation Setup
+## 📊 Workflow Diagram
 
-### Cron Job Configuration
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Step 0: Fetch Zone Details                                   │
+│ → Retrieve domain name from Cloudflare Zone ID              │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Step 1: Check Existing Certificates                          │
+│ → List all custom certificates                              │
+│ → Apply deletion strategy (none/all/matching)               │
+│ → Delete selected certificates                              │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Step 2: Create CSR at Cloudflare                            │
+│ → Generate CSR with domain + www.domain SANs                │
+│ → Store CSR ID for later reference                          │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Step 3: Extract CSR                                          │
+│ → Remove PEM headers/footers                                │
+│ → Format for DigiCert API submission                        │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Step 4: Submit to DigiCert                                   │
+│ → Send CSR with profile and seat information                │
+│ → Receive signed certificate                                │
+│ → Validate certificate issuance                             │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Step 5: Upload to Cloudflare                                │
+│ → Format certificate for Cloudflare API                     │
+│ → Upload with bundle_method: force                          │
+│ → Link to original CSR ID                                   │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Step 6: Display Certificate Details                          │
+│ → Show certificate ID, status, expiration                   │
+│ → Verify SANs (Subject Alternative Names)                   │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Step 7: CSR Cleanup                                          │
+│ → Count total CSRs for domain                               │
+│ → Apply retention policy                                    │
+│ → Delete oldest CSRs beyond retention limit                 │
+└─────────────────────────────────────────────────────────────┘
+```
 
-#### Daily Renewal (Recommended)
+## 🔄 Automation & Scheduling
+
+### Cron Examples
+
+**Daily at 2:00 AM** (Recommended for active renewals):
 ```bash
-# Check and renew daily at 2:00 AM
-0 2 * * * /path/to/cert_automation.sh --renewal >> /var/log/cert_renewal.log 2>&1
+0 2 * * * /path/to/csr_in_cloudflare-api.sh --renewal >> /var/log/cert_renewal.log 2>&1
 ```
 
-#### Weekly Renewal
+**Weekly on Sundays at 2:00 AM**:
 ```bash
-# Run every Sunday at 2:00 AM
-0 2 * * 0 /path/to/cert_automation.sh --renewal >> /var/log/cert_renewal.log 2>&1
+0 2 * * 0 /path/to/csr_in_cloudflare-api.sh --renewal >> /var/log/cert_renewal.log 2>&1
 ```
 
-#### Monthly Renewal
+**Monthly on the 1st at 2:00 AM**:
 ```bash
-# Run on the 1st of each month at 2:00 AM
-0 2 1 * * /path/to/cert_automation.sh --renewal >> /var/log/cert_renewal.log 2>&1
+0 2 1 * * /path/to/csr_in_cloudflare-api.sh --renewal >> /var/log/cert_renewal.log 2>&1
 ```
 
-### Systemd Timer (Alternative)
-
-Create `/etc/systemd/system/cert-renewal.service`:
-
-```ini
-[Unit]
-Description=Certificate Renewal Service
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=/path/to/cert_automation.sh --renewal
-StandardOutput=journal
-StandardError=journal
-```
-
-Create `/etc/systemd/system/cert-renewal.timer`:
-
-```ini
-[Unit]
-Description=Daily Certificate Renewal
-Requires=cert-renewal.service
-
-[Timer]
-OnCalendar=daily
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-Enable the timer:
-```bash
-sudo systemctl enable cert-renewal.timer
-sudo systemctl start cert-renewal.timer
-```
-
-## 🗂️ CSR Management
-
-### Retention Policy
-
-The script implements intelligent CSR cleanup with configurable retention:
-
-| Setting | Behavior |
-|---------|----------|
-| `0` | Delete all old CSRs after successful certificate deployment |
-| `1-n` | Keep the n most recent CSRs, delete older ones |
-| Default (`5`) | Keep 5 most recent CSRs |
-
-### CSR Lifecycle
-
-```mermaid
-graph LR
-    A[Create CSR] --> B[Issue Certificate]
-    B --> C[Deploy Certificate]
-    C --> D{Retention Check}
-    D -->|Over Limit| E[Delete Old CSRs]
-    D -->|Under Limit| F[Keep All CSRs]
-```
-
-### Manual CSR Management
+### Monitor Logs
 
 ```bash
-# List all CSRs for a zone
-curl -X GET "https://api.cloudflare.com/client/v4/zones/{zone_id}/custom_csrs" \
-     -H "Authorization: Bearer {auth_token}"
+# View real-time logs
+tail -f /var/log/cert_renewal.log
 
-# Delete specific CSR
-curl -X DELETE "https://api.cloudflare.com/client/v4/zones/{zone_id}/custom_csrs/{csr_id}" \
-     -H "Authorization: Bearer {auth_token}"
+# Search for errors
+grep -i error /var/log/cert_renewal.log
+
+# View last execution
+tail -n 100 /var/log/cert_renewal.log
 ```
 
-## 📝 Logging
+## 📝 Output Files
 
-### Log Levels and Information
+When you choose to save certificate files:
 
-The script provides comprehensive logging with different verbosity levels:
+| File | Description |
+|------|-------------|
+| `{domain}_cert_{timestamp}.pem` | The issued certificate in PEM format |
+| `{domain}_info_{timestamp}.txt` | Certificate metadata and configuration details |
+| `digicert_cert_automation_{timestamp}.log` | Detailed execution log |
 
-| Level | Information | Destination |
-|-------|-------------|-------------|
-| Standard | Operations, status, errors | Console + Log File |
-| Sensitive | API responses, tokens (masked) | Log File Only |
-| Debug | Full API responses | Log File Only |
+## 🔍 Certificate Deletion Mode Details
 
-### Log File Structure
+### Mode: `none`
+```
+Before: [Cert A] [Cert B] [Cert C]
+After:  [Cert A] [Cert B] [Cert C] [NEW CERT]
+```
+**Use when:** You need multiple certificates active simultaneously.
+
+### Mode: `matching` (Recommended)
+```
+Before: [example.com + www] [other.com] [api.example.com]
+After:  [other.com] [api.example.com] [NEW example.com + www]
+```
+**Use when:** Replacing a certificate for the same domain(s).
+
+### Mode: `all`
+```
+Before: [Cert A] [Cert B] [Cert C]
+After:  [NEW CERT]
+```
+**Use when:** Cleaning up all certificates before fresh deployment.
+
+## 🔐 Security Considerations
+
+1. **Credential Storage**: 
+   - Store API keys and tokens securely
+   - Consider using environment variables or secret management systems
+   - Never commit credentials to version control
+
+2. **Log Files**:
+   - Logs mask sensitive tokens by default
+   - Set `DEBUG_MODE="false"` in production
+   - Restrict log file permissions: `chmod 600 logfile.log`
+
+3. **Script Permissions**:
+   ```bash
+   chmod 700 csr_in_cloudflare-api.sh
+   ```
+
+4. **API Token Permissions**:
+   - Use Cloudflare API tokens (not Global API Key)
+   - Grant minimum required permissions
+   - Rotate tokens regularly
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**"Could not fetch zone details"**
+- Verify Zone ID is correct
+- Check API token has Zone:Read permission
+- Ensure token hasn't expired
+
+**"No certificate received from DigiCert"**
+- Validate DigiCert API key
+- Check Profile ID is active
+- Verify seat_id quota isn't exceeded
+
+**"Error uploading certificate to Cloudflare"**
+- Confirm custom certificate quota
+- Check certificate format
+- Verify CSR ID exists
+
+**CSR Deletion Failures**
+- Old CSRs may be in use by active certificates
+- Check retention policy allows deletion
+- Review CSR cleanup logs
+
+### Debug Mode
+
+Enable detailed logging (development only):
+```bash
+# In the script, change:
+DEBUG_MODE="true"
+```
+
+This logs full API responses and token values. **Never use in production.**
+
+## 📊 Example Execution Output
 
 ```
-============================== Certificate Automation Log ==============================
-Started: Wed Jan 15 14:30:00 UTC 2025
-Mode: RENEWAL (Automated)
-Configuration: CSR Retention = 5
-========================================================================================
+============================================================================
+Starting certificate automation process...
+Log file: ./digicert_cert_automation_20251017_143022.log
+============================================================================
 
 Step 0: Fetching zone details from Cloudflare...
 ✓ Zone found:
   Domain: example.com
   Status: active
 
-Step 1: Checking for existing certificates...
-[... detailed process logs ...]
+Step 1: Checking for existing certificates for domain: example.com...
+  Certificate deletion mode: matching
+  Found 2 existing certificate(s)
+  Mode 'matching': Will only delete certificates covering example.com or www.example.com
+  Looking for certificates matching: example.com, www.example.com
+    Found matching certificate ID abc123 covering: example.com, www.example.com
+  Found 1 matching certificate(s) to delete
+    Deleting certificate ID: abc123
+      ✓ Successfully deleted certificate
+  Certificate deletion summary: 1 deleted, 0 failed
 
-========================================================================================
-Completed: Wed Jan 15 14:30:15 UTC 2025
-========================================================================================
+Step 2: Creating CSR at Cloudflare for example.com...
+✓ CSR created successfully at Cloudflare
+  CSR ID: csr_xyz789
+  SANs: ["example.com","www.example.com"]
+
+Step 3: Extracting CSR...
+✓ CSR extracted (1245 characters)
+
+Step 4: Submitting CSR to DigiCert for certificate issuance...
+  Requesting certificate for: example.com
+  Including DNS names: example.com, www.example.com
+✓ Certificate issued successfully!
+  Serial Number: 0F3A7B8C...
+
+Step 5: Uploading new certificate to Cloudflare...
+  Creating new certificate...
+✓ Certificate uploaded successfully to Cloudflare!
+
+Cloudflare Certificate Details:
+  Certificate ID: cert_new123
+  Status: active
+  Hosts: ["example.com","www.example.com"]
+  Expires: 2026-01-17T14:30:22Z
+  Custom CSR ID: csr_xyz789
+  Deletion Mode Used: matching
+
+Step 7: CSR Cleanup...
+  Found 6 total CSRs for example.com
+  Retention policy: Keep 5 old CSRs
+  Cleaning up old CSRs...
+  Will delete 1 old CSRs, keeping the 5 most recent
+    Deleting CSR: csr_old123
+  ✓ Deleted 1 old CSRs
+
+✅ Process complete!
 ```
 
-### Log Rotation
+## 📚 Additional Resources
 
-Implement log rotation to manage log file sizes:
+- [Cloudflare API Documentation](https://developers.cloudflare.com/api/)
+- [DigiCert API Documentation](https://docs.digicert.com/)
+- [Custom Certificates on Cloudflare](https://developers.cloudflare.com/ssl/edge-certificates/custom-certificates/)
 
-```bash
-# Create /etc/logrotate.d/cert-automation
-/var/log/cert_renewal.log {
-    daily
-    rotate 30
-    compress
-    delaycompress
-    notifempty
-    create 640 root adm
-}
-```
-
-## 🔒 Security
-
-### Best Practices
-
-#### 1. Credential Protection
-- **Never commit credentials** to version control
-- Store sensitive values in environment variables or secure vaults
-- Use read-only permissions for configuration files
-
-#### 2. API Token Scoping
-- Create Cloudflare API tokens with minimal required permissions
-- Use zone-specific tokens when possible
-- Regularly rotate API credentials
-
-#### 3. File Permissions
-```bash
-# Restrict script permissions
-chmod 700 cert_automation.sh
-
-# Secure log directory
-chmod 750 /var/log/cert-automation/
-chown root:adm /var/log/cert-automation/
-```
-
-#### 4. Audit and Monitoring
-- Review logs regularly for anomalies
-- Set up alerts for failed renewals
-- Monitor certificate expiration dates
-
-### Sensitive Data Handling
-
-The script implements several security measures:
-
-- API tokens are masked in console output
-- Full tokens only appear in log files (ensure proper file permissions)
-- Option to read credentials from environment variables
-- Secure storage of generated certificates
-
-## 🔍 Troubleshooting
-
-### Common Issues
-
-#### Issue: Legal Notice Not Accepted
-```
-LEGAL NOTICE NOT ACCEPTED
-Script execution terminated.
-```
-**Solution**: Edit the script and set `LEGAL_NOTICE_ACCEPT="true"`
-
-#### Issue: Zone Not Found
-```
-Error: Could not fetch zone details
-```
-**Solution**: Verify Zone ID and API token permissions
-
-#### Issue: CSR Creation Fails
-```
-Error creating CSR at Cloudflare
-```
-**Solution**: Check API token has SSL certificate edit permissions
-
-#### Issue: Certificate Not Issued
-```
-Error: No certificate received from DigiCert
-```
-**Solution**: 
-- Verify DigiCert API key and profile ID
-- Check profile configuration in DigiCert TLM
-- Ensure profile is active and has available seats
-
-#### Issue: Certificate Upload Fails
-```
-Error creating certificate in Cloudflare
-```
-**Solution**: 
-- Verify the certificate format is correct
-- Check for existing certificates with same hostname
-- Ensure CSR ID matches the certificate
-
-### Debug Mode
-
-Enable verbose logging by modifying the script:
-
-```bash
-# Add debug flag at the top of the script
-DEBUG=true
-
-# Add debug output throughout
-[[ "$DEBUG" == "true" ]] && echo "Debug: Variable = $VARIABLE"
-```
-
-### Validation Commands
-
-```bash
-# Verify Cloudflare API access
-curl -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" \
-     -H "Authorization: Bearer YOUR_TOKEN"
-
-# Check DigiCert API access
-curl -X GET "https://demo.one.digicert.com/mpki/api/v1/profile" \
-     -H "x-api-key: YOUR_API_KEY"
-
-# Validate certificate
-openssl x509 -in certificate.pem -text -noout
-```
-
-## 📚 API Reference
-
-### Cloudflare API Endpoints
-
-| Operation | Endpoint | Method |
-|-----------|----------|--------|
-| Get Zone Details | `/zones/{zone_id}` | GET |
-| List Certificates | `/zones/{zone_id}/custom_certificates` | GET |
-| Create CSR | `/zones/{zone_id}/custom_csrs` | POST |
-| Upload Certificate | `/zones/{zone_id}/custom_certificates` | POST |
-| Delete Certificate | `/zones/{zone_id}/custom_certificates/{cert_id}` | DELETE |
-| Delete CSR | `/zones/{zone_id}/custom_csrs/{csr_id}` | DELETE |
-
-### DigiCert API Endpoints
-
-| Operation | Endpoint | Method |
-|-----------|----------|--------|
-| Issue Certificate | `/mpki/api/v1/certificate` | POST |
-| Get Profile | `/mpki/api/v1/profile/{profile_id}` | GET |
-
-## ⚖️ Legal Notice
+## 📄 License
 
 Copyright © 2024 DigiCert. All rights reserved.
 
-This software is provided by DigiCert under license. Use is subject to the terms and conditions of your agreement with DigiCert. The software is provided "AS IS" without warranties of any kind.
+See the legal notice in the script header for full terms and conditions.
 
-**Export Compliance**: This software is subject to U.S. export control laws and regulations.
+## 🤝 Contributing
 
-For complete legal terms, review the legal notice in the script header.
-
-## 📞 Support
-
-### Resources
-- [Cloudflare SSL/TLS Documentation](https://developers.cloudflare.com/ssl/)
-- [DigiCert TLM Documentation](https://dev.digicert.com/)
-- [Script Issues](https://github.com/your-org/cert-automation/issues)
-
-### Contact
-- Technical Support: support@your-org.com
-- Security Issues: security@your-org.com
+This script is maintained by DigiCert. For issues or feature requests, please contact your DigiCert representative.
 
 ---
 
-**Version**: 1.0.0  
-**Last Updated**: January 2025  
-**Maintained By**: Your Organization Name
+**Note**: This script requires active Cloudflare and DigiCert accounts with appropriate permissions and quotas.
