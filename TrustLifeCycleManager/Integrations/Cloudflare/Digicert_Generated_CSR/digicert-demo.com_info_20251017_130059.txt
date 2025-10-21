@@ -1,0 +1,10 @@
+Domain: digicert-demo.com
+CSR ID: 6cbbcf6a-8eb4-4e0f-a8dc-9f21e89dd0a6
+DigiCert Serial Number: 0D48691AF3BF319A58CC71BFBCD02DC315B7C6C0
+Cloudflare Certificate ID: eaec8c94-cc38-4991-aac8-ef0527e2006d
+Status: pending
+Expires: 2028-10-17T07:30:55.000000Z
+Certificate Delete Mode: matching
+CSR Retention Policy: 5
+Mode: RENEWAL
+Created: Fri 17 Oct 2025 13:00:59 IST

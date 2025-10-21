@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate Lifecycle Management Architecture</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        svg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .legend {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .legend h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        .legend-item {
+            display: inline-block;
+            margin-right: 30px;
+            margin-bottom: 10px;
+        }
+        .legend-color {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            vertical-align: middle;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Certificate Lifecycle Management Architecture</h1>
+        <p class="subtitle">Integration between DigiCert TLM, HashiCorp Vault, AWS Services, and F5 Distributed Cloud</p>
+        
+        <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+            <!-- Background regions -->
+            <!-- AWS Cloud Background -->
+            <rect x="350" y="200" width="500" height="450" rx="15" fill="#fff7ed" stroke="#fb923c" stroke-width="2" stroke-dasharray="5,5"/>
+            <text x="360" y="225" font-family="Arial" font-size="16" font-weight="bold" fill="#ea580c">AWS Cloud</text>
+            
+            <!-- DigiCert TLM -->
+            <g id="digicert">
+                <rect x="50" y="350" width="200" height="100" rx="10" fill="#1e40af" stroke="#1e293b" stroke-width="2"/>
+                <text x="150" y="385" font-family="Arial" font-size="14" font-weight="bold" fill="white" text-anchor="middle">DigiCert TLM</text>
+                <text x="150" y="405" font-family="Arial" font-size="12" fill="white" text-anchor="middle">Trust Lifecycle</text>
+                <text x="150" y="420" font-family="Arial" font-size="12" fill="white" text-anchor="middle">Manager</text>
+                <rect x="70" y="425" width="160" height="15" rx="3" fill="#3b82f6"/>
+                <text x="150" y="436" font-family="Arial" font-size="10" fill="white" text-anchor="middle">Post-Script Trigger</text>
+            </g>
+            
+            <!-- AWS EC2 Instance -->
+            <g id="ec2">
+                <rect x="400" y="320" width="180" height="160" rx="10" fill="#fbbf24" stroke="#f59e0b" stroke-width="2"/>
+                <text x="490" y="345" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle">EC2 Instance</text>
+                <text x="490" y="365" font-family="Arial" font-size="12" text-anchor="middle">(Ubuntu)</text>
+                <rect x="420" y="380" width="140" height="30" rx="5" fill="#fde68a"/>
+                <text x="490" y="400" font-family="Arial" font-size="11" text-anchor="middle">Bash Script</text>
+                <rect x="420" y="420" width="140" height="30" rx="5" fill="#fde68a"/>
+                <text x="490" y="440" font-family="Arial" font-size="11" text-anchor="middle">TLM Agent 3.1.2</text>
+            </g>
+            
+            <!-- AWS SSM Parameter Store -->
+            <g id="ssm">
+                <rect x="620" y="250" width="180" height="100" rx="10" fill="#10b981" stroke="#059669" stroke-width="2"/>
+                <text x="710" y="275" font-family="Arial" font-size="14" font-weight="bold" fill="white" text-anchor="middle">AWS SSM</text>
+                <text x="710" y="295" font-family="Arial" font-size="12" fill="white" text-anchor="middle">Parameter Store</text>
+                <rect x="640" y="305" width="140" height="15" rx="3" fill="#34d399"/>
+                <text x="710" y="316" font-family="Arial" font-size="10" fill="white" text-anchor="middle">Role ID</text>
+                <rect x="640" y="325" width="140" height="15" rx="3" fill="#34d399"/>
+                <text x="710" y="336" font-family="Arial" font-size="10" fill="white" text-anchor="middle">Secret ID (Encrypted)</text>
+            </g>
+            
+            <!-- AWS KMS -->
+            <g id="kms">
+                <rect x="620" y="520" width="180" height="80" rx="10" fill="#ef4444" stroke="#dc2626" stroke-width="2"/>
+                <text x="710" y="545" font-family="Arial" font-size="14" font-weight="bold" fill="white" text-anchor="middle">AWS KMS</text>
+                <text x="710" y="565" font-family="Arial" font-size="12" fill="white" text-anchor="middle">Key Management</text>
+                <rect x="640" y="570" width="140" height="20" rx="3" fill="#f87171"/>
+                <text x="710" y="584" font-family="Arial" font-size="10" fill="white" text-anchor="middle">Auto-Unseal Key</text>
+            </g>
+            
+            <!-- HashiCorp Vault -->
+            <g id="vault">
+                <rect x="400" y="520" width="180" height="120" rx="10" fill="#8b5cf6" stroke="#7c3aed" stroke-width="2"/>
+                <text x="490" y="545" font-family="Arial" font-size="14" font-weight="bold" fill="white" text-anchor="middle">HashiCorp Vault</text>
+                <rect x="420" y="555" width="140" height="20" rx="3" fill="#a78bfa"/>
+                <text x="490" y="569" font-family="Arial" font-size="10" fill="white" text-anchor="middle">F5XC API Tokens</text>
+                <rect x="420" y="580" width="140" height="20" rx="3" fill="#a78bfa"/>
+                <text x="490" y="594" font-family="Arial" font-size="10" fill="white" text-anchor="middle">Private Keys</text>
+                <rect x="420" y="605" width="140" height="20" rx="3" fill="#a78bfa"/>
+                <text x="490" y="619" font-family="Arial" font-size="10" fill="white" text-anchor="middle">AppRole Auth</text>
+            </g>
+            
+            <!-- F5 Distributed Cloud -->
+            <g id="f5xc">
+                <rect x="950" y="350" width="200" height="100" rx="10" fill="#0ea5e9" stroke="#0284c7" stroke-width="2"/>
+                <text x="1050" y="385" font-family="Arial" font-size="14" font-weight="bold" fill="white" text-anchor="middle">F5 Distributed Cloud</text>
+                <text x="1050" y="405" font-family="Arial" font-size="12" fill="white" text-anchor="middle">(F5 XC)</text>
+                <rect x="970" y="415" width="160" height="20" rx="3" fill="#38bdf8"/>
+                <text x="1050" y="429" font-family="Arial" font-size="10" fill="white" text-anchor="middle">Certificate Management</text>
+            </g>
+            
+            <!-- Arrows and Data Flow -->
+            <!-- DigiCert to EC2 -->
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+                </marker>
+            </defs>
+            
+            <!-- 1. DigiCert to EC2 -->
+            <path d="M 250 400 L 400 400" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+            <circle cx="325" cy="400" r="15" fill="#1e40af"/>
+            <text x="325" y="405" font-family="Arial" font-size="12" fill="white" text-anchor="middle">1</text>
+            <text x="325" y="385" font-family="Arial" font-size="10" text-anchor="middle">DC1_POST_SCRIPT_DATA</text>
+            <text x="325" y="420" font-family="Arial" font-size="9" text-anchor="middle">Base64 JSON</text>
+            
+            <!-- 2. EC2 to SSM -->
+            <path d="M 520 320 L 640 280" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+            <circle cx="580" cy="300" r="15" fill="#10b981"/>
+            <text x="580" y="305" font-family="Arial" font-size="12" fill="white" text-anchor="middle">2</text>
+            <text x="580" y="285" font-family="Arial" font-size="10" text-anchor="middle">Retrieve Credentials</text>
+            
+            <!-- 3. EC2 to Vault -->
+            <path d="M 490 480 L 490 520" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+            <circle cx="490" cy="500" r="15" fill="#8b5cf6"/>
+            <text x="490" y="505" font-family="Arial" font-size="12" fill="white" text-anchor="middle">3</text>
+            <text x="540" y="500" font-family="Arial" font-size="10">AppRole Auth</text>
+            
+            <!-- 4. Vault to EC2 (API Token) -->
+            <path d="M 440 520 L 440 480" stroke="#22c55e" stroke-width="2" fill="none" marker-end="url(#arrowhead)" stroke-dasharray="5,3"/>
+            <circle cx="440" cy="500" r="15" fill="#22c55e"/>
+            <text x="440" y="505" font-family="Arial" font-size="12" fill="white" text-anchor="middle">4</text>
+            <text x="380" y="500" font-family="Arial" font-size="10">API Token</text>
+            
+            <!-- 5. EC2 to F5 XC -->
+            <path d="M 580 400 L 950 400" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+            <circle cx="765" cy="400" r="15" fill="#0ea5e9"/>
+            <text x="765" y="405" font-family="Arial" font-size="12" fill="white" text-anchor="middle">5</text>
+            <text x="765" y="385" font-family="Arial" font-size="10" text-anchor="middle">Upload Certificate</text>
+            <text x="765" y="420" font-family="Arial" font-size="9" text-anchor="middle">HTTPS API</text>
+            
+            <!-- 6. EC2 to Vault (Store Private Key) -->
+            <path d="M 520 480 L 520 520" stroke="#ef4444" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+            <circle cx="520" cy="500" r="15" fill="#ef4444"/>
+            <text x="520" y="505" font-family="Arial" font-size="12" fill="white" text-anchor="middle">6</text>
+            <text x="570" y="510" font-family="Arial" font-size="10">Store Private Key</text>
+            
+            <!-- KMS to Vault (Auto-unseal) -->
+            <path d="M 620 560 L 580 560" stroke="#f97316" stroke-width="2" fill="none" marker-end="url(#arrowhead)" stroke-dasharray="3,3"/>
+            <text x="600" y="550" font-family="Arial" font-size="10" text-anchor="middle">Auto-unseal</text>
+            
+            <!-- Security Notes -->
+            <g id="security-notes">
+                <rect x="50" y="100" width="300" height="120" rx="8" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+                <text x="60" y="125" font-family="Arial" font-size="12" font-weight="bold" fill="#92400e">🔒 Security Features:</text>
+                <text x="60" y="145" font-family="Arial" font-size="10" fill="#451a03">• Private keys secured in Vault after upload</text>
+                <text x="60" y="160" font-family="Arial" font-size="10" fill="#451a03">• Secure deletion (shred) from filesystem</text>
+                <text x="60" y="175" font-family="Arial" font-size="10" fill="#451a03">• AppRole authentication for Vault</text>
+                <text x="60" y="190" font-family="Arial" font-size="10" fill="#451a03">• Encrypted SSM parameters</text>
+                <text x="60" y="205" font-family="Arial" font-size="10" fill="#451a03">• Token obfuscation in logs</text>
+            </g>
+            
+            <!-- Process Flow -->
+            <g id="process-flow">
+                <rect x="850" y="100" width="300" height="120" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="1"/>
+                <text x="860" y="125" font-family="Arial" font-size="12" font-weight="bold" fill="#1e3a8a">📋 Process Flow:</text>
+                <text x="860" y="145" font-family="Arial" font-size="10" fill="#1e40af">1. DigiCert triggers post-script</text>
+                <text x="860" y="160" font-family="Arial" font-size="10" fill="#1e40af">2. Retrieve Vault credentials from SSM</text>
+                <text x="860" y="175" font-family="Arial" font-size="10" fill="#1e40af">3. Authenticate to Vault & get API token</text>
+                <text x="860" y="190" font-family="Arial" font-size="10" fill="#1e40af">4. Upload cert to F5 XC</text>
+                <text x="860" y="205" font-family="Arial" font-size="10" fill="#1e40af">5. Store private key in Vault & delete local</text>
+            </g>
+        </svg>
+        
+        <div class="legend">
+            <h3>Component Overview</h3>
+            <div class="legend-item">
+                <span class="legend-color" style="background: #1e40af;"></span>
+                <span>DigiCert TLM - Certificate lifecycle automation</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background: #fbbf24;"></span>
+                <span>EC2 Instance - Script execution environment</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background: #10b981;"></span>
+                <span>SSM Parameter Store - Secure credential storage</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background: #8b5cf6;"></span>
+                <span>HashiCorp Vault - Secrets management</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background: #ef4444;"></span>
+                <span>AWS KMS - Encryption key management</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background: #0ea5e9;"></span>
+                <span>F5 XC - Certificate deployment target</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

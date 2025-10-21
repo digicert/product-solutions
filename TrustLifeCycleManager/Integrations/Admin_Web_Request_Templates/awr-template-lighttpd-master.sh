@@ -238,123 +238,251 @@ log_message "=========================================="
 log_message "Starting custom script section..."
 log_message "=========================================="
 
-# Example 1: Copy certificates to web server directory
-# if [ -f "$CRT_FILE_PATH" ] && [ -f "$KEY_FILE_PATH" ]; then
-#     WEB_CERT_DIR="/etc/nginx/ssl"
-#     mkdir -p "$WEB_CERT_DIR"
-#     cp "$CRT_FILE_PATH" "$WEB_CERT_DIR/server.crt"
-#     cp "$KEY_FILE_PATH" "$WEB_CERT_DIR/server.key"
-#     chmod 644 "$WEB_CERT_DIR/server.crt"
-#     chmod 600 "$WEB_CERT_DIR/server.key"
-#     log_message "Certificates deployed to web server directory: $WEB_CERT_DIR"
-# fi
-
-# Example 2: Create PFX/PKCS12 from CRT and KEY
-# if [ -f "$CRT_FILE_PATH" ] && [ -f "$KEY_FILE_PATH" ] && command -v openssl &> /dev/null; then
-#     PFX_PASSWORD="changeit"
-#     PFX_OUTPUT="${CERT_FOLDER}/certificate.pfx"
-#     
-#     openssl pkcs12 -export \
-#         -out "$PFX_OUTPUT" \
-#         -inkey "$KEY_FILE_PATH" \
-#         -in "$CRT_FILE_PATH" \
-#         -passout pass:"$PFX_PASSWORD"
-#     
-#     if [ $? -eq 0 ]; then
-#         log_message "PFX file created: $PFX_OUTPUT"
-#     else
-#         log_message "ERROR: Failed to create PFX file"
-#     fi
-# fi
-
-# Example 3: Update Apache SSL configuration
-# if [ -f "$CRT_FILE_PATH" ] && [ -f "$KEY_FILE_PATH" ]; then
-#     APACHE_SSL_CONF="/etc/apache2/sites-available/default-ssl.conf"
-#     
-#     if [ -f "$APACHE_SSL_CONF" ]; then
-#         # Backup current configuration
-#         cp "$APACHE_SSL_CONF" "${APACHE_SSL_CONF}.backup.$(date +%Y%m%d%H%M%S)"
-#         
-#         # Update certificate paths (requires sed or proper configuration management)
-#         # sed -i "s|SSLCertificateFile.*|SSLCertificateFile $CRT_FILE_PATH|" "$APACHE_SSL_CONF"
-#         # sed -i "s|SSLCertificateKeyFile.*|SSLCertificateKeyFile $KEY_FILE_PATH|" "$APACHE_SSL_CONF"
-#         
-#         log_message "Apache SSL configuration updated"
-#         
-#         # Test and reload Apache
-#         apachectl configtest
-#         if [ $? -eq 0 ]; then
-#             systemctl reload apache2
-#             log_message "Apache reloaded successfully"
-#         else
-#             log_message "ERROR: Apache configuration test failed"
-#         fi
-#     fi
-# fi
-
-# Example 4: Import to Java keystore
-# if [ -f "$CRT_FILE_PATH" ] && [ -f "$KEY_FILE_PATH" ]; then
-#     KEYSTORE_PATH="/path/to/keystore.jks"
-#     KEYSTORE_PASS="changeit"
-#     ALIAS_NAME="${ARGUMENT_1:-myservice}"  # Use argument 1 as alias or default
-#     
-#     # First create a PKCS12 file
-#     TEMP_P12="/tmp/temp_cert.p12"
-#     openssl pkcs12 -export \
-#         -in "$CRT_FILE_PATH" \
-#         -inkey "$KEY_FILE_PATH" \
-#         -out "$TEMP_P12" \
-#         -passout pass:temppass
-#     
-#     # Import into Java keystore
-#     keytool -importkeystore \
-#         -srckeystore "$TEMP_P12" \
-#         -srcstoretype PKCS12 \
-#         -srcstorepass temppass \
-#         -destkeystore "$KEYSTORE_PATH" \
-#         -deststoretype JKS \
-#         -deststorepass "$KEYSTORE_PASS" \
-#         -alias "$ALIAS_NAME"
-#     
-#     rm -f "$TEMP_P12"
-#     log_message "Certificate imported to Java keystore with alias: $ALIAS_NAME"
-# fi
-
-# Example 5: Verify certificate and key match
-# if [ -f "$CRT_FILE_PATH" ] && [ -f "$KEY_FILE_PATH" ] && command -v openssl &> /dev/null; then
-#     CRT_MODULUS=$(openssl x509 -noout -modulus -in "$CRT_FILE_PATH" | openssl md5)
-#     KEY_MODULUS=$(openssl rsa -noout -modulus -in "$KEY_FILE_PATH" | openssl md5)
-#     
-#     if [ "$CRT_MODULUS" == "$KEY_MODULUS" ]; then
-#         log_message "SUCCESS: Certificate and private key match"
-#     else
-#         log_message "ERROR: Certificate and private key DO NOT match!"
-#         log_message "Certificate modulus: $CRT_MODULUS"
-#         log_message "Key modulus: $KEY_MODULUS"
-#     fi
-# fi
-
-# Example 6: Send notification based on arguments
-# if [ "$ARGUMENT_2" == "notify" ]; then
-#     NOTIFICATION_EMAIL="$ARGUMENT_3"  # Email in argument 3
-#     HOSTNAME=$(hostname)
-#     
-#     if [ ! -z "$NOTIFICATION_EMAIL" ]; then
-#         MESSAGE="Certificate deployed on $HOSTNAME\n"
-#         MESSAGE+="Certificate: $CRT_FILE_PATH\n"
-#         MESSAGE+="Key: $KEY_FILE_PATH\n"
-#         MESSAGE+="Time: $(date)\n"
-#         
-#         echo -e "$MESSAGE" | mail -s "Certificate Deployment - $HOSTNAME" "$NOTIFICATION_EMAIL"
-#         log_message "Notification sent to: $NOTIFICATION_EMAIL"
-#     fi
-# fi
 
 # ADD YOUR CUSTOM LOGIC HERE:
 # ----------------------------------------
 
+log_message "Starting lighttpd certificate deployment..."
 
+# Define lighttpd SSL configuration file
+LIGHTTPD_SSL_CONF="/etc/lighttpd/conf-enabled/10-ssl.conf"
+LIGHTTPD_SSL_DIR="/etc/lighttpd/ssl"
 
+# Check if certificate and key files exist
+if [ ! -f "$CRT_FILE_PATH" ]; then
+    log_message "ERROR: Certificate file not found: $CRT_FILE_PATH"
+    exit 1
+fi
+
+if [ ! -f "$KEY_FILE_PATH" ]; then
+    log_message "ERROR: Private key file not found: $KEY_FILE_PATH"
+    exit 1
+fi
+
+log_message "Certificate and key files found successfully"
+
+# Create lighttpd SSL directory if it doesn't exist
+if [ ! -d "$LIGHTTPD_SSL_DIR" ]; then
+    log_message "Creating lighttpd SSL directory: $LIGHTTPD_SSL_DIR"
+    mkdir -p "$LIGHTTPD_SSL_DIR"
+fi
+
+# Generate timestamp for filenames
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+log_message "Generated timestamp: $TIMESTAMP"
+
+# Create combined PEM file for lighttpd (cert + key in one file)
+COMBINED_PEM_FILE="$LIGHTTPD_SSL_DIR/demo2me_${TIMESTAMP}.pem"
+log_message "Creating combined PEM file: $COMBINED_PEM_FILE"
+
+# Combine certificate and key
+cat "$CRT_FILE_PATH" "$KEY_FILE_PATH" > "$COMBINED_PEM_FILE"
+
+if [ $? -eq 0 ]; then
+    log_message "Successfully created combined PEM file"
+else
+    log_message "ERROR: Failed to create combined PEM file"
+    exit 1
+fi
+
+# Set proper permissions
+chmod 600 "$COMBINED_PEM_FILE"
+chown www-data:www-data "$COMBINED_PEM_FILE"
+log_message "Set permissions on PEM file (600, www-data:www-data)"
+
+# Verify the combined file is valid
+log_message "Verifying combined PEM file..."
+openssl x509 -in "$COMBINED_PEM_FILE" -text -noout > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    log_message "Certificate verification successful"
+else
+    log_message "ERROR: Certificate verification failed"
+    exit 1
+fi
+
+openssl rsa -in "$COMBINED_PEM_FILE" -check -noout > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    log_message "Private key verification successful"
+else
+    log_message "ERROR: Private key verification failed"
+    exit 1
+fi
+
+# Backup the current SSL configuration
+BACKUP_CONF="${LIGHTTPD_SSL_CONF}.backup_${TIMESTAMP}"
+log_message "Backing up current SSL configuration to: $BACKUP_CONF"
+cp "$LIGHTTPD_SSL_CONF" "$BACKUP_CONF"
+
+if [ $? -eq 0 ]; then
+    log_message "Configuration backup created successfully"
+else
+    log_message "ERROR: Failed to backup configuration"
+    exit 1
+fi
+
+# Read current configuration
+CURRENT_CONFIG=$(cat "$LIGHTTPD_SSL_CONF")
+
+# Extract current certificate path
+CURRENT_CERT_PATH=$(grep -oP 'ssl\.pemfile\s*=\s*"\K[^"]+' "$LIGHTTPD_SSL_CONF" | head -1)
+log_message "Current certificate path: $CURRENT_CERT_PATH"
+
+# Create new configuration with commented old settings
+log_message "Updating lighttpd SSL configuration..."
+
+# Create temporary file for new configuration
+TEMP_CONF=$(mktemp)
+
+# Write new configuration
+cat > "$TEMP_CONF" << EOF
+# lighttpd SSL Configuration
+# Last updated: $(date '+%Y-%m-%d %H:%M:%S')
+# Certificate deployed by DigiCert TLM Agent
+
+server.modules += ( "mod_openssl" )
+
+\$SERVER["socket"] == ":443" {
+    ssl.engine = "enable"
+    
+    # Active certificate configuration
+    ssl.pemfile = "$COMBINED_PEM_FILE"
+    
+    # SSL/TLS settings
+    ssl.cipher-list = "HIGH:!aNULL:!MD5"
+    
+    # Server configuration
+    server.name = "demo2me.com"
+    server.document-root = "/var/www/html"
+}
+
+# Redirect HTTP to HTTPS
+\$HTTP["scheme"] == "http" {
+    \$HTTP["host"] =~ ".*" {
+        url.redirect = (".*" => "https://%0\$0")
+    }
+}
+
+# ============================================================================
+# PREVIOUS CERTIFICATE CONFIGURATIONS (Archived)
+# ============================================================================
+
+EOF
+
+# Append the old configuration as comments with timestamp
+echo "# Configuration archived on: $(date '+%Y-%m-%d %H:%M:%S')" >> "$TEMP_CONF"
+echo "# Previous certificate path: $CURRENT_CERT_PATH" >> "$TEMP_CONF"
+echo "#" >> "$TEMP_CONF"
+
+# Comment out old configuration line by line
+while IFS= read -r line; do
+    # Skip the timestamp comments we just added
+    if [[ ! "$line" =~ ^#.*Last\ updated: ]] && [[ ! "$line" =~ ^#.*Certificate\ deployed ]]; then
+        echo "# $line" >> "$TEMP_CONF"
+    fi
+done < "$LIGHTTPD_SSL_CONF"
+
+echo "" >> "$TEMP_CONF"
+echo "# ============================================================================" >> "$TEMP_CONF"
+
+# Move new configuration to actual location
+mv "$TEMP_CONF" "$LIGHTTPD_SSL_CONF"
+
+if [ $? -eq 0 ]; then
+    log_message "SSL configuration updated successfully"
+else
+    log_message "ERROR: Failed to update SSL configuration"
+    log_message "Restoring backup configuration..."
+    cp "$BACKUP_CONF" "$LIGHTTPD_SSL_CONF"
+    exit 1
+fi
+
+# Test lighttpd configuration
+log_message "Testing lighttpd configuration..."
+lighttpd -t -f /etc/lighttpd/lighttpd.conf > /dev/null 2>&1
+
+if [ $? -eq 0 ]; then
+    log_message "Configuration test passed - Syntax OK"
+else
+    log_message "ERROR: Configuration test failed"
+    log_message "Restoring backup configuration..."
+    cp "$BACKUP_CONF" "$LIGHTTPD_SSL_CONF"
+    exit 1
+fi
+
+# Restart lighttpd service
+log_message "Restarting lighttpd service..."
+systemctl restart lighttpd
+
+if [ $? -eq 0 ]; then
+    log_message "lighttpd restarted successfully"
+else
+    log_message "ERROR: Failed to restart lighttpd"
+    log_message "Restoring backup configuration..."
+    cp "$BACKUP_CONF" "$LIGHTTPD_SSL_CONF"
+    systemctl restart lighttpd
+    exit 1
+fi
+
+# Wait a moment for service to fully start
+sleep 2
+
+# Verify lighttpd is running
+systemctl is-active --quiet lighttpd
+
+if [ $? -eq 0 ]; then
+    log_message "lighttpd service is active and running"
+else
+    log_message "ERROR: lighttpd service is not running after restart"
+    log_message "Checking service status..."
+    systemctl status lighttpd >> "$LOGFILE"
+    exit 1
+fi
+
+# Verify SSL is working by checking if port 443 is listening
+if netstat -tlnp | grep -q ':443.*lighttpd'; then
+    log_message "Verified: lighttpd is listening on port 443 (HTTPS)"
+else
+    log_message "WARNING: lighttpd may not be listening on port 443"
+fi
+
+# Extract certificate details for logging
+log_message "=========================================="
+log_message "NEW CERTIFICATE DETAILS:"
+log_message "=========================================="
+
+CERT_SUBJECT=$(openssl x509 -in "$COMBINED_PEM_FILE" -noout -subject | sed 's/subject=//')
+CERT_ISSUER=$(openssl x509 -in "$COMBINED_PEM_FILE" -noout -issuer | sed 's/issuer=//')
+CERT_SERIAL=$(openssl x509 -in "$COMBINED_PEM_FILE" -noout -serial | sed 's/serial=//')
+CERT_DATES=$(openssl x509 -in "$COMBINED_PEM_FILE" -noout -dates)
+CERT_FINGERPRINT=$(openssl x509 -in "$COMBINED_PEM_FILE" -noout -fingerprint -sha256 | sed 's/SHA256 Fingerprint=//')
+
+log_message "Subject: $CERT_SUBJECT"
+log_message "Issuer: $CERT_ISSUER"
+log_message "Serial: $CERT_SERIAL"
+log_message "$CERT_DATES"
+log_message "SHA-256 Fingerprint: $CERT_FINGERPRINT"
+log_message "Certificate file: $COMBINED_PEM_FILE"
+
+log_message "=========================================="
+log_message "DEPLOYMENT SUMMARY:"
+log_message "=========================================="
+log_message "✓ Certificate and key combined successfully"
+log_message "✓ Combined PEM file created: $COMBINED_PEM_FILE"
+log_message "✓ SSL configuration updated"
+log_message "✓ Previous configuration archived with timestamp"
+log_message "✓ Configuration backup saved: $BACKUP_CONF"
+log_message "✓ lighttpd configuration test passed"
+log_message "✓ lighttpd service restarted successfully"
+log_message "✓ lighttpd is active and listening on port 443"
+log_message ""
+log_message "Certificate deployment completed successfully!"
+log_message "=========================================="
+
+# Optional: Test HTTPS connection
+log_message "Testing HTTPS connection to demo2me.com..."
+curl_output=$(curl -Ik https://demo2me.com 2>&1 | head -5)
+log_message "HTTPS test output:"
+log_message "$curl_output"
 
 # ----------------------------------------
 # END OF CUSTOM LOGIC
