@@ -1,0 +1,84 @@
+{
+  "version": "2.1.0",
+  "created_at": "2025-01-15T10:00:00Z",
+  "last_renewed": null,
+  "enrollment": {
+    "enrollment_id": "12345",
+    "change_id": "67890",
+    "contract_id": "M-27UV417",
+    "common_name": "example.digicert.com",
+    "certificate_type": "third-party"
+  },
+  "edgegrid": {
+    "host": "akab-xxxxx.luna.akamaiapis.net",
+    "client_secret": "your-client-secret",
+    "access_token": "akab-xxxxx",
+    "client_token": "akab-xxxxx"
+  },
+  "csr_config": {
+    "c": "US",
+    "cn": "example.digicert.com",
+    "st": "Utah",
+    "l": "Lehi",
+    "o": "Digicert",
+    "ou": "Product"
+  },
+  "network_config": {
+    "geography": "core",
+    "quic_enabled": false,
+    "secure_network": "enhanced-tls",
+    "sni_only": false,
+    "must_have_ciphers": "ak-akamai-2020q1",
+    "ocsp_stapling": "on",
+    "preferred_ciphers": "ak-akamai-2020q1"
+  },
+  "validation": {
+    "ra": "third-party",
+    "validation_type": "third-party"
+  },
+  "contacts": {
+    "admin": {
+      "email": "admin@example.com",
+      "firstName": "Admin",
+      "lastName": "User",
+      "phone": "800-896-7973"
+    },
+    "tech": {
+      "email": "tech@example.com",
+      "firstName": "Tech",
+      "lastName": "User",
+      "phone": "800-896-7973"
+    }
+  },
+  "organization": {
+    "name": "Example Organization",
+    "addressLineOne": "123 Main St",
+    "addressLineTwo": "",
+    "city": "Example City",
+    "country": "US",
+    "phone": "1.800.896.7973",
+    "postalCode": "12345",
+    "region": "State"
+  },
+  "digicert": {
+    "seat_id": "example.digicert.com",
+    "api_key": "your-digicert-api-key",
+    "rsa_profile": "f1887d29-ee87-48f7-a873-1a0254dc99a9",
+    "ecdsa_profile": "8b566220-8e48-4b44-bf4c-20434f4f95c1"
+  },
+  "storage": {
+    "cert_dir": "/home/user/akamai-certs",
+    "ica_file": "/home/user/akamai-certs/intermediate-ca.pem"
+  },
+  "third_party": {
+    "exclude_sans": false
+  },
+  "change_management": true,
+  "automation": {
+    "certificate_type": "RSA",
+    "auto_submit_digicert": true,
+    "auto_upload_cert": true,
+    "auto_acknowledge_warnings": true,
+    "auto_deploy_production": true
+  }
+}
