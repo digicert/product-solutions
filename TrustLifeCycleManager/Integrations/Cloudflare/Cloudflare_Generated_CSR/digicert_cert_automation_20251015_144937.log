@@ -1,0 +1,145 @@
+============================== Certificate Automation Log ==============================
+Started: Wed 15 Oct 2025 14:49:48 IST
+Mode: Interactive
+Configuration: CSR Retention = 5
+========================================================================================
+
+
+Starting certificate automation process...
+Log file: ./digicert_cert_automation_20251015_144937.log
+============================================================================
+
+Step 0: Fetching zone details from Cloudflare...
+Zone Details Response: {"result":{"id":"c3aaef7ffc39aa38f9d33b8dbdaafab8","name":"digicert-demo.com","status":"active","paused":false,"type":"full","development_mode":0,"name_servers":["josephine.ns.cloudflare.com","todd.ns.cloudflare.com"],"original_name_servers":["chuck.ns.cloudflare.com","tori.ns.cloudflare.com"],"original_registrar":"markmonitor inc. (id: 292)","original_dnshost":null,"modified_on":"2025-10-15T07:03:21.941949Z","created_on":"2023-04-24T16:21:21.700212Z","activated_on":"2023-05-03T16:19:27.120205Z","vanity_name_servers":[],"vanity_name_servers_ips":[],"meta":{"step":2,"custom_certificate_quota":1,"page_rule_quota":100,"phishing_detected":false},"owner":{"id":"e62896d086d6f03ea8acb0aa654bc60c","type":"organization","name":"DigiCert DNS Account"},"account":{"id":"e62896d086d6f03ea8acb0aa654bc60c","name":"DigiCert DNS Account"},"tenant":{"id":null,"name":null},"tenant_unit":{"id":null},"permissions":["#waf:read","#waf:edit","#zone_settings:read","#zone_settings:edit","#ssl:edit","#ssl:read","#zone:read"],"plan":{"id":"94f3b7b768b0458b56d2cac4fe5ec0f9","name":"Enterprise Website","price":0,"currency":"USD","frequency":"","is_subscribed":true,"can_subscribe":true,"legacy_id":"enterprise","legacy_discount":false,"externally_managed":true}},"success":true,"errors":[],"messages":[]}
+✓ Zone found:
+  Domain: digicert-demo.com
+  Status: active
+
+Step 1: Checking for existing certificates for domain: digicert-demo.com...
+Existing Certificates Response: {"result":[],"result_info":{"page":1,"per_page":20,"total_pages":0,"count":0,"total_count":0},"success":true,"errors":[],"messages":[]}
+No existing certificate found for domain: digicert-demo.com
+
+Step 2: Creating CSR at Cloudflare for digicert-demo.com...
+CSR Creation Response: {
+  "result": {
+    "id": "0c3d1406-3764-4070-b34d-362233908da5",
+    "country": "US",
+    "state": "Utah",
+    "locality": "Lehi",
+    "organization": "Digicert",
+    "organizational_unit": "Product",
+    "common_name": "digicert-demo.com",
+    "sans": [
+      "digicert-demo.com",
+      "www.digicert-demo.com"
+    ],
+    "key_type": "rsa2048",
+    "csr": "-----BEGIN CERTIFICATE REQUEST-----\nMIIC9zCCAd8CAQAwbDELMAkGA1UEBhMCVVMxDTALBgNVBAgTBFV0YWgxDTALBgNV\nBAcTBExlaGkxETAPBgNVBAoTCERpZ2ljZXJ0MRAwDgYDVQQLEwdQcm9kdWN0MRow\nGAYDVQQDExFkaWdpY2VydC1kZW1vLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEP\nADCCAQoCggEBALzMMt99iQupsK5XfC1+k+r8FIE64CQrAqlog8DwM0IjpAieW/gI\nXFaejPR7G4fh8yPeLWewyRfe9e5V6jmxBTBaG7pKd3nVwCfGhuGj8hcEMjpiPWfD\nxeYlTegjTKEIDqLEOL7Tqbu46b9cjZ57BJ7n93fmap9QifRxIOxBknWjL/djH8gl\nQWBsgDtOwvlBk/b/tg1BXhcNVvSoMuSEdSGhCsBNhG6LK7QeOuuzFwIgDmdzHeDk\nQEH66ugAwwQ5+79xY0Khk3L71AIFesEeme3Wz8q+UFYgKAGomvpHIFLLb9JZeDk/\nKBwY2BBt9kNhd90sDyQ9ERB0cJif/O0A0yECAwEAAaBGMEQGCSqGSIb3DQEJDjE3\nMDUwMwYDVR0RBCwwKoIRZGlnaWNlcnQtZGVtby5jb22CFXd3dy5kaWdpY2VydC1k\nZW1vLmNvbTANBgkqhkiG9w0BAQsFAAOCAQEASIIKJkDn5kiIwVSrJnp6WqVyDrwy\nKR3nwMEskWueUrVIDvtQIAMg7xJg7tLWj5b7qVnGMGt2dt2bmkN281GKZ+HJ/v6I\naBRwkB1dFG9dnE58YhU0hbwDox8VoZ6D4WEVtNXfB2jxJ14bGs8x3unLN23Qpdq+\n9Rkyak8GCWkEjVYoGtD6RU5SXWp+nEGBa+TxF+4m0NXuQg917CuwWieoXFuS1SFe\nqLxFxOxGQfq2KRU0N/FZ92Lu54q0QQf66EULPB6f9ZwVChEpHWXDI0I2cGLQh+JY\nJMatM5qvXsnU092aE+hMufYBYFzbOyMMgzco8onfMMXoVx3nTop4RKlOUw==\n-----END CERTIFICATE REQUEST-----\n",
+    "created_at": "2025-10-15T09:19:53.912581Z"
+  },
+  "success": true,
+  "errors": [],
+  "messages": []
+}
+✓ CSR created successfully at Cloudflare
+  CSR ID: 0c3d1406-3764-4070-b34d-362233908da5
+  SANs: ["digicert-demo.com","www.digicert-demo.com"]
+
+Step 3: Extracting CSR...
+✓ CSR extracted (1020 characters)
+CSR Content: MIIC9zCCAd8CAQAwbDELMAkGA1UEBhMCVVMxDTALBgNVBAgTBFV0YWgxDTALBgNVBAcTBExlaGkxETAPBgNVBAoTCERpZ2ljZXJ0MRAwDgYDVQQLEwdQcm9kdWN0MRowGAYDVQQDExFkaWdpY2VydC1kZW1vLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALzMMt99iQupsK5XfC1+k+r8FIE64CQrAqlog8DwM0IjpAieW/gIXFaejPR7G4fh8yPeLWewyRfe9e5V6jmxBTBaG7pKd3nVwCfGhuGj8hcEMjpiPWfDxeYlTegjTKEIDqLEOL7Tqbu46b9cjZ57BJ7n93fmap9QifRxIOxBknWjL/djH8glQWBsgDtOwvlBk/b/tg1BXhcNVvSoMuSEdSGhCsBNhG6LK7QeOuuzFwIgDmdzHeDkQEH66ugAwwQ5+79xY0Khk3L71AIFesEeme3Wz8q+UFYgKAGomvpHIFLLb9JZeDk/KBwY2BBt9kNhd90sDyQ9ERB0cJif/O0A0yECAwEAAaBGMEQGCSqGSIb3DQEJDjE3MDUwMwYDVR0RBCwwKoIRZGlnaWNlcnQtZGVtby5jb22CFXd3dy5kaWdpY2VydC1kZW1vLmNvbTANBgkqhkiG9w0BAQsFAAOCAQEASIIKJkDn5kiIwVSrJnp6WqVyDrwyKR3nwMEskWueUrVIDvtQIAMg7xJg7tLWj5b7qVnGMGt2dt2bmkN281GKZ+HJ/v6IaBRwkB1dFG9dnE58YhU0hbwDox8VoZ6D4WEVtNXfB2jxJ14bGs8x3unLN23Qpdq+9Rkyak8GCWkEjVYoGtD6RU5SXWp+nEGBa+TxF+4m0NXuQg917CuwWieoXFuS1SFeqLxFxOxGQfq2KRU0N/FZ92Lu54q0QQf66EULPB6f9ZwVChEpHWXDI0I2cGLQh+JYJMatM5qvXsnU092aE+hMufYBYFzbOyMMgzco8onfMMXoVx3nTop4RKlOUw==
+
+Step 4: Submitting CSR to DigiCert for certificate issuance...
+  Requesting certificate for: digicert-demo.com
+  Including DNS names: digicert-demo.com, www.digicert-demo.com
+DigiCert Response: {"serial_number":"60FEBABBEA70A5CC7A1C679461F29E93CEF007D7","delivery_format":"x509","certificate":"-----BEGIN CERTIFICATE-----\nMIIE+DCCA+CgAwIBAgIUYP66u+pwpcx6HGeUYfKek87wB9cwDQYJKoZIhvcNAQEL\nBQAwgYsxCzAJBgNVBAYTAlVTMQswCQYDVQQIEwJHQTEQMA4GA1UEBxMHUm9zd2Vs\nbDEOMAwGA1UEERMFMzAwNzUxIDAeBgNVBAkTFzE3MCBDb2NocmFuIEZhcm1zIERy\naXZlMRUwEwYDVQQKEwxSdWRsb2ZmIEluYy4xFDASBgNVBAMTC3J1ZGxvZmYuaWNh\nMB4XDTI1MTAxNTA5MTk1NVoXDTI4MTAxNTA5MTk1NVowbDEaMBgGA1UEAwwRZGln\naWNlcnQtZGVtby5jb20xETAPBgNVBAoMCERpZ2ljZXJ0MRAwDgYDVQQLDAdQcm9k\ndWN0MQ0wCwYDVQQHDARMZWhpMQ0wCwYDVQQIDARVdGFoMQswCQYDVQQGEwJVUzCC\nASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALzMMt99iQupsK5XfC1+k+r8\nFIE64CQrAqlog8DwM0IjpAieW/gIXFaejPR7G4fh8yPeLWewyRfe9e5V6jmxBTBa\nG7pKd3nVwCfGhuGj8hcEMjpiPWfDxeYlTegjTKEIDqLEOL7Tqbu46b9cjZ57BJ7n\n93fmap9QifRxIOxBknWjL/djH8glQWBsgDtOwvlBk/b/tg1BXhcNVvSoMuSEdSGh\nCsBNhG6LK7QeOuuzFwIgDmdzHeDkQEH66ugAwwQ5+79xY0Khk3L71AIFesEeme3W\nz8q+UFYgKAGomvpHIFLLb9JZeDk/KBwY2BBt9kNhd90sDyQ9ERB0cJif/O0A0yEC\nAwEAAaOCAXAwggFsMDMGA1UdEQQsMCqCEWRpZ2ljZXJ0LWRlbW8uY29tghV3d3cu\nZGlnaWNlcnQtZGVtby5jb20wDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsG\nAQUFBwMBMB0GA1UdDgQWBBRjWlH5h4nYmLNWgCAlZh4Luav+8TBBBgNVHR8EOjA4\nMDagNKAyhjBodHRwOi8vY3JsLmRlbW8ub25lLmRpZ2ljZXJ0LmNvbS9ydWRsb2Zm\nLmljYS5jcmwwHwYDVR0jBBgwFoAUviaA5eqGe0upa5vuGN0iF279L3owDAYDVR0T\nAQH/BAIwADB/BggrBgEFBQcBAQRzMHEwLQYIKwYBBQUHMAGGIWh0dHA6Ly9vY3Nw\nLmRlbW8ub25lLmRpZ2ljZXJ0LmNvbTBABggrBgEFBQcwAoY0aHR0cDovL2NhY2Vy\ndHMuZGVtby5vbmUuZGlnaWNlcnQuY29tL3J1ZGxvZmYuaWNhLmNydDANBgkqhkiG\n9w0BAQsFAAOCAQEAgxoirf5ixJk2ALzwCOXnnwb5EC/veq+szrOy8IioXTb3wTOZ\nIQ3IDMbiz288KO3D5phdoeGss+R9Zkp8u0U+FF4EyRGtRzBn7hfEJnZhcDPc7gaX\nSbdS28rOlJSPaydkQwvw0f7tWEz69y6bKpj+07aQ/YulGFe6jX16jMUy6JHy76Gt\nCiTcPJ+yNquVcqmGrVmOxtmPsFTc+7l3NVXUw0N33B9vQvkyz4XipYxnchCs8ojg\nc0IhVgQVDPaRfahIZNBW7z7d2KexMkEHxafb5H9TX9V1EJyhJXG6331wZKKgMDnM\nqCFKtr7Y9lqG5bU7gLqxhzjq0ACTyUqKCGMD1w==\n-----END CERTIFICATE-----\n"}
+✓ Certificate issued successfully!
+  Serial Number: 60FEBABBEA70A5CC7A1C679461F29E93CEF007D7
+
+========== CERTIFICATE ==========
+-----BEGIN CERTIFICATE-----
+MIIE+DCCA+CgAwIBAgIUYP66u+pwpcx6HGeUYfKek87wB9cwDQYJKoZIhvcNAQEL
+BQAwgYsxCzAJBgNVBAYTAlVTMQswCQYDVQQIEwJHQTEQMA4GA1UEBxMHUm9zd2Vs
+bDEOMAwGA1UEERMFMzAwNzUxIDAeBgNVBAkTFzE3MCBDb2NocmFuIEZhcm1zIERy
+aXZlMRUwEwYDVQQKEwxSdWRsb2ZmIEluYy4xFDASBgNVBAMTC3J1ZGxvZmYuaWNh
+MB4XDTI1MTAxNTA5MTk1NVoXDTI4MTAxNTA5MTk1NVowbDEaMBgGA1UEAwwRZGln
+aWNlcnQtZGVtby5jb20xETAPBgNVBAoMCERpZ2ljZXJ0MRAwDgYDVQQLDAdQcm9k
+dWN0MQ0wCwYDVQQHDARMZWhpMQ0wCwYDVQQIDARVdGFoMQswCQYDVQQGEwJVUzCC
+ASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALzMMt99iQupsK5XfC1+k+r8
+FIE64CQrAqlog8DwM0IjpAieW/gIXFaejPR7G4fh8yPeLWewyRfe9e5V6jmxBTBa
+G7pKd3nVwCfGhuGj8hcEMjpiPWfDxeYlTegjTKEIDqLEOL7Tqbu46b9cjZ57BJ7n
+93fmap9QifRxIOxBknWjL/djH8glQWBsgDtOwvlBk/b/tg1BXhcNVvSoMuSEdSGh
+CsBNhG6LK7QeOuuzFwIgDmdzHeDkQEH66ugAwwQ5+79xY0Khk3L71AIFesEeme3W
+z8q+UFYgKAGomvpHIFLLb9JZeDk/KBwY2BBt9kNhd90sDyQ9ERB0cJif/O0A0yEC
+AwEAAaOCAXAwggFsMDMGA1UdEQQsMCqCEWRpZ2ljZXJ0LWRlbW8uY29tghV3d3cu
+ZGlnaWNlcnQtZGVtby5jb20wDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsG
+AQUFBwMBMB0GA1UdDgQWBBRjWlH5h4nYmLNWgCAlZh4Luav+8TBBBgNVHR8EOjA4
+MDagNKAyhjBodHRwOi8vY3JsLmRlbW8ub25lLmRpZ2ljZXJ0LmNvbS9ydWRsb2Zm
+LmljYS5jcmwwHwYDVR0jBBgwFoAUviaA5eqGe0upa5vuGN0iF279L3owDAYDVR0T
+AQH/BAIwADB/BggrBgEFBQcBAQRzMHEwLQYIKwYBBQUHMAGGIWh0dHA6Ly9vY3Nw
+LmRlbW8ub25lLmRpZ2ljZXJ0LmNvbTBABggrBgEFBQcwAoY0aHR0cDovL2NhY2Vy
+dHMuZGVtby5vbmUuZGlnaWNlcnQuY29tL3J1ZGxvZmYuaWNhLmNydDANBgkqhkiG
+9w0BAQsFAAOCAQEAgxoirf5ixJk2ALzwCOXnnwb5EC/veq+szrOy8IioXTb3wTOZ
+IQ3IDMbiz288KO3D5phdoeGss+R9Zkp8u0U+FF4EyRGtRzBn7hfEJnZhcDPc7gaX
+SbdS28rOlJSPaydkQwvw0f7tWEz69y6bKpj+07aQ/YulGFe6jX16jMUy6JHy76Gt
+CiTcPJ+yNquVcqmGrVmOxtmPsFTc+7l3NVXUw0N33B9vQvkyz4XipYxnchCs8ojg
+c0IhVgQVDPaRfahIZNBW7z7d2KexMkEHxafb5H9TX9V1EJyhJXG6331wZKKgMDnM
+qCFKtr7Y9lqG5bU7gLqxhzjq0ACTyUqKCGMD1w==
+-----END CERTIFICATE-----
+========== END CERTIFICATE ==========
+
+Certificate SANs:
+X509v3 Subject Alternative Name: 
+    DNS:digicert-demo.com, DNS:www.digicert-demo.com
+
+Step 5: Uploading certificate to Cloudflare...
+  Creating new certificate using POST...
+Upload Response: {"result":{"id":"f9686b15-c943-4a57-b07a-c8cbf03142a3","type":"sni_custom","hosts":["digicert-demo.com","www.digicert-demo.com"],"issuer":"RudloffInc","signature":"SHA256WithRSA","bundle_method":"force","zone_id":"c3aaef7ffc39aa38f9d33b8dbdaafab8","uploaded_on":"2025-10-15T09:19:58.444630Z","modified_on":"2025-10-15T09:19:58.444630Z","expires_on":"2028-10-15T09:19:55.000000Z","priority":0,"status":"pending","custom_csr_id":"0c3d1406-3764-4070-b34d-362233908da5"},"success":true,"errors":[],"messages":[]}
+✓ Certificate created successfully in Cloudflare!
+
+Cloudflare Certificate Details:
+  Certificate ID: f9686b15-c943-4a57-b07a-c8cbf03142a3
+  Status: pending
+  Hosts: ["digicert-demo.com","www.digicert-demo.com"]
+  Expires: 2028-10-15T09:19:55.000000Z
+  Custom CSR ID: 0c3d1406-3764-4070-b34d-362233908da5
+  Operation: created
+
+Note: Certificate status is 'pending'. It should become 'active' shortly.
+
+Step 6: CSR Cleanup...
+All CSRs Response: {
+  "result": [
+    {
+      "id": "0c3d1406-3764-4070-b34d-362233908da5",
+      "country": "US",
+      "state": "Utah",
+      "locality": "Lehi",
+      "organization": "Digicert",
+      "organizational_unit": "Product",
+      "common_name": "digicert-demo.com",
+      "sans": [
+        "digicert-demo.com",
+        "www.digicert-demo.com"
+      ],
+      "key_type": "rsa2048",
+      "csr": "-----BEGIN CERTIFICATE REQUEST-----\nMIIC9zCCAd8CAQAwbDELMAkGA1UEBhMCVVMxDTALBgNVBAgTBFV0YWgxDTALBgNV\nBAcTBExlaGkxETAPBgNVBAoTCERpZ2ljZXJ0MRAwDgYDVQQLEwdQcm9kdWN0MRow\nGAYDVQQDExFkaWdpY2VydC1kZW1vLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEP\nADCCAQoCggEBALzMMt99iQupsK5XfC1+k+r8FIE64CQrAqlog8DwM0IjpAieW/gI\nXFaejPR7G4fh8yPeLWewyRfe9e5V6jmxBTBaG7pKd3nVwCfGhuGj8hcEMjpiPWfD\nxeYlTegjTKEIDqLEOL7Tqbu46b9cjZ57BJ7n93fmap9QifRxIOxBknWjL/djH8gl\nQWBsgDtOwvlBk/b/tg1BXhcNVvSoMuSEdSGhCsBNhG6LK7QeOuuzFwIgDmdzHeDk\nQEH66ugAwwQ5+79xY0Khk3L71AIFesEeme3Wz8q+UFYgKAGomvpHIFLLb9JZeDk/\nKBwY2BBt9kNhd90sDyQ9ERB0cJif/O0A0yECAwEAAaBGMEQGCSqGSIb3DQEJDjE3\nMDUwMwYDVR0RBCwwKoIRZGlnaWNlcnQtZGVtby5jb22CFXd3dy5kaWdpY2VydC1k\nZW1vLmNvbTANBgkqhkiG9w0BAQsFAAOCAQEASIIKJkDn5kiIwVSrJnp6WqVyDrwy\nKR3nwMEskWueUrVIDvtQIAMg7xJg7tLWj5b7qVnGMGt2dt2bmkN281GKZ+HJ/v6I\naBRwkB1dFG9dnE58YhU0hbwDox8VoZ6D4WEVtNXfB2jxJ14bGs8x3unLN23Qpdq+\n9Rkyak8GCWkEjVYoGtD6RU5SXWp+nEGBa+TxF+4m0NXuQg917CuwWieoXFuS1SFe\nqLxFxOxGQfq2KRU0N/FZ92Lu54q0QQf66EULPB6f9ZwVChEpHWXDI0I2cGLQh+JY\nJMatM5qvXsnU092aE+hMufYBYFzbOyMMgzco8onfMMXoVx3nTop4RKlOUw==\n-----END CERTIFICATE REQUEST-----\n",
+      "created_at": "2025-10-15T09:19:53.912581Z"
+    }
+  ],
+  "result_info": {
+    "page": 1,
+    "per_page": 20,
+    "count": 1,
+    "total_count": 1,
+    "total_pages": 1
+  },
+  "success": true,
+  "errors": [],
+  "messages": []
+}
+  Found 1 total CSRs for digicert-demo.com
+  Retention policy: Keep 5 old CSRs
+  No cleanup needed (within retention limit)
+
+Would you like to save the certificate and details to files? (y/n): 
