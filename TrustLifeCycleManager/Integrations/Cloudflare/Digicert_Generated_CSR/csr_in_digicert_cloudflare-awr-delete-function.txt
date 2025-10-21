@@ -85,6 +85,7 @@ DEFAULT_DIGICERT_API_KEY="REMOVED_SECRET"
 DEFAULT_PROFILE_ID="f1887d29-ee87-48f7-a873-1a0254dc99a9"
 DEFAULT_LOG_FILE="./digicert_cert_automation_$(date +%Y%m%d_%H%M%S).log"
 DEFAULT_CSR_RETENTION="5"
+DEFAULT_CERT_DELETE_MODE="matching"
 
 # Function to prompt for input with default value
 prompt_with_default() {
@@ -132,12 +133,31 @@ prompt_with_default "Enter DigiCert Profile ID" "$DEFAULT_PROFILE_ID" "PROFILE_I
 prompt_with_default "Enter Log File Location" "$DEFAULT_LOG_FILE" "LOG_FILE" "false"
 prompt_with_default "Number of old CSRs to keep (0=delete all old CSRs)" "$DEFAULT_CSR_RETENTION" "CSR_RETENTION" "false"
 
+# Certificate deletion mode prompt
+if [ "$RENEWAL_MODE" = false ]; then
+    echo ""
+    echo "Certificate Deletion Strategy:"
+    echo "  none     - Keep all existing certificates (accumulate)"
+    echo "  all      - Delete ALL existing certificates before upload"
+    echo "  matching - Delete only certificates covering same hostname(s) (recommended)"
+    echo ""
+fi
+prompt_with_default "Certificate deletion mode (none/all/matching)" "$DEFAULT_CERT_DELETE_MODE" "CERT_DELETE_MODE" "false"
+
 # Validate CSR retention input
 if ! [[ "$CSR_RETENTION" =~ ^[0-9]+$ ]]; then
     if [ "$RENEWAL_MODE" = false ]; then
         echo "Error: CSR retention must be a number. Using default value of 5."
     fi
     CSR_RETENTION=5
+fi
+
+# Validate CERT_DELETE_MODE
+if [[ ! "$CERT_DELETE_MODE" =~ ^(none|all|matching)$ ]]; then
+    if [ "$RENEWAL_MODE" = false ]; then
+        echo "Warning: Invalid certificate deletion mode '$CERT_DELETE_MODE'. Using 'matching'."
+    fi
+    CERT_DELETE_MODE="matching"
 fi
 
 # Configuration summary and confirmation
@@ -150,6 +170,7 @@ if [ "$RENEWAL_MODE" = false ]; then
     echo "  Profile ID: $PROFILE_ID"
     echo "  Log File: $LOG_FILE"
     echo "  CSR Retention: $CSR_RETENTION old CSRs"
+    echo "  Certificate Delete Mode: $CERT_DELETE_MODE"
     echo ""
     echo -n "Proceed with these settings? (y/n): "
     read CONFIRM
@@ -162,6 +183,7 @@ else
     # In renewal mode, always proceed with defaults
     echo "Using default configuration values..."
     echo "  Log File: $LOG_FILE"
+    echo "  Certificate Delete Mode: $CERT_DELETE_MODE"
     echo ""
 fi
 
@@ -184,7 +206,7 @@ log_to_file_only() {
 # Function to clean up old CSRs
 cleanup_old_csrs() {
     log_message ""
-    log_message "Step 6: CSR Cleanup..."
+    log_message "Step 7: CSR Cleanup..."
     
     # Get all CSRs
     ALL_CSRS=$(curl --location "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/custom_csrs" \
@@ -245,7 +267,7 @@ cleanup_old_csrs() {
 echo "============================== Certificate Automation Log ==============================" > "$LOG_FILE"
 echo "Started: $(date)" >> "$LOG_FILE"
 echo "Mode: $([ "$RENEWAL_MODE" = true ] && echo "RENEWAL (Automated)" || echo "Interactive")" >> "$LOG_FILE"
-echo "Configuration: CSR Retention = $CSR_RETENTION" >> "$LOG_FILE"
+echo "Configuration: CSR Retention = $CSR_RETENTION, Cert Delete Mode = $CERT_DELETE_MODE" >> "$LOG_FILE"
 echo "========================================================================================" >> "$LOG_FILE"
 echo "" >> "$LOG_FILE"
 
@@ -279,8 +301,9 @@ log_message "  Domain: $DOMAIN"
 log_message "  Status: $ZONE_STATUS"
 log_message ""
 
-# Step 1: Check for existing certificates first
+# Step 1: Check for existing certificates and handle deletion based on mode
 log_message "Step 1: Checking for existing certificates for domain: $DOMAIN..."
+log_message "  Certificate deletion mode: $CERT_DELETE_MODE"
 
 EXISTING_CERTS=$(curl --location "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/custom_certificates" \
      --header "Authorization: Bearer ${AUTH_TOKEN}" \
@@ -288,41 +311,120 @@ EXISTING_CERTS=$(curl --location "https://api.cloudflare.com/client/v4/zones/${Z
 
 log_to_file_only "Existing Certificates Response: $EXISTING_CERTS"
 
-# Check if a certificate for this domain already exists
-EXISTING_CERT_ID=$(echo "$EXISTING_CERTS" | jq -r ".result[] | select(.hosts[] | contains(\"${DOMAIN}\")) | .id" | head -n1)
+# Count existing certificates
+CERT_COUNT=$(echo "$EXISTING_CERTS" | jq '[.result[]] | length')
+log_message "  Found $CERT_COUNT existing certificate(s)"
 
-UPDATE_EXISTING=false
-if [ ! -z "$EXISTING_CERT_ID" ] && [ "$EXISTING_CERT_ID" != "null" ]; then
-    log_message "Found existing certificate for domain: $DOMAIN"
-    log_message "  Existing Certificate ID: $EXISTING_CERT_ID"
+# Handle certificate deletion based on mode
+if [ "$CERT_DELETE_MODE" = "none" ]; then
+    log_message "  Mode 'none': Keeping all existing certificates"
+    log_message "  New certificate will be added alongside existing ones"
     
-    # Get expiration date of existing certificate
-    EXISTING_EXPIRES=$(echo "$EXISTING_CERTS" | jq -r ".result[] | select(.id==\"${EXISTING_CERT_ID}\") | .expires_on")
-    log_message "  Expires: $EXISTING_EXPIRES"
+elif [ "$CERT_DELETE_MODE" = "all" ] || [ "$CERT_DELETE_MODE" = "matching" ]; then
     
-    if [ "$RENEWAL_MODE" = true ]; then
-        # In renewal mode, always replace
-        log_message "  Renewal mode: Automatically replacing existing certificate"
-        UPDATE_EXISTING=true
-    else
-        # Interactive mode - ask for confirmation
-        log_message ""
-        echo -n "Replace existing certificate? (y/n): " | tee -a "$LOG_FILE"
-        read REPLACE_CERT
-        echo "$REPLACE_CERT" >> "$LOG_FILE"
+    if [ "$CERT_COUNT" -gt 0 ]; then
         
-        if [ "$REPLACE_CERT" != "y" ] && [ "$REPLACE_CERT" != "Y" ]; then
-            log_message "Certificate replacement cancelled."
-            exit 0
+        if [ "$CERT_DELETE_MODE" = "all" ]; then
+            # Delete ALL certificates
+            log_message "  Mode 'all': Will delete all $CERT_COUNT existing certificate(s)"
+            CERT_IDS=$(echo "$EXISTING_CERTS" | jq -r '.result[].id')
+            
+        elif [ "$CERT_DELETE_MODE" = "matching" ]; then
+            # Smart deletion - only delete certs covering the same hostname(s)
+            log_message "  Mode 'matching': Will only delete certificates covering $DOMAIN or www.$DOMAIN"
+            
+            # Expected hostnames for the new certificate
+            EXPECTED_HOSTS="${DOMAIN}|www.${DOMAIN}"
+            log_message "  Looking for certificates matching: $(echo "$EXPECTED_HOSTS" | tr '|' ', ')"
+            
+            # Initialize empty list
+            CERT_IDS=""
+            MATCH_COUNT=0
+            
+            # Parse each certificate in the response
+            while read -r cert_json; do
+                if [ -n "$cert_json" ] && [ "$cert_json" != "null" ]; then
+                    CURRENT_ID=$(echo "$cert_json" | jq -r '.id')
+                    CURRENT_HOSTS=$(echo "$cert_json" | jq -r '.hosts[]' | sort | tr '\n' '|' | sed 's/|$//')
+                    
+                    if [ -n "$CURRENT_ID" ] && [ -n "$CURRENT_HOSTS" ]; then
+                        # Check if any hostname matches
+                        MATCH_FOUND=false
+                        
+                        # Convert pipe-separated lists to arrays for comparison
+                        IFS='|' read -ra EXPECTED_HOSTS_ARRAY <<< "$EXPECTED_HOSTS"
+                        IFS='|' read -ra CURRENT_HOSTS_ARRAY <<< "$CURRENT_HOSTS"
+                        
+                        for expected_host in "${EXPECTED_HOSTS_ARRAY[@]}"; do
+                            for current_host in "${CURRENT_HOSTS_ARRAY[@]}"; do
+                                if [ "$expected_host" = "$current_host" ]; then
+                                    MATCH_FOUND=true
+                                    break 2
+                                fi
+                            done
+                        done
+                        
+                        if [ "$MATCH_FOUND" = true ]; then
+                            log_message "    Found matching certificate ID $CURRENT_ID covering: $(echo "$CURRENT_HOSTS" | tr '|' ', ')"
+                            CERT_IDS="${CERT_IDS}${CURRENT_ID}"$'\n'
+                            MATCH_COUNT=$((MATCH_COUNT + 1))
+                        fi
+                    fi
+                fi
+            done < <(echo "$EXISTING_CERTS" | jq -c '.result[]')
+            
+            if [ $MATCH_COUNT -eq 0 ]; then
+                log_message "  No certificates found with matching hostnames"
+            else
+                log_message "  Found $MATCH_COUNT matching certificate(s) to delete"
+            fi
         fi
-        UPDATE_EXISTING=true
+        
+        # Perform deletion if we have certificates to delete
+        if [ -n "$CERT_IDS" ]; then
+            DELETE_COUNT=0
+            FAIL_COUNT=0
+            
+            while IFS= read -r CERT_ID; do
+                if [ -n "$CERT_ID" ]; then
+                    log_message "    Deleting certificate ID: $CERT_ID"
+                    
+                    DELETE_RESPONSE=$(curl --location --request DELETE \
+                        "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/custom_certificates/${CERT_ID}" \
+                        --header "Authorization: Bearer ${AUTH_TOKEN}" \
+                        --silent)
+                    
+                    DELETE_SUCCESS=$(echo "$DELETE_RESPONSE" | jq -r '.success')
+                    
+                    if [ "$DELETE_SUCCESS" = "true" ]; then
+                        log_message "      ✓ Successfully deleted certificate"
+                        DELETE_COUNT=$((DELETE_COUNT + 1))
+                    else
+                        log_message "      ✗ Failed to delete certificate"
+                        FAIL_COUNT=$((FAIL_COUNT + 1))
+                        log_to_file_only "Delete Response: $DELETE_RESPONSE"
+                    fi
+                fi
+            done <<< "$CERT_IDS"
+            
+            log_message "  Certificate deletion summary: $DELETE_COUNT deleted, $FAIL_COUNT failed"
+            
+            # Add a small delay to ensure deletion is processed
+            if [ $DELETE_COUNT -gt 0 ]; then
+                log_message "  Waiting for deletion to process..."
+                sleep 2
+            fi
+        else
+            log_message "  No certificates to delete"
+        fi
+    else
+        log_message "  No existing certificates found"
     fi
-else
-    log_message "No existing certificate found for domain: $DOMAIN"
 fi
 
-# Step 2: Create CSR at Cloudflare
 log_message ""
+
+# Step 2: Create CSR at Cloudflare
 log_message "Step 2: Creating CSR at Cloudflare for $DOMAIN..."
 RESPONSE=$(curl --location "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/custom_csrs" \
      --header "Authorization: Bearer ${AUTH_TOKEN}" \
@@ -428,67 +530,31 @@ log_message ""
 log_message "Certificate SANs:"
 echo "$CERTIFICATE" | openssl x509 -noout -ext subjectAltName 2>/dev/null | tee -a "$LOG_FILE" || log_message "Could not parse SANs"
 
-# Step 5: Upload or update certificate in Cloudflare
+# Step 5: Upload new certificate to Cloudflare
 log_message ""
-log_message "Step 5: Uploading certificate to Cloudflare..."
+log_message "Step 5: Uploading new certificate to Cloudflare..."
 
 # Format certificate with proper escaping for JSON
 CERT_ESCAPED=$(echo "$CERTIFICATE" | jq -Rs .)
 
-if [ "$UPDATE_EXISTING" = true ]; then
-    log_message "  Replacing existing certificate ID: $EXISTING_CERT_ID"
-    
-    # First, delete the old certificate
-    log_message "  Deleting old certificate..."
-    DELETE_RESPONSE=$(curl --location --request DELETE "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/custom_certificates/${EXISTING_CERT_ID}" \
-         --header "Authorization: Bearer ${AUTH_TOKEN}" \
-         --silent)
-    
-    DELETE_SUCCESS=$(echo "$DELETE_RESPONSE" | jq -r '.success')
-    if [ "$DELETE_SUCCESS" = "true" ]; then
-        log_message "  ✓ Old certificate deleted successfully"
-    else
-        log_message "  ⚠ Warning: Could not delete old certificate"
-        log_to_file_only "Delete Response: $DELETE_RESPONSE"
-    fi
-    
-    # Now create the new certificate
-    log_message "  Creating new certificate with updated content..."
-    UPLOAD_RESPONSE=$(curl --location --request POST "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/custom_certificates" \
-         --header "Authorization: Bearer ${AUTH_TOKEN}" \
-         --header "Content-Type: application/json" \
-         --silent \
-         --data "{
-        \"bundle_method\": \"force\",
-        \"certificate\": ${CERT_ESCAPED},
-        \"type\": \"sni_custom\",
-        \"custom_csr_id\": \"${CSR_ID}\"
-    }")
-    
-    OPERATION="replaced"
-else
-    log_message "  Creating new certificate using POST..."
-    
-    UPLOAD_RESPONSE=$(curl --location --request POST "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/custom_certificates" \
-         --header "Authorization: Bearer ${AUTH_TOKEN}" \
-         --header "Content-Type: application/json" \
-         --silent \
-         --data "{
-        \"bundle_method\": \"force\",
-        \"certificate\": ${CERT_ESCAPED},
-        \"type\": \"sni_custom\",
-        \"custom_csr_id\": \"${CSR_ID}\"
-    }")
-    
-    OPERATION="created"
-fi
+log_message "  Creating new certificate..."
+UPLOAD_RESPONSE=$(curl --location --request POST "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/custom_certificates" \
+     --header "Authorization: Bearer ${AUTH_TOKEN}" \
+     --header "Content-Type: application/json" \
+     --silent \
+     --data "{
+    \"bundle_method\": \"force\",
+    \"certificate\": ${CERT_ESCAPED},
+    \"type\": \"sni_custom\",
+    \"custom_csr_id\": \"${CSR_ID}\"
+}")
 
 # Log full response to file only
 log_to_file_only "Upload Response: $UPLOAD_RESPONSE"
 
 UPLOAD_SUCCESS=$(echo "$UPLOAD_RESPONSE" | jq -r '.success')
 if [ "$UPLOAD_SUCCESS" = "true" ]; then
-    log_message "✓ Certificate ${OPERATION} successfully in Cloudflare!"
+    log_message "✓ Certificate uploaded successfully to Cloudflare!"
     log_message ""
     
     # Extract certificate details
@@ -503,7 +569,7 @@ if [ "$UPLOAD_SUCCESS" = "true" ]; then
     log_message "  Hosts: $CF_HOSTS"
     log_message "  Expires: $CF_EXPIRES"
     log_message "  Custom CSR ID: $CSR_ID"
-    log_message "  Operation: ${OPERATION}"
+    log_message "  Deletion Mode Used: $CERT_DELETE_MODE"
     
     if [ "$CF_STATUS" = "pending" ]; then
         log_message ""
@@ -513,7 +579,7 @@ if [ "$UPLOAD_SUCCESS" = "true" ]; then
     # Clean up old CSRs after successful certificate deployment
     cleanup_old_csrs
 else
-    log_message "✗ Error ${OPERATION%d}ing certificate in Cloudflare:"
+    log_message "✗ Error uploading certificate to Cloudflare:"
     echo "$UPLOAD_RESPONSE" | jq '.' | tee -a "$LOG_FILE"
     
     ERROR_MSG=$(echo "$UPLOAD_RESPONSE" | jq -r '.errors[0].message // empty')
@@ -552,7 +618,7 @@ DigiCert Serial Number: $SERIAL_NUMBER
 Cloudflare Certificate ID: ${CF_CERT_ID:-"N/A"}
 Status: ${CF_STATUS:-"N/A"}
 Expires: ${CF_EXPIRES:-"N/A"}
-Operation: ${OPERATION:-"N/A"}
+Certificate Delete Mode: $CERT_DELETE_MODE
 CSR Retention Policy: $CSR_RETENTION
 Mode: $([ "$RENEWAL_MODE" = true ] && echo "RENEWAL" || echo "Interactive")
 Created: $(date)
@@ -592,6 +658,11 @@ if [ "$RENEWAL_MODE" = false ]; then
     echo "Note: Replace '/path/to/' with the actual path to this script."
     echo "      The --renewal flag ensures the script runs without prompts using default values."
     echo "      Logs are appended to /var/log/cert_renewal.log for monitoring."
+    echo ""
+    echo "CERTIFICATE DELETION MODES:"
+    echo "  none     - Keeps all certificates (accumulates over time)"
+    echo "  matching - Replaces only certificates for the same domain (recommended)"
+    echo "  all      - Removes all certificates before upload (use with caution)"
     echo ""
     echo "To monitor renewal logs:"
     echo "tail -f /var/log/cert_renewal.log"
