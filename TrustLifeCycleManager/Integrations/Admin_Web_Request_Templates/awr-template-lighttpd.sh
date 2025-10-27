@@ -242,7 +242,56 @@ log_message "=========================================="
 # ADD YOUR CUSTOM LOGIC HERE:
 # ----------------------------------------
 
+# Define some variables for lighttpd configuration
+TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+LIGHTTPD_SSL_DIR="/etc/lighttpd/ssl"
+LIGHTTPD_SSL_CONF="/etc/lighttpd/conf-enabled/10-ssl.conf"
+COMBINED_PEM_FILE="$LIGHTTPD_SSL_DIR/demo2me_${TIMESTAMP}.pem"
 
+# Combine certificate and key into a single PEM file
+cat "$CRT_FILE_PATH" "$KEY_FILE_PATH" > "$COMBINED_PEM_FILE"
+
+# Backup existing lighttpd SSL configuration
+cp "$LIGHTTPD_SSL_CONF" "${LIGHTTPD_SSL_CONF}.backup_${TIMESTAMP}"
+
+# Get Certificate Path
+CURRENT_CERT_PATH=$(grep -oP 'ssl\.pemfile\s*=\s*"\K[^"]+' "$LIGHTTPD_SSL_CONF" | head -1)
+
+# Create new lighttpd SSL configuration with updated certificate path
+cat > "$LIGHTTPD_SSL_CONF" << EOF
+# Updated: $(date '+%Y-%m-%d %H:%M:%S')
+
+server.modules += ( "mod_openssl" )
+
+\$SERVER["socket"] == ":443" {
+    ssl.engine = "enable"
+    ssl.pemfile = "$COMBINED_PEM_FILE"
+    ssl.cipher-list = "HIGH:!aNULL:!MD5"
+    server.name = "demo2me.com"
+    server.document-root = "/var/www/html"
+}
+
+\$HTTP["scheme"] == "http" {
+    \$HTTP["host"] =~ ".*" {
+        url.redirect = (".*" => "https://%0\$0")
+    }
+}
+
+# Previous config archived: $(date '+%Y-%m-%d %H:%M:%S')
+# Previous cert: $CURRENT_CERT_PATH
+EOF
+
+# test lighttpd configuration
+lighttpd -t -f /etc/lighttpd/lighttpd.conf
+
+# restart lighttpd to apply changes
+systemctl restart lighttpd
+
+# validate lighttpd status
+systemctl status lighttpd
+
+# Check open port 443
+netstat -tlnp | grep :443 
 
 # ----------------------------------------
 # END OF CUSTOM LOGIC
