@@ -274,6 +274,7 @@ $apiPayloadObject = @{
     certificate = $CERT
     private_key = $KEY
     bundle_method = $BUNDLE_METHOD
+    type          = "sni_custom"
 }
 
 # Convert to JSON with proper escaping handled automatically by PowerShell
