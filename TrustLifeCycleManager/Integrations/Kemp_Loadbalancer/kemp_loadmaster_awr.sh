@@ -38,6 +38,56 @@ log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOGFILE"
 }
 
+# Function to obfuscate credentials in URLs
+obfuscate_url() {
+    local url="$1"
+    # Check if URL contains credentials (username:password@)
+    if echo "$url" | grep -q '://[^@]*:[^@]*@'; then
+        # Extract parts of the URL
+        local scheme=$(echo "$url" | sed 's/\(.*:\/\/\).*/\1/')
+        local creds=$(echo "$url" | sed 's/.*:\/\/\([^@]*\)@.*/\1/')
+        local rest=$(echo "$url" | sed 's/.*@\(.*\)/\1/')
+        
+        # Split credentials
+        local username=$(echo "$creds" | cut -d: -f1)
+        local password=$(echo "$creds" | cut -d: -f2-)
+        
+        # Obfuscate username (show first 3 chars)
+        local obs_user=""
+        if [ ${#username} -le 3 ]; then
+            obs_user="${username}"
+        else
+            obs_user="${username:0:3}***"
+        fi
+        
+        # Obfuscate password (show first 3 chars)
+        local obs_pass=""
+        if [ ${#password} -le 3 ]; then
+            obs_pass="${password}"
+        else
+            obs_pass="${password:0:3}***"
+        fi
+        
+        # Return obfuscated URL
+        echo "${scheme}${obs_user}:${obs_pass}@${rest}"
+    else
+        # No credentials in URL, return as-is
+        echo "$url"
+    fi
+}
+
+# Function to obfuscate standalone strings (for arguments if needed)
+obfuscate_string() {
+    local str="$1"
+    local show_chars="${2:-3}"  # Default to showing 3 chars
+    
+    if [ ${#str} -le $show_chars ]; then
+        echo "$str"
+    else
+        echo "${str:0:$show_chars}***"
+    fi
+}
+
 # Start logging
 log_message "=========================================="
 log_message "Starting DC1_POST_SCRIPT_DATA extraction script"
@@ -76,10 +126,10 @@ log_message "CERT_INFO length: ${#CERT_INFO} characters"
 JSON_STRING=$(echo "$CERT_INFO" | base64 -d)
 log_message "JSON_STRING decoded successfully"
 
-# Log the raw JSON for debugging
+# Log the raw JSON for debugging (with obfuscation if it contains sensitive data)
 log_message "=========================================="
-log_message "Raw JSON content:"
-log_message "$JSON_STRING"
+log_message "Raw JSON content: [Content logged but check for sensitive data]"
+# Note: Not logging raw JSON to avoid exposing credentials that might be in args
 log_message "=========================================="
 
 # Extract arguments from JSON
@@ -87,11 +137,11 @@ log_message "Extracting arguments from JSON..."
 
 # First, let's log the args array
 ARGS_ARRAY=$(echo "$JSON_STRING" | grep -oP '"args":\[\K[^]]*')
-log_message "Raw args array: $ARGS_ARRAY"
+log_message "Args array extracted (not logging raw content for security)"
 
 # Extract Argument_1 - first argument
 ARGUMENT_1=$(echo "$ARGS_ARRAY" | awk -F',' '{print $1}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
-log_message "ARGUMENT_1 extracted: '$ARGUMENT_1'"
+log_message "ARGUMENT_1 extracted: '$(obfuscate_url "$ARGUMENT_1")'"
 log_message "ARGUMENT_1 length: ${#ARGUMENT_1}"
 
 # Extract Argument_2 - second argument
@@ -141,7 +191,7 @@ log_message "=========================================="
 log_message "EXTRACTION SUMMARY:"
 log_message "=========================================="
 log_message "Arguments extracted:"
-log_message "  Argument 1: $ARGUMENT_1"
+log_message "  Argument 1: $(obfuscate_url "$ARGUMENT_1")"
 log_message "  Argument 2: $ARGUMENT_2"
 log_message "  Argument 3: $ARGUMENT_3"
 log_message "  Argument 4: $ARGUMENT_4"
@@ -265,7 +315,7 @@ VS_PORT="$ARGUMENT_3"
 CERT_NAME="$ARGUMENT_4"
 
 log_message "Kemp target:"
-log_message "  Base URL: $BASE_URL"
+log_message "  Base URL: $(obfuscate_url "$BASE_URL")"
 log_message "  VS: $VS_IP:$VS_PORT (tcp)"
 log_message "  Certificate name: $CERT_NAME"
 
@@ -290,14 +340,14 @@ trap 'rm -f "$COMBINED_PEM_PATH"' EXIT
 
 # Step 2: Check if certificate already exists on LoadMaster
 LISTCERT_URL="${BASE_URL}/access/listcert"
-log_message "Checking certificate existence via: $LISTCERT_URL"
+log_message "Checking certificate existence via: $(obfuscate_url "$LISTCERT_URL")"
 
 LIST_RESPONSE=$(curl -k --location --silent --show-error "$LISTCERT_URL" --write-out "\nHTTP_STATUS:%{http_code}" 2>&1 || true)
 LIST_STATUS=$(echo "$LIST_RESPONSE" | sed -n 's/^HTTP_STATUS://p')
 LIST_BODY=$(echo "$LIST_RESPONSE" | sed '/HTTP_STATUS:/d')
 
 log_message "listcert HTTP status: $LIST_STATUS"
-# log_message "listcert response body: $LIST_BODY"
+# log_message "listcert response body: $LIST_BODY"  # Commented out for security
 
 CERT_EXISTS="false"
 if command -v xmllint >/dev/null 2>&1; then
@@ -321,7 +371,7 @@ else
     log_message "Certificate not found; will POST without replace=1"
 fi
 
-log_message "Uploading PEM to: $UPLOAD_URL"
+log_message "Uploading PEM to: $(obfuscate_url "$UPLOAD_URL")"
 UPLOAD_RESPONSE=$(curl -k --location --silent --show-error \
     --header 'Content-Type: application/x-x509-ca-cert' \
     --data-binary "@${COMBINED_PEM_PATH}" \
@@ -332,7 +382,12 @@ UPLOAD_STATUS=$(echo "$UPLOAD_RESPONSE" | sed -n 's/^HTTP_STATUS://p')
 UPLOAD_BODY=$(echo "$UPLOAD_RESPONSE" | sed '/HTTP_STATUS:/d')
 
 log_message "addcert HTTP status: $UPLOAD_STATUS"
-log_message "addcert response: $UPLOAD_BODY"
+# Only log non-sensitive parts of response
+if echo "$UPLOAD_BODY" | grep -q "Success\|success\|OK"; then
+    log_message "addcert response: Success"
+else
+    log_message "addcert response: [Response received - check status]"
+fi
 
 if [ "$UPLOAD_STATUS" != "200" ] && [ "$UPLOAD_STATUS" != "201" ]; then
     log_message "ERROR: Certificate upload failed."
@@ -341,7 +396,7 @@ fi
 
 # Step 4: Assign the certificate to the Virtual Service
 ASSIGN_URL="${BASE_URL}/access/modvs?vs=${VS_IP}&port=${VS_PORT}&prot=tcp&CertFile=${CERT_NAME}"
-log_message "Assigning certificate to VS via: $ASSIGN_URL"
+log_message "Assigning certificate to VS via: $(obfuscate_url "$ASSIGN_URL")"
 
 ASSIGN_RESPONSE=$(curl -k --location --silent --show-error \
     "$ASSIGN_URL" \
@@ -351,7 +406,12 @@ ASSIGN_STATUS=$(echo "$ASSIGN_RESPONSE" | sed -n 's/^HTTP_STATUS://p')
 ASSIGN_BODY=$(echo "$ASSIGN_RESPONSE" | sed '/HTTP_STATUS:/d')
 
 log_message "modvs HTTP status: $ASSIGN_STATUS"
-log_message "modvs response: $ASSIGN_BODY"
+# Only log non-sensitive parts of response
+if echo "$ASSIGN_BODY" | grep -q "Success\|success\|OK"; then
+    log_message "modvs response: Success"
+else
+    log_message "modvs response: [Response received - check status]"
+fi
 
 if [ "$ASSIGN_STATUS" = "200" ] || [ "$ASSIGN_STATUS" = "201" ]; then
     log_message "SUCCESS: '${CERT_NAME}' assigned to VS ${VS_IP}:${VS_PORT}"
@@ -367,7 +427,7 @@ log_message "=========================================="
 # ============================================================================
 
 log_message "=========================================="
-log_message "Script execution completed"
+log_message "Script execution completed successfully"
 log_message "=========================================="
 
 exit 0
