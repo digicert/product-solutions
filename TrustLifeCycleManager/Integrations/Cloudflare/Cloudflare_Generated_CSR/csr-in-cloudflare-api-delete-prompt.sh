@@ -79,10 +79,10 @@ if [ "$RENEWAL_MODE" = true ]; then
 fi
 
 # Default values
-DEFAULT_ZONE_ID="c3aaef7ffc39aa38f9d33b8dbdaafab8"
-DEFAULT_AUTH_TOKEN="DXeIh6fhqnmICp09BpohJPDegmJMH0zlqZBZpOQw"
-DEFAULT_DIGICERT_API_KEY="01e615c60f4e874a1a6d0d66dc_87d297ee13fb16ac4bade5b94bb6486043532397c921f665b09a1ff689c7ea5c"
-DEFAULT_PROFILE_ID="f1887d29-ee87-48f7-a873-1a0254dc99a9"
+DEFAULT_ZONE_ID="Enter zone ID here"
+DEFAULT_AUTH_TOKEN="Enter your Cloudflare API token here"
+DEFAULT_DIGICERT_API_KEY="Enter your DigiCert API key here"
+DEFAULT_PROFILE_ID="Enter your DigiCert profile ID here"
 DEFAULT_LOG_FILE="./digicert_cert_automation_$(date +%Y%m%d_%H%M%S).log"
 DEFAULT_CSR_RETENTION="5"
 DEFAULT_CERT_DELETE_MODE="matching"
