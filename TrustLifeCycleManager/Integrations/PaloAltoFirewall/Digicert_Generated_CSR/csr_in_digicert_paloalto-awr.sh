@@ -32,11 +32,11 @@ LEGAL_NOTICE
 
 # Configuration
 LEGAL_NOTICE_ACCEPT="true"
-LOGFILE="/home/ubuntu/tlm_agent_3.0.15_linux64/log/palo-alto-awr.log"
+LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/palo-alto-awr.log"
 
 # Palo Alto Configuration - MODIFY THESE VALUES
-PA_URL="https://ec2-3-131-97-204.us-east-2.compute.amazonaws.com"
-PA_API_KEY="< Add your Palo Alto API key here >"
+PA_URL="https://ec2-18-117-255-107.us-east-2.compute.amazonaws.com"
+PA_API_KEY="REMOVED_SECRET"
 
 # Certificate naming configuration
 # Options: "common_name" or "manual"
@@ -44,13 +44,13 @@ PA_API_KEY="< Add your Palo Alto API key here >"
  CERT_NAME_METHOD="manual"     # Use manually specified name
 
 # If using manual method, specify the certificate name here
-MANUAL_CERT_NAME="ceaser-cert"
+MANUAL_CERT_NAME="tlsguru-io"
 
 # Commit configuration after upload
 COMMIT_CONFIG="true"  # Set to "true" to automatically commit after upload
 
 # Passphrase for private key (if needed)
-PRIVATE_KEY_PASSPHRASE="REMOVED_SECRET"
+PRIVATE_KEY_PASSPHRASE=""
 
 # Debug mode flag - set to "true" to enable detailed logging
 # WARNING: This will log sensitive information including full API_KEY
