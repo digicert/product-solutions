@@ -36,7 +36,7 @@ LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/palo-alto-awr.log"
 
 # Palo Alto Configuration - MODIFY THESE VALUES
 PA_URL="https://ec2-18-117-255-107.us-east-2.compute.amazonaws.com"
-PA_API_KEY="REMOVED_SECRET"
+PA_API_KEY="xyz123"
 
 # Certificate naming configuration
 # Options: "common_name" or "manual"
