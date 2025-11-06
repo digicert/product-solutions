@@ -31,8 +31,24 @@ The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
 # Configuration
-LEGAL_NOTICE_ACCEPT="true"
+LEGAL_NOTICE_ACCEPT="false"
 LOGFILE="/home/ubuntu/tlm_agent_3.1.4_linux64/log/dc1_data.log"
+
+# --- Custom deployment configuration (added) ---
+# Control whether to back up existing nginx certs before replacing them.
+BACKUP_OLD_CERTS="true"          # True/False (default True)
+
+# Control whether to restart nginx after deployment. If false, no restart is performed. If true and restart fails, reload is performed.
+RESTART_NGINX="false"            # True/False (default False)
+
+# Control whether to validate nginx configuration with 'nginx -t' and log the output.
+VALIDATE_NGINX_CONFIG="true"     # True/False (default True)
+
+# Target certificate/key paths as configured in nginx:
+NGINX_CERT_PATH="/etc/nginx/ssl/ots_ogletreedeakins_com.pem"
+NGINX_KEY_PATH="/etc/nginx/ssl/ots_ogletreedeakins_com.key"
+# --- End custom deployment configuration ---
+
 
 # Function to log messages with timestamp
 log_message() {
@@ -240,20 +256,155 @@ log_message "=========================================="
 
 
 # ADD CUSTOM LOGIC HERE:
-# ----------------------------------------
 
+# ------------------ BEGIN: NGINX cert deployment logic ------------------
+log_message "Entering NGINX certificate deployment logic"
 
+# Show inputs we expect from DC1 JSON
+log_message "Source certificate folder (CERT_FOLDER): ${CERT_FOLDER:-<empty>}"
+log_message "Source certificate filename (CRT_FILE): ${CRT_FILE:-<empty>}"
+log_message "Source private key filename (KEY_FILE): ${KEY_FILE:-<empty>}"
+log_message "Destination cert path (NGINX_CERT_PATH): ${NGINX_CERT_PATH}"
+log_message "Destination key  path (NGINX_KEY_PATH):  ${NGINX_KEY_PATH}"
+log_message "Backup old certs (BACKUP_OLD_CERTS): ${BACKUP_OLD_CERTS}"
+log_message "Validate nginx config (VALIDATE_NGINX_CONFIG): ${VALIDATE_NGINX_CONFIG}"
+log_message "Restart nginx (RESTART_NGINX): ${RESTART_NGINX}"
 
+# Sanity checks for required variables
+if [ -z "${CERT_FOLDER}" ] || [ -z "${CRT_FILE}" ] || [ -z "${KEY_FILE}" ]; then
+    log_message "ERROR: Missing one or more required inputs (CERT_FOLDER/CRT_FILE/KEY_FILE). Aborting."
+    exit 1
+fi
 
-# ----------------------------------------
-# END CUSTOM LOGIC
+# Build absolute source paths (already provided by template too)
+SRC_CERT="${CRT_FILE_PATH:-${CERT_FOLDER}/${CRT_FILE}}"
+SRC_KEY="${KEY_FILE_PATH:-${CERT_FOLDER}/${KEY_FILE}}"
+
+# Verify the source files exist
+if [ ! -f "${SRC_CERT}" ]; then
+    log_message "ERROR: Source certificate not found at ${SRC_CERT}"
+    exit 1
+fi
+if [ ! -f "${SRC_KEY}" ]; then
+    log_message "ERROR: Source private key not found at ${SRC_KEY}"
+    exit 1
+fi
+
+# Ensure destination directory exists
+DEST_DIR_CERT="$(dirname "${NGINX_CERT_PATH}")"
+DEST_DIR_KEY="$(dirname "${NGINX_KEY_PATH}")"
+if [ ! -d "${DEST_DIR_CERT}" ]; then
+    log_message "Destination directory ${DEST_DIR_CERT} does not exist. Creating..."
+    mkdir -p "${DEST_DIR_CERT}" || { log_message "ERROR: Failed to create ${DEST_DIR_CERT}"; exit 1; }
+fi
+
+# Timestamp for backups and temp files
+TS="$(date -u +%Y%m%d-%H%M%SZ)"
+
+# Optional: back up existing certificate and key
+if [ "${BACKUP_OLD_CERTS}" = "true" ]; then
+    for DEST in "${NGINX_CERT_PATH}" "${NGINX_KEY_PATH}"; do
+        if [ -f "${DEST}" ]; then
+            BACKUP_PATH="${DEST}.${TS}.backup"
+            log_message "Backing up ${DEST} -> ${BACKUP_PATH}"
+            cp -p "${DEST}" "${BACKUP_PATH}" || { log_message "ERROR: Backup failed for ${DEST}"; exit 1; }
+        else
+            log_message "No existing file at ${DEST}; skipping backup."
+        fi
+    done
+else
+    log_message "BACKUP_OLD_CERTS=false; skipping backups."
+fi
+
+# Deploy the new certificate (copy atomically and set permissions)
+deploy_file() {
+    local SRC="$1"
+    local DEST="$2"
+    local MODE="$3"   # e.g., 0644 or 0600
+
+    local DEST_DIR
+    DEST_DIR="$(dirname "${DEST}")"
+
+    # Create a temp file in the destination directory for atomic move
+    local TMP
+    if TMP="$(mktemp "${DEST_DIR}/$(basename "${DEST}").XXXXXX.tmp")"; then
+        :
+    else
+        # Fallback if mktemp template style not supported
+        TMP="${DEST}.tmp.${TS}"
+    fi
+
+    log_message "Copying ${SRC} -> ${TMP}"
+    cp "${SRC}" "${TMP}" || { log_message "ERROR: Failed to copy ${SRC} to temporary file ${TMP}"; rm -f "${TMP}"; exit 1; }
+
+    # Set strict permissions and ownership before moving into place
+    chmod "${MODE}" "${TMP}" || { log_message "ERROR: chmod ${MODE} ${TMP} failed"; rm -f "${TMP}"; exit 1; }
+    chown root:root "${TMP}" 2>/dev/null || true
+
+    # Atomic move into final location
+    mv -f "${TMP}" "${DEST}" || { log_message "ERROR: Failed to move ${TMP} to ${DEST}"; rm -f "${TMP}"; exit 1; }
+
+    log_message "Deployed ${DEST} (mode ${MODE})"
+}
+
+# Copy/convert certificate to .pem path. Content format (.crt vs .pem) is compatible (base64 X.509).
+deploy_file "${SRC_CERT}" "${NGINX_CERT_PATH}" 0644
+# Copy private key (restrict permissions)
+deploy_file "${SRC_KEY}" "${NGINX_KEY_PATH}" 0600
+
+# Optionally validate nginx configuration
+VALIDATION_OK="unknown"
+if [ "${VALIDATE_NGINX_CONFIG}" = "true" ]; then
+    log_message "Running nginx -t to validate configuration..."
+    if nginx -t >> "${LOGFILE}" 2>&1; then
+        VALIDATION_OK="yes"
+        log_message "nginx -t: configuration test PASSED"
+    else
+        VALIDATION_OK="no"
+        log_message "nginx -t: configuration test FAILED (see log for details)"
+    fi
+else
+    log_message "VALIDATE_NGINX_CONFIG=false; skipping nginx -t validation."
+fi
+
+# Optionally restart nginx (only if validation succeeded or validation is disabled)
+if [ "${RESTART_NGINX}" = "true" ]; then
+    if [ "${VALIDATE_NGINX_CONFIG}" = "true" ] && [ "${VALIDATION_OK}" != "yes" ]; then
+        log_message "Skipping nginx restart because validation failed."
+    else
+        log_message "Restarting nginx service..."
+        if command -v systemctl >/dev/null 2>&1; then
+            if systemctl restart nginx >> "${LOGFILE}" 2>&1; then
+                log_message "nginx restarted successfully via systemctl."
+            else
+                log_message "ERROR: systemctl restart nginx failed."
+                exit 1
+            fi
+        elif command -v service >/dev/null 2>&1; then
+            if service nginx restart >> "${LOGFILE}" 2>&1; then
+                log_message "nginx restarted successfully via service."
+            else
+                log_message "ERROR: service nginx restart failed."
+                exit 1
+            fi
+        else
+            # Fallback to nginx signal if managers are unavailable
+            if nginx -s reload >> "${LOGFILE}" 2>&1; then
+                log_message "nginx reloaded successfully via 'nginx -s reload'."
+            else
+                log_message "ERROR: Failed to control nginx (no systemctl/service and reload failed)."
+                exit 1
+            fi
+        fi
+    fi
+else
+    log_message "RESTART_NGINX=false; not restarting nginx."
+fi
+
+log_message "NGINX certificate deployment logic complete"
 
 log_message "Custom script section completed"
 log_message "=========================================="
-
-# ============================================================================
-# END OF CUSTOM SCRIPT SECTION
-# ============================================================================
 
 log_message "=========================================="
 log_message "Script execution completed"
