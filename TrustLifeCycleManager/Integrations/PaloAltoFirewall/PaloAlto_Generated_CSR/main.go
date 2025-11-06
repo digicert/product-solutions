@@ -190,7 +190,7 @@ func getConfigurationFromUser() *Config {
 
 	fmt.Println("--- PAN-OS Firewall Configuration ---")
 	config.FirewallIP = promptWithDefault("Firewall IP/Hostname", "ec2-3-145-216-176.us-east-2.compute.amazonaws.com")
-	config.APIKey = promptWithDefault("API Key", "LUFRPT1FbHhwTEFkNHhaMWZkQy9jR2hINnk1ZkdoOWs9dEdlQVg1OXVOMkFUVHdFSkRVNjhqWTMrSDJmNXNYWVRSSDJmS0tTR1ZreUVBMkFNc3hxWEVVeWdyWlNtUVhERA==")
+	config.APIKey = promptWithDefault("API Key", "XYZ123")
 
 	fmt.Println("")
 	fmt.Println("--- Advanced Options ---")
@@ -207,7 +207,7 @@ func getConfigurationFromUser() *Config {
 
 	fmt.Println("")
 	fmt.Println("--- DigiCert API Configuration ---")
-	config.DigicertAPIKey = promptWithDefault("DigiCert API Key", "01e615c60f4e874a1a6d0d66dc_87d297ee13fb16ac4bade5b94bb6486043532397c921f665b09a1ff689c7ea5c")
+	config.DigicertAPIKey = promptWithDefault("DigiCert API Key", "XYZ123
 	config.DigicertProfile = promptWithDefault("DigiCert Profile ID", "f1887d29-ee87-48f7-a873-1a0254dc99a9")
 	config.DigicertSeatID = promptWithDefault("DigiCert Seat ID", "tlsguru.io")
 

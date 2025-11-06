@@ -232,10 +232,10 @@ func getConfigurationFromUser() *Config {
 		fmt.Println("")
 
 		config.LegalNoticeAccept = true
-		config.ZoneID = "c3aae<redacted>aafab8"
-		config.AuthToken = "0u15SP<redacted>vpYYsO"
-		config.DigicertAPIKey = "01e61<redacted>c7ea5c"
-		config.ProfileID = "f1887<redacted>99a9"
+		config.ZoneID = "xyz123"
+		config.AuthToken = "xyz123"
+		config.DigicertAPIKey = "xyz123"
+		config.ProfileID = "xyz123"
 		config.CSRRetention = 5
 		config.AutoSaveFiles = true // Always save files in renewal mode
 
