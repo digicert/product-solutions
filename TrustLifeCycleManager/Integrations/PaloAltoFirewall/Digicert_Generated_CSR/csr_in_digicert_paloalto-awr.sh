@@ -36,7 +36,7 @@ LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/palo-alto-awr.log"
 
 # Palo Alto Configuration - MODIFY THESE VALUES
 PA_URL="https://ec2-18-117-255-107.us-east-2.compute.amazonaws.com"
-PA_API_KEY="LUFRPT1ROGgyOXhFemdWT1gxWlVNd250b2VtcW5ybTQ9WVppQ3VOai9idktIVWpPNU5ibjFiZ2x3SGZ4Tks4Wm9OTmVRcjA0SG0rcVBEdU9aUW5XaU1MazFDZDhNTm44ag=="
+PA_API_KEY="xyz123"
 
 # Certificate naming configuration
 # Options: "common_name" or "manual"
