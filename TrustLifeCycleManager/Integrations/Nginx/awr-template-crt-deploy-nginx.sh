@@ -31,22 +31,22 @@ The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
 # Configuration
-LEGAL_NOTICE_ACCEPT="false"
-LOGFILE="/home/ubuntu/tlm_agent_3.1.4_linux64/log/dc1_data.log"
+LEGAL_NOTICE_ACCEPT="true"
+LOGFILE="/home/ubuntu/tlm_agent_3.1.4_linux64/log/nginx.log"
 
 # --- Custom deployment configuration (added) ---
 # Control whether to back up existing nginx certs before replacing them.
 BACKUP_OLD_CERTS="true"          # True/False (default True)
 
 # Control whether to restart nginx after deployment. If false, no restart is performed. If true and restart fails, reload is performed.
-RESTART_NGINX="false"            # True/False (default False)
+RESTART_NGINX="true"            # True/False (default False)
 
 # Control whether to validate nginx configuration with 'nginx -t' and log the output.
 VALIDATE_NGINX_CONFIG="true"     # True/False (default True)
 
 # Target certificate/key paths as configured in nginx:
-NGINX_CERT_PATH="/etc/nginx/ssl/ots_ogletreedeakins_com.pem"
-NGINX_KEY_PATH="/etc/nginx/ssl/ots_ogletreedeakins_com.key"
+NGINX_CERT_PATH="/etc/nginx/ssl/nginx.demo2me.com.crt"
+NGINX_KEY_PATH="/etc/nginx/ssl/nginx.demo2me.com.key"
 # --- End custom deployment configuration ---
 
 
