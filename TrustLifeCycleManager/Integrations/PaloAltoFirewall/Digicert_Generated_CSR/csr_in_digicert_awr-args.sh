@@ -37,15 +37,10 @@ LEGAL_NOTICE_ACCEPT="true"
 TLM_AGENT_DIR=$(find /home/ubuntu -maxdepth 1 -type d -name "tlm_agent_*" | head -n 1)
 LOGFILE="${TLM_AGENT_DIR}/log/palo-alto-awr.log"
 
-# Palo Alto Configuration - MODIFY THESE VALUES
-# PA_URL and PA_API_KEY now come from AWR "args" (Argument 1 and Argument 2)
-PA_URL=""
-PA_API_KEY=""
-
 # Certificate naming configuration
 # Options: "common_name" or "manual"
 #CERT_NAME_METHOD="common_name"  # Use certificate's common name
- CERT_NAME_METHOD="manual"     # Use manually specified name
+CERT_NAME_METHOD="manual"     # Use manually specified name
 
 # If using manual method, specify the certificate name here
 MANUAL_CERT_NAME="tf-automated-cert"
@@ -102,55 +97,13 @@ else
     log_message "Legal notice accepted, proceeding with script execution."
 fi
 
-# Log initial configuration
-log_message "Configuration:"
-
-# ------------------------------------------------------------------
-# Populate PA_URL and PA_API_KEY from AWR "args" (Argument 1 and 2)
-
-# Support direct CLI positional arguments for local testing
-if [ -n "$1" ]; then PA_URL="$1"; fi
-if [ -n "$2" ]; then PA_API_KEY="$2"; fi
-
-# If DC1_POST_SCRIPT_DATA is available, decode its JSON and extract args
-if [ -n "$DC1_POST_SCRIPT_DATA" ]; then
-    # Decode the Base64-encoded JSON that AWR passes in
-    JSON_STRING_EARLY=$(echo "$DC1_POST_SCRIPT_DATA" | base64 -d 2>/dev/null)
-    if [ -n "$JSON_STRING_EARLY" ]; then
-        ARGS_ARRAY=$(echo "$JSON_STRING_EARLY" | grep -oP '"args":\[\K[^]]*')
-        ARGUMENT_1=$(echo "$ARGS_ARRAY" | awk -F',' '{print $1}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
-        ARGUMENT_2=$(echo "$ARGS_ARRAY" | awk -F',' '{print $2}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
-        # Override if present
-        if [ -n "$ARGUMENT_1" ]; then
-            PA_URL="$ARGUMENT_1"
-        fi
-        if [ -n "$ARGUMENT_2" ]; then
-            PA_API_KEY="$ARGUMENT_2"
-        fi
-    fi
-fi
-
+# Log initial configuration (before extracting arguments)
+log_message "Initial Configuration:"
 log_message "  LEGAL_NOTICE_ACCEPT: $LEGAL_NOTICE_ACCEPT"
 log_message "  LOGFILE: $LOGFILE"
-log_message "  PA_URL: $PA_URL"
-# Mask API key for security - show only first and last 4 characters
-if [ -n "$PA_API_KEY" ]; then
-    PA_API_KEY_MASKED="${PA_API_KEY:0:4}...${PA_API_KEY: -4}"
-    log_message "  PA_API_KEY: '$PA_API_KEY_MASKED' (masked for security)"
-else
-    log_message "  PA_API_KEY: [empty]"
-fi
 log_message "  CERT_NAME_METHOD: $CERT_NAME_METHOD"
 log_message "  MANUAL_CERT_NAME: $MANUAL_CERT_NAME"
 log_message "  COMMIT_CONFIG: $COMMIT_CONFIG"
-
-
-# Validate that PA_URL and PA_API_KEY were provided via arguments
-if [ -z "$PA_URL" ] || [ -z "$PA_API_KEY" ]; then
-    log_message "ERROR: PA_URL or PA_API_KEY not provided. These must be passed via AWR args (Argument 1 = URL, Argument 2 = API Key)."
-    log_message "       Current values: PA_URL='$PA_URL' PA_API_KEY='${PA_API_KEY:+****}'"
-    exit 1
-fi
 
 # Log environment variable check
 log_message "Checking DC1_POST_SCRIPT_DATA environment variable..."
@@ -173,7 +126,53 @@ else
     log_message "JSON_STRING decoded successfully"
 fi
 
-# Extract arguments from JSON (args array is not needed for Palo Alto)
+# Extract arguments from JSON
+log_message "Extracting arguments from JSON..."
+
+# Extract the args array
+ARGS_ARRAY=$(echo "$JSON_STRING" | grep -oP '"args":\[\K[^]]*')
+log_message "Raw args array: $ARGS_ARRAY"
+
+# Extract Argument 1 (PA_URL) and Argument 2 (PA_API_KEY)
+ARGUMENT_1=$(echo "$ARGS_ARRAY" | awk -F',' '{print $1}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+ARGUMENT_2=$(echo "$ARGS_ARRAY" | awk -F',' '{print $2}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+
+# Assign to PA variables
+PA_URL="$ARGUMENT_1"
+PA_API_KEY="$ARGUMENT_2"
+
+# Support direct CLI positional arguments for local testing (override if provided)
+if [ -n "$1" ]; then 
+    PA_URL="$1"
+    log_message "PA_URL overridden from CLI argument 1"
+fi
+if [ -n "$2" ]; then 
+    PA_API_KEY="$2"
+    log_message "PA_API_KEY overridden from CLI argument 2"
+fi
+
+# Log the extracted values
+log_message "Arguments extracted from AWR:"
+log_message "  Argument 1 (PA_URL): $PA_URL"
+
+# Mask API key for security - show only first and last 4 characters
+if [ -n "$PA_API_KEY" ]; then
+    PA_API_KEY_MASKED="${PA_API_KEY:0:4}...${PA_API_KEY: -4}"
+    log_message "  Argument 2 (PA_API_KEY): '$PA_API_KEY_MASKED' (masked for security)"
+else
+    log_message "  Argument 2 (PA_API_KEY): [empty]"
+fi
+
+# Validate that PA_URL and PA_API_KEY were provided via arguments
+if [ -z "$PA_URL" ] || [ -z "$PA_API_KEY" ]; then
+    log_message "ERROR: PA_URL or PA_API_KEY not provided. These must be passed via AWR args (Argument 1 = URL, Argument 2 = API Key)."
+    log_message "       Current values: PA_URL='$PA_URL' PA_API_KEY='${PA_API_KEY:+****}'"
+    exit 1
+fi
+
+log_message "Palo Alto connection parameters successfully extracted from AWR arguments"
+
+# Extract certificate information from JSON
 log_message "Extracting certificate information from JSON..."
 
 # Extract cert folder
