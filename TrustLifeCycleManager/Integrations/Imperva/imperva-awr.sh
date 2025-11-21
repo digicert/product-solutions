@@ -31,9 +31,9 @@ The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
 # Configuration
-LEGAL_NOTICE_ACCEPT="false"
-LOGFILE="/home/ubuntu/tlm_agent_3.0.15_linux64/log/imperva.log"
-API_CALL_LOGFILE="/home/ubuntu/tlm_agent_3.0.15_linux64/log/imperva-curl-command.log"
+LEGAL_NOTICE_ACCEPT="true"
+LOGFILE="/home/ubuntu/terraform/tlmagent/cdn/tlm_agent_3.1.4_linux64/log/imperva.log"
+API_CALL_LOGFILE="/home/ubuntu/terraform/tlmagent/cdn/tlm_agent_3.1.4_linux64/log/imperva-api-call.log"
 
 # Function to log messages with timestamp
 log_message() {

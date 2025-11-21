@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mike-tlsguru-io
+  namespace: istio-system
+spec:
+  secretName: mike-tlsguru-io-tls
+  issuerRef:
+    name: digicert-apache-acme-issuer
+    kind: Issuer
+  dnsNames:
+  - mike.tlsguru.io
