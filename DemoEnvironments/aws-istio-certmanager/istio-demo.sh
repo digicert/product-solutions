@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+bash#!/usr/bin/env bash
 #set -euo pipefail
 clear
 # -------- Config you can override --------
@@ -7,14 +7,14 @@ APP_NS="${APP_NS:-tls-apache}"
 ISTIO_NS="${ISTIO_NS:-istio-system}"
 ISSUER_NAME="${ISSUER_NAME:-digicert-apache-acme-issuer}"
 IMAGE="${IMAGE:-httpd:2.4}"
-GW_SELECTOR_KEY="${GW_SELECTOR_KEY:-istio}"            # change to "app" if needed
-GW_SELECTOR_VAL="${GW_SELECTOR_VAL:-ingressgateway}"   # change to "istio-ingressgateway" if needed
+GW_SELECTOR_KEY="${GW_SELECTOR_KEY:-istio}"            
+GW_SELECTOR_VAL="${GW_SELECTOR_VAL:-ingressgateway}"   
 
 # --- DNS constants (hardcoded as requested)
-HOSTED_ZONE_ID="${HOSTED_ZONE_ID:-Z08247632HYP0QBHTZK9D}"   # Route53 zone for tlsguru.io
-ELB_DNS_BASE="${ELB_DNS_BASE:-a98bf6607383447a4bce82c60dfe93ea-1635590432.us-east-2.elb.amazonaws.com}"
-ELB_DNS="dualstack.${ELB_DNS_BASE}"                          # ensure dualstack for IPv4/IPv6
-ELB_ZONE_ID="${ELB_ZONE_ID:-Z3AADJGX6KTTL2}"                # Canonical hosted zone ID for this ELB
+HOSTED_ZONE_ID="${HOSTED_ZONE_ID:-Z08247632HYP0QBHTZK9D}"
+ELB_DNS_BASE="${ELB_DNS_BASE:-aed919e694e6c482bab1eeca312398a4-2092444533.us-east-2.elb.amazonaws.com}"
+ELB_DNS="dualstack.${ELB_DNS_BASE}"
+ELB_ZONE_ID="${ELB_ZONE_ID:-Z3AADJGX6KTTL2}"
 # ----------------------------------------
 
 read -rp "Enter subdomain prefix (e.g., mike for mike.${BASE_DOMAIN}): " PREFIX
@@ -28,8 +28,8 @@ FQDN="${PREFIX}.${BASE_DOMAIN}"
 APP_NAME="${PREFIX}-apache"
 SVC_NAME="${PREFIX}-apache-svc"
 SA_NAME="${PREFIX}-apache-sa"
-CERT_NAME="${PREFIX}-${BASE_DOMAIN//./-}"     # e.g. mike-tlsguru-io
-TLS_SECRET="${CERT_NAME}-tls"                 # e.g. mike-tlsguru-io-tls
+CERT_NAME="${PREFIX}-${BASE_DOMAIN//./-}"
+TLS_SECRET="${CERT_NAME}-tls"
 GW_NAME="${PREFIX}-public-gw"
 VS_NAME="${PREFIX}-apache"
 
@@ -37,7 +37,81 @@ echo "=== Creating resources for https://${FQDN} ==="
 echo "Namespaces: app=${APP_NS}, istio=${ISTIO_NS}"
 echo
 
-# --- App identity + workload
+# --- Create ConfigMap with custom index.html
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ${APP_NAME}-html
+  namespace: ${APP_NS}
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Kubernetes Cert-Manager Webserver Test</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background-color: #f4f4f4;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+            }
+
+            .container {
+                background-color: #ffffff;
+                padding: 40px;
+                border-radius: 8px;
+                box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+                text-align: center;
+                max-width: 500px;
+            }
+
+            h1 {
+                color: #2BBA7E;
+                font-size: 28px;
+                margin-bottom: 20px;
+            }
+
+            p {
+                color: #666666;
+                font-size: 16px;
+                line-height: 1.5;
+                margin-bottom: 30px;
+            }
+
+            .logo {
+                max-width: 150px;
+                margin-bottom: 30px;
+            }
+            #countdown {
+                color: #2BBA7E;
+                font-size: 18px;
+                font-weight: bold;
+                margin-bottom: 20px;
+                height: 24px;
+                line-height: 24px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <img src="https://docs.digicert.com/en/image/uuid-4f2ee06d-5de6-d07d-3d40-86c9b376ac6c.png" alt="Site Logo" class="logo">
+            <h1>Cert-Manager with Istio (CSR) Webserver Test </h1>
+            <h1>${FQDN}</h1>
+            <p>Istio Gateway Test Port 443 / HTTPS</p>
+        </div>
+
+    </body>
+    </html>
+EOF
+
+# --- App identity + workload (CORRECTED VERSION)
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: ServiceAccount
@@ -67,6 +141,26 @@ spec:
         image: ${IMAGE}
         ports:
         - containerPort: 80
+        volumeMounts:
+        - name: html-content
+          mountPath: /usr/local/apache2/htdocs
+          readOnly: true
+        # Add a startup command to ensure the content is properly served
+        command: ["/bin/sh"]
+        args: 
+          - -c
+          - |
+            # Copy the mounted content to ensure proper permissions
+            cp -f /usr/local/apache2/htdocs/index.html /tmp/index.html 2>/dev/null || true
+            # Start Apache in foreground
+            httpd-foreground
+      volumes:
+      - name: html-content
+        configMap:
+          name: ${APP_NAME}-html
+          items:
+          - key: index.html
+            path: index.html
 ---
 apiVersion: v1
 kind: Service

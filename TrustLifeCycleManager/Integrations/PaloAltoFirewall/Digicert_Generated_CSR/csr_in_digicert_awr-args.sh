@@ -1,5 +1,5 @@
 #!/bin/bash
-
+clear
 : <<'LEGAL_NOTICE'
 Legal Notice (version October 29, 2024)
 Copyright © 2024 DigiCert. All rights reserved.

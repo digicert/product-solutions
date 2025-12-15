@@ -1,0 +1,36 @@
+# /etc/puppetlabs/code/environments/production/modules/tlmagent/manifests/init.pp
+class tlmagent (
+  String $agent_bundle_name = 'tlm_agent_3.1.0_linux64.tar.gz',
+  String $business_unit_id  = '542bce5b-9a54-41df-a054-fe977133ee09',
+  String $proxy             = '',
+) {
+  # Ensure the /opt/digicert directory exists
+  file { '/opt/digicert':
+    ensure => directory,
+  }
+  
+  # Copy the DigiCertTLMAgentGPOInstaller.tar.gz file to the agent
+  file { '/opt/digicert/DigiCertTLMAgentGPOInstaller.tar.gz':
+    ensure  => file,
+    source  => 'puppet:///modules/tlmagent/DigiCertTLMAgentGPOInstaller.tar.gz',
+    require => File['/opt/digicert'],
+  }
+  
+  # Extract the DigiCertTLMAgentGPOInstaller.tar.gz file
+  exec { 'extract-tlmagent':
+    command => 'tar -zxf /opt/digicert/DigiCertTLMAgentGPOInstaller.tar.gz -C /opt/digicert',
+    path    => '/usr/bin:/usr/sbin:/bin:/sbin',
+    creates => '/opt/digicert/DigiCertTLMAgentGPOInstaller',
+    require => File['/opt/digicert/DigiCertTLMAgentGPOInstaller.tar.gz'],
+  }
+  
+  # Run the silentInstaller-by-companion-lnx.sh script with the specified options
+  exec { 'run-tlmagent-installer':
+    command   => "/opt/digicert/DigiCertTLMAgentGPOInstaller/silentInstaller-by-companion-lnx.sh AGENT_BUNDLE_NAME=\"${agent_bundle_name}\" PROXY=\"${proxy}\" ALIASNAME=\"$(hostname)\" BUSINESS_UNIT_ID=\"${business_unit_id}\"",
+    path      => '/usr/bin:/usr/sbin:/bin:/sbin',
+    cwd       => '/opt/digicert/DigiCertTLMAgentGPOInstaller',  # Set working directory
+    require   => Exec['extract-tlmagent'],
+    timeout   => 600,  # 10 minute timeout
+    logoutput => true,  # Log all output
+  }
+}
