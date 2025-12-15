@@ -1,23 +1,23 @@
 {
-  "version": "2.1.0",
-  "created_at": "2025-01-15T10:00:00Z",
+  "version": "2.2.0",
+  "created_at": "2025-10-21T08:53:31Z",
   "last_renewed": null,
   "enrollment": {
-    "enrollment_id": "12345",
-    "change_id": "67890",
+    "enrollment_id": "281289",
+    "change_id": "8221844",
     "contract_id": "M-27UV417",
-    "common_name": "example.digicert.com",
+    "common_name": "digicert-demo.com",
     "certificate_type": "third-party"
   },
   "edgegrid": {
-    "host": "akab-xxxxx.luna.akamaiapis.net",
-    "client_secret": "your-client-secret",
-    "access_token": "akab-xxxxx",
-    "client_token": "akab-xxxxx"
+    "host": "akab-jdvprprib6gsolke-em6xwno5rlxlhjyr.luna.akamaiapis.net",
+    "client_secret": "REMOVED_SECRET",
+    "access_token": "REMOVED_SECRET",
+    "client_token": "REMOVED_SECRET"
   },
   "csr_config": {
     "c": "US",
-    "cn": "example.digicert.com",
+    "cn": "digicert-demo.com",
     "st": "Utah",
     "l": "Lehi",
     "o": "Digicert",
@@ -38,37 +38,37 @@
   },
   "contacts": {
     "admin": {
-      "email": "admin@example.com",
-      "firstName": "Admin",
-      "lastName": "User",
+      "email": "michael.rudloff@digicert.com",
+      "firstName": "Michael",
+      "lastName": "Rudloff",
       "phone": "800-896-7973"
     },
     "tech": {
-      "email": "tech@example.com",
-      "firstName": "Tech",
-      "lastName": "User",
+      "email": "michael.rudloff@akamai.com",
+      "firstName": "Michael",
+      "lastName": "Rudloff",
       "phone": "800-896-7973"
     }
   },
   "organization": {
-    "name": "Example Organization",
-    "addressLineOne": "123 Main St",
+    "name": "Digicert Inc.",
+    "addressLineOne": "2801 North Thanksgiving Way Suite 500",
     "addressLineTwo": "",
-    "city": "Example City",
+    "city": "Lehi",
     "country": "US",
     "phone": "1.800.896.7973",
-    "postalCode": "12345",
-    "region": "State"
+    "postalCode": "84043",
+    "region": "Utah"
   },
   "digicert": {
-    "seat_id": "example.digicert.com",
-    "api_key": "your-digicert-api-key",
+    "seat_id": "digicert-demo.com",
+    "api_key": "REMOVED_SECRET",
     "rsa_profile": "f1887d29-ee87-48f7-a873-1a0254dc99a9",
     "ecdsa_profile": "8b566220-8e48-4b44-bf4c-20434f4f95c1"
   },
   "storage": {
-    "cert_dir": "/home/user/akamai-certs",
-    "ica_file": "/home/user/akamai-certs/intermediate-ca.pem"
+    "cert_dir": "/Users/michael.rudloff/akamai-certs",
+    "ica_file": ""
   },
   "third_party": {
     "exclude_sans": false

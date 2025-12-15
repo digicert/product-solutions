@@ -1,0 +1,13 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: mrudloff-k8s-verizon
+  region: us-east-2
+vpc:
+  clusterEndpoints:
+    publicAccess: true
+    privateAccess: true
+nodeGroups:
+  - name: mrudloff-k8s-nodes
+    instanceType: t3.medium
+    desiredCapacity: 3

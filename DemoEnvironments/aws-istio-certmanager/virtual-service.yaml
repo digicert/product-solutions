@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: apache-vs
+  namespace: tls-apache
+spec:
+  hosts:
+  - "istio.tlsguru.io"
+  gateways:
+  - apache-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/"
+    route:
+    - destination:
+        host: apache
+        port:
+          number: 80

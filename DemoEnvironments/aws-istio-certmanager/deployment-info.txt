@@ -1,0 +1,20 @@
+Deployment Information
+======================
+Date: Thu  4 Dec 2025 16:07:16 GMT
+Cluster Name: mrudloff-k8s
+Region: us-east-2
+Istio Ingress Gateway: a61b70fd795f64f2a9c6720b7cdd07b0-868991265.us-east-2.elb.amazonaws.com
+Test Domain: istio.tlsguru.io
+
+DNS Configuration Required:
+  istio.tlsguru.io -> CNAME -> a61b70fd795f64f2a9c6720b7cdd07b0-868991265.us-east-2.elb.amazonaws.com
+
+Useful Commands:
+  kubectl get nodes
+  kubectl get pods -A
+  kubectl get certificate -A
+  kubectl get issuer -A
+  kubectl get gateway -A
+  kubectl get virtualservice -A
+  kubectl logs -n cert-manager -l app=cert-manager
+  kubectl logs -n istio-system -l app=istiod
