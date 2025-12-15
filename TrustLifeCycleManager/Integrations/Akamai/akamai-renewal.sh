@@ -683,10 +683,10 @@ else
     echo
     
     # Default values for EdgeGrid configuration
-    DEFAULT_HOST="akab-<REDACTED>.akamaiapis.net"
-    DEFAULT_CLIENT_SECRET="lw<REDACTED>4="
-    DEFAULT_ACCESS_TOKEN="a<REDACTED>h"
-    DEFAULT_CLIENT_TOKEN="a<REDACTED>f"
+    DEFAULT_HOST="akab-jdvprprib6gsolke-em6xwno5rlxlhjyr.luna.akamaiapis.net"
+    DEFAULT_CLIENT_SECRET="lw/S0qsb1wqGK20f9is98aAbqq/9bu0MPWMcQtwfW74="
+    DEFAULT_ACCESS_TOKEN="akab-3sh5pqfo25mt5njl-ytywsb6ny7jy2elh"
+    DEFAULT_CLIENT_TOKEN="akab-u5cunhz522t4vghi-aym4edz6ygloibvf"
     
     # Prompt for EdgeGrid credentials
     EDGEGRID_HOST=$(prompt_with_default "Enter Akamai API host" "$DEFAULT_HOST")
@@ -869,7 +869,7 @@ EOF
     EXCLUDE_SANS=$(prompt_with_default "Exclude SANs (true/false)" "$DEFAULT_EXCLUDE_SANS")
     
     # DigiCert API Key
-    DEFAULT_DIGICERT_API_KEY="0<REDACTED>c"
+    DEFAULT_DIGICERT_API_KEY="01e615c60f4e874a1a6d0d66dc_87d297ee13fb16ac4bade5b94bb6486043532397c921f665b09a1ff689c7ea5c"
     DIGICERT_API_KEY=$(prompt_with_default "Enter DigiCert API Key" "$DEFAULT_DIGICERT_API_KEY")
     
     echo
