@@ -328,11 +328,14 @@ try {
 # ============================================================================
 
 # IMPORTANT: Update these values with your Azure Service Principal details
-$AZURE_TENANT_ID = "<redacted>"
-$AZURE_CLIENT_ID = "<redacted>"
+
+$AZURE_TENANT_ID = "< TENANT ID HERE >"  # Replace with your actual tenant ID
+$AZURE_CLIENT_ID = "< CLIENT ID HERE >"
 
 # Option 1: Hardcode client secret (NOT recommended for production)
-$AZURE_CLIENT_SECRET = "<redacted>"  # Replace with your actual secret
+$AZURE_CLIENT_SECRET = "<CLIENT SECRET HERE>"  # Replace with your actual secret
+
+
 # Option 2: Read from encrypted file (RECOMMENDED for production)
 # Uncomment the lines below and comment out the hardcoded secret above
 # $encryptedSecretPath = "C:\SecureCerts\sp-client-secret.enc"
