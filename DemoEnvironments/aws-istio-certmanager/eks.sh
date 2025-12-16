@@ -2,6 +2,7 @@
 clear
 
 # Run aws configure with the provided values
+
 aws configure set aws_access_key_id "<redacted>"
 aws configure set aws_secret_access_key "<redacted>"
 aws configure set default.region "us-east-2"
