@@ -1,0 +1,128 @@
+trigger:
+  - none
+
+schedules:
+  - cron: "0 0 1 */2 *"
+    displayName: Bi-monthly certificate renewal
+    branches:
+      include:
+        - main
+
+pool:
+  name: Default
+
+variables:
+  - group: certbot-secrets
+  - name: domain
+    value: kv-003.tlsguru.io
+  - name: keyVaultName
+    value: kv-demo-r6qkIl
+  - name: certName
+    value: tlsguru-io-pub
+  - name: resourceGroup
+    value: keyvault-demo-NxRfMW
+  - name: appGatewayName
+    value: TLM-AGW
+  - name: keyVaultSecretId
+    value: https://kv-demo-r6qkil.vault.azure.net/secrets/tlsguru-io-pub
+
+steps:
+  - script: |
+      sudo apt-get update
+      sudo apt-get install -y certbot python3-certbot-dns-route53
+    displayName: Install Certbot
+    
+  - script: |
+      curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+    displayName: Install Azure CLI
+
+  - script: |
+      echo "Clearing any cached Certbot state..."
+      sudo rm -rf $(Agent.TempDirectory)/acme
+      sudo rm -rf $(Agent.TempDirectory)/certbot-work
+      sudo rm -rf $(Agent.TempDirectory)/certbot-logs
+      sudo rm -rf ~/.config/letsencrypt
+      sudo rm -rf /etc/letsencrypt
+      echo "Cache cleared"
+    displayName: Clear Certbot cached state
+    
+  - task: AWSShellScript@1
+    displayName: Issue certificate via Certbot
+    inputs:
+      awsCredentials: 'AWS'
+      regionName: 'us-east-2'
+      scriptType: inline
+      inlineScript: |
+        mkdir -p $(Agent.TempDirectory)/acme
+        mkdir -p $(Agent.TempDirectory)/certbot-work
+        mkdir -p $(Agent.TempDirectory)/certbot-logs
+        
+        certbot certonly \
+          --server https://demo.one.digicert.com/mpki/api/v1/acme/v2/directory \
+          --config-dir $(Agent.TempDirectory)/acme \
+          --work-dir $(Agent.TempDirectory)/certbot-work \
+          --logs-dir $(Agent.TempDirectory)/certbot-logs \
+          --eab-kid $(EAB_KID) \
+          --eab-hmac-key $(EAB_HMAC_KEY) \
+          --force-renew \
+          --agree-tos \
+          --no-redirect \
+          --expand \
+          -d $(domain) \
+          --register-unsafely-without-email \
+          --no-autorenew \
+          --preferred-challenges dns \
+          --dns-route53 \
+          --key-type rsa
+
+  - script: |
+      openssl pkcs12 -export \
+        -out $(Agent.TempDirectory)/$(domain).pfx \
+        -inkey $(Agent.TempDirectory)/acme/live/$(domain)/privkey.pem \
+        -in $(Agent.TempDirectory)/acme/live/$(domain)/fullchain.pem \
+        -passout pass:$(PFX_PASSWORD)
+    displayName: Convert to PFX
+
+  - task: AzureCLI@2
+    displayName: Import certificate to Key Vault
+    inputs:
+      azureSubscription: 'azure-keyvault-connection'
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        az keyvault certificate import \
+          --vault-name "$(keyVaultName)" \
+          --name "$(certName)" \
+          --file "$(Agent.TempDirectory)/$(domain).pfx" \
+          --password "$(PFX_PASSWORD)"
+
+  - task: AzureCLI@2
+    displayName: Refresh Application Gateway SSL certificate
+    inputs:
+      azureSubscription: 'azure-keyvault-connection'
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        echo "Getting latest certificate version from Key Vault..."
+        
+        LATEST_VERSION=$(az keyvault certificate list-versions \
+          --vault-name "$(keyVaultName)" \
+          --name "$(certName)" \
+          --query "sort_by([?attributes.enabled], &attributes.created)[-1].id" -o tsv | \
+          sed 's|.*/||')
+        
+        echo "Latest version: $LATEST_VERSION"
+        
+        az network application-gateway ssl-cert update \
+          --resource-group "$(resourceGroup)" \
+          --gateway-name "$(appGatewayName)" \
+          --name "$(certName)" \
+          --key-vault-secret-id "https://$(keyVaultName).vault.azure.net/secrets/$(certName)/$LATEST_VERSION"
+        
+        echo "SSL certificate refresh complete"
+
+  #- script: |
+  #    sudo rm -rf $(Agent.TempDirectory)/acme
+  #    sudo rm -f $(Agent.TempDirectory)/*.pfx
+  #  displayName: Cleanup sensitive files
+    condition: always()
