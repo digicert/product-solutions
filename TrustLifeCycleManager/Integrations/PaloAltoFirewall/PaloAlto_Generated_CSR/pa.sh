@@ -141,7 +141,7 @@ echo ""
 # PAN-OS Firewall Configuration
 echo "--- PAN-OS Firewall Configuration ---"
 FIREWALL_IP=$(prompt_with_default "Firewall IP/Hostname" "ec2-3-17-164-110.us-east-2.compute.amazonaws.com")
-API_KEY=$(prompt_with_default "API Key" "LUFRPT12RldqUUxLZ09PSGNKWlZpS2l6aGdUQ09ZYkE9cjFxSU1MaTV1cFR5WEFiUERqUUNWcnRJQlROclNUSTVxK0FweW8vcG1pTlZIMWVhdVgrNFRJQWxvcTRHdVk2dA==")
+API_KEY=$(prompt_with_default "API Key" "REDACTED")
 
 echo ""
 echo "--- Advanced Options ---"
@@ -158,7 +158,7 @@ COUNTRY=$(prompt_with_default "Country Code (C)" "US")
 
 echo ""
 echo "--- DigiCert API Configuration ---"
-DIGICERT_API_KEY=$(prompt_with_default "DigiCert API Key" "REMOVED_SECRET")
+DIGICERT_API_KEY=$(prompt_with_default "DigiCert API Key" "REDACTED")
 DIGICERT_PROFILE_ID=$(prompt_with_default "DigiCert Profile ID" "b89fbfd6-dcf7-412d-9ec8-767b4f78dc44")
 DIGICERT_SEAT_ID=$(prompt_with_default "DigiCert Seat ID" "tlsguru.io")
 
