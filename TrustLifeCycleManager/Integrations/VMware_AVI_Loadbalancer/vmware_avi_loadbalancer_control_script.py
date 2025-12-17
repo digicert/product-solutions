@@ -1,7 +1,3 @@
-# ACME URL: https://demo.one.digicert.com/mpki/api/v1/acme/v2/directory 
-# Key identifier (KID): kT__XL6_ifUSCqAsygt4Hn3T_e8Uw9o_O4DHUCUMmms 
-# HMAC key: REMOVED_SECRET
-
 # Parameters to be created in the Avi Controller for this script:
 # acme_directory_url
 # eab_kid
