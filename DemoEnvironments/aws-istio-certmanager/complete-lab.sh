@@ -241,12 +241,12 @@ kubectl create namespace istio-system --dry-run=client -o yaml | kubectl apply -
 log_info "Creating HMAC secrets..."
 
 kubectl create secret generic digicert-apache-acme-hmac-secret \
-    --from-literal=secret=NGM5NDhiNGI4NzgyOGY4MzA0ZmE2NjIyNmRhNTg0YTlmZDJkNDcyNDYxMzRjMDM2NDdlZWM0MmNiMzM2ZGM1Yg \
+    --from-literal=secret=REDACTED \
     -n istio-system \
     --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl create secret generic digicert-istio-acme-hmac-secret \
-    --from-literal=secret=ODQ0YTIyZmQxZDlhYjc4YTk1MTg2YzlhOTQwY2FiZTZiMjhiN2Y2ZGFmZGI1MDhiZDFmNjljYzg5Y2JhNjE4MA \
+    --from-literal=secret=REDACTED \
     -n istio-system \
     --dry-run=client -o yaml | kubectl apply -f -
 
@@ -265,7 +265,7 @@ spec:
   acme:
     email: michael.rudloff@digicert.com
     externalAccountBinding:
-      keyID: Ms8MBqD_8gYRAvuR2ER5iBtjnQzO8MyBzs4Q7pBBfuk
+      keyID: REDACTED
       keySecretRef:
         key: secret
         name: digicert-apache-acme-hmac-secret
@@ -294,7 +294,7 @@ spec:
   acme:
     email: michael.rudloff@digicert.com
     externalAccountBinding:
-      keyID: oyV9Rc2BIRsgK3RmeCWCifKDIedQ9sfIbXRPTSX0sQk
+      keyID: REDACTED
       keySecretRef:
         key: secret
         name: digicert-istio-acme-hmac-secret
