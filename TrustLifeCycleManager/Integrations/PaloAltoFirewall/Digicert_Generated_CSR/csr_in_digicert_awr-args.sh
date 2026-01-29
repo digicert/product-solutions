@@ -40,7 +40,7 @@ LOGFILE="${TLM_AGENT_DIR}/log/palo-alto-awr.log"
 # Certificate naming configuration
 # Options: "common_name" or "manual"
 #CERT_NAME_METHOD="common_name"  # Use certificate's common name
-CERT_NAME_METHOD="manual"     # Use manually specified name
+CERT_NAME_METHOD="common_name"     # Use manually specified name
 
 # If using manual method, specify the certificate name here
 MANUAL_CERT_NAME="tf-automated-cert"

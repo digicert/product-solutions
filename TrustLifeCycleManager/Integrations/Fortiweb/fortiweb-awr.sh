@@ -32,7 +32,7 @@ LEGAL_NOTICE
 
 # Configuration
 LEGAL_NOTICE_ACCEPT="true"
-LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/dc1_data.log"
+LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/fortiweb.log"
 
 # Function to log messages with timestamp
 log_message() {

@@ -32,7 +32,7 @@ LEGAL_NOTICE
 
 # Configuration
 LEGAL_NOTICE_ACCEPT="true"
-LOGFILE="/home/ubuntu/tlm_agent/tlm_agent_3.1.7_linux64/haproxy.log"
+LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/crt-template.log"
 
 # Function to log messages with timestamp
 log_message() {
@@ -218,8 +218,8 @@ fi
 #   $KEY_FILE_CONTENT - The full content of the private key file
 #
 # Argument variables (from JSON args array):
-#   $ARGUMENT_1       - First argument from args array
-#   $ARGUMENT_2       - Second argument from args array
+#   $ARGUMENT_1       - First argument from args array (username:password)
+#   $ARGUMENT_2       - Second argument from args array (Base URL)
 #   $ARGUMENT_3       - Third argument from args array
 #   $ARGUMENT_4       - Fourth argument from args array
 #   $ARGUMENT_5       - Fifth argument from args array
@@ -238,12 +238,122 @@ log_message "=========================================="
 log_message "Starting custom script section..."
 log_message "=========================================="
 
-
 # ADD CUSTOM LOGIC HERE:
 # ----------------------------------------
 
+# F5 BIG-IP Certificate and Key Upload and Installation
+# Uses ARGUMENT_1 for credentials (username:password)
+# Uses ARGUMENT_2 for Base URL (e.g., https://ec2-18-117-237-17.us-east-2.compute.amazonaws.com:8443)
 
+log_message "F5 BIG-IP Integration - Starting certificate deployment"
+log_message "  Credentials: $ARGUMENT_1"
+log_message "  Base URL: $ARGUMENT_2"
 
+# Extract certificate name (without extension) for F5 naming
+CERT_NAME=$(basename "$CRT_FILE" .crt)
+log_message "  Certificate name for F5: $CERT_NAME"
+
+# Validate required files exist
+if [ ! -f "$CRT_FILE_PATH" ]; then
+    log_message "ERROR: Certificate file not found: $CRT_FILE_PATH"
+    exit 1
+fi
+
+if [ ! -f "$KEY_FILE_PATH" ]; then
+    log_message "ERROR: Key file not found: $KEY_FILE_PATH"
+    exit 1
+fi
+
+# Step 1: Upload the certificate file
+log_message "Step 1: Uploading certificate file to F5..."
+CRT_SIZE=$(wc -c < "$CRT_FILE_PATH")
+log_message "  Certificate size: $CRT_SIZE bytes"
+
+UPLOAD_CRT_RESPONSE=$(curl -k -u "$ARGUMENT_1" \
+  -X POST \
+  -H "Content-Type: application/octet-stream" \
+  -H "Content-Range: 0-$((CRT_SIZE - 1))/$CRT_SIZE" \
+  "${ARGUMENT_2}/mgmt/shared/file-transfer/uploads/${CRT_FILE}" \
+  --data-binary @"$CRT_FILE_PATH" 2>&1)
+
+UPLOAD_CRT_STATUS=$?
+if [ $UPLOAD_CRT_STATUS -eq 0 ]; then
+    log_message "  Certificate file uploaded successfully"
+    log_message "  Response: $UPLOAD_CRT_RESPONSE"
+else
+    log_message "ERROR: Certificate file upload failed (exit code: $UPLOAD_CRT_STATUS)"
+    log_message "  Response: $UPLOAD_CRT_RESPONSE"
+    exit 1
+fi
+
+# Step 2: Upload the key file
+log_message "Step 2: Uploading key file to F5..."
+KEY_SIZE=$(wc -c < "$KEY_FILE_PATH")
+log_message "  Key size: $KEY_SIZE bytes"
+
+UPLOAD_KEY_RESPONSE=$(curl -k -u "$ARGUMENT_1" \
+  -X POST \
+  -H "Content-Type: application/octet-stream" \
+  -H "Content-Range: 0-$((KEY_SIZE - 1))/$KEY_SIZE" \
+  "${ARGUMENT_2}/mgmt/shared/file-transfer/uploads/${KEY_FILE}" \
+  --data-binary @"$KEY_FILE_PATH" 2>&1)
+
+UPLOAD_KEY_STATUS=$?
+if [ $UPLOAD_KEY_STATUS -eq 0 ]; then
+    log_message "  Key file uploaded successfully"
+    log_message "  Response: $UPLOAD_KEY_RESPONSE"
+else
+    log_message "ERROR: Key file upload failed (exit code: $UPLOAD_KEY_STATUS)"
+    log_message "  Response: $UPLOAD_KEY_RESPONSE"
+    exit 1
+fi
+
+# Step 3: Install certificate
+log_message "Step 3: Installing certificate on F5..."
+INSTALL_CRT_RESPONSE=$(curl -k -u "$ARGUMENT_1" \
+  -X POST \
+  -H "Content-Type: application/json" \
+  "${ARGUMENT_2}/mgmt/tm/sys/crypto/cert" \
+  -d "{
+    \"command\": \"install\",
+    \"name\": \"${CERT_NAME}\",
+    \"from-local-file\": \"/var/config/rest/downloads/${CRT_FILE}\"
+  }" 2>&1)
+
+INSTALL_CRT_STATUS=$?
+if [ $INSTALL_CRT_STATUS -eq 0 ]; then
+    log_message "  Certificate installed successfully"
+    log_message "  Response: $INSTALL_CRT_RESPONSE"
+else
+    log_message "ERROR: Certificate installation failed (exit code: $INSTALL_CRT_STATUS)"
+    log_message "  Response: $INSTALL_CRT_RESPONSE"
+    exit 1
+fi
+
+# Step 4: Install key
+log_message "Step 4: Installing key on F5..."
+INSTALL_KEY_RESPONSE=$(curl -k -u "$ARGUMENT_1" \
+  -X POST \
+  -H "Content-Type: application/json" \
+  "${ARGUMENT_2}/mgmt/tm/sys/crypto/key" \
+  -d "{
+    \"command\": \"install\",
+    \"name\": \"${CERT_NAME}\",
+    \"from-local-file\": \"/var/config/rest/downloads/${KEY_FILE}\"
+  }" 2>&1)
+
+INSTALL_KEY_STATUS=$?
+if [ $INSTALL_KEY_STATUS -eq 0 ]; then
+    log_message "  Key installed successfully"
+    log_message "  Response: $INSTALL_KEY_RESPONSE"
+else
+    log_message "ERROR: Key installation failed (exit code: $INSTALL_KEY_STATUS)"
+    log_message "  Response: $INSTALL_KEY_RESPONSE"
+    exit 1
+fi
+
+log_message "F5 BIG-IP Integration - Certificate deployment completed successfully"
+log_message "  Certificate and key installed as: /Common/${CERT_NAME}"
 
 # ----------------------------------------
 # END CUSTOM LOGIC
