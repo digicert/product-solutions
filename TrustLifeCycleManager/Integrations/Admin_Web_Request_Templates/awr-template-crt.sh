@@ -32,7 +32,7 @@ LEGAL_NOTICE
 
 # Configuration
 LEGAL_NOTICE_ACCEPT="true"
-LOGFILE="/home/ubuntu/tlm_agent/tlm_agent_3.1.7_linux64/haproxy.log"
+LOGFILE="/home/ubuntu/fortinac.log"
 
 # Function to log messages with timestamp
 log_message() {
