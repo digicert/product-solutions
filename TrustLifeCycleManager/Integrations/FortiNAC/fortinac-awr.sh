@@ -50,7 +50,7 @@ LOGFILE="/home/ubuntu/fortinac.log"
 #   - AGENT       : Persistent Agent
 #   - TOMCAT      : Admin UI
 # ----------------------------------------------------------------------------
-CERT_TYPE="RADIUS"
+CERT_TYPE="RADSEC"
 
 # ----------------------------------------------------------------------------
 # Target Configuration
