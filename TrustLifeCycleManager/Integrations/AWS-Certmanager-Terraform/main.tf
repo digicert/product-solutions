@@ -48,16 +48,27 @@ variable "aws_region" {
 
 # Revocation reason used when destroying the certificate.
 # Valid values:
-#   key_compromise          - Private key has been compromised (default)
-#   unspecified             - No specific reason
-#   affiliation_changed     - Subject's affiliation has changed
-#   superseded              - Certificate has been replaced
-#   cessation_of_operation  - Certificate is no longer needed
-#   privilege_withdrawn     - Privileges have been revoked
-#   ca_compromise           - CA private key has been compromised
-#   certificate_hold        - Temporarily suspend the certificate (added to CRL
-#                             until it expires or is resumed via the
-#                             Resume Suspended Certificate API endpoint)
+#
+# Private certificates #
+########################
+
+# unspecified
+# key_compromise
+# affiliation_changed
+# superseded
+# cessation_of_operation
+# privilege_withdrawn
+# ca_compromise
+# certificate_hold
+
+# Public certificates #
+########################
+
+# key_compromise
+# affiliation_changed
+# superseded
+# cessation_of_operation 
+
 variable "revocation_reason" {
   description = "Reason for revoking the certificate on destroy"
   type        = string
