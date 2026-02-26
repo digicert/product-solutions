@@ -17,6 +17,82 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# ============================================================================
+# DEFAULT CONFIGURATION VALUES
+# Edit these defaults to match your environment so you can just hit Enter
+# through the prompts. All values can be overridden at runtime.
+# ============================================================================
+
+# --- EdgeGrid / Akamai API Credentials ---
+DEFAULT_HOST="<AKAMAI_HOST>"
+DEFAULT_CLIENT_SECRET="<CLIENT_SECRET>"
+DEFAULT_ACCESS_TOKEN="<ACCESS_TOKEN>"
+DEFAULT_CLIENT_TOKEN="<CLIENT_TOKEN>"
+DEFAULT_CONTRACT_ID="<CONTRACT_ID>"
+
+# --- Certificate Storage ---
+DEFAULT_CERT_DIR="$HOME/akamai-certs"
+
+# --- Enrollment / Certificate Settings ---
+DEFAULT_CERT_TYPE="third-party"
+DEFAULT_CHANGE_MGMT="true"
+DEFAULT_EXCLUDE_SANS="false"
+
+# --- CSR Subject Fields ---
+DEFAULT_CSR_CN="digicert-demo.com"
+DEFAULT_CSR_C="US"
+DEFAULT_CSR_ST="Utah"
+DEFAULT_CSR_L="Lehi"
+DEFAULT_CSR_O="Digicert"
+DEFAULT_CSR_OU="Product"
+
+# --- Network Configuration ---
+DEFAULT_GEOGRAPHY="core"
+DEFAULT_QUIC="false"
+DEFAULT_SECURE_NETWORK="standard-tls"
+DEFAULT_SNI_ONLY="true"
+DEFAULT_MUST_HAVE_CIPHERS="ak-akamai-2020q1"
+DEFAULT_OCSP_STAPLING="on"
+DEFAULT_PREFERRED_CIPHERS="ak-akamai-2020q1"
+
+# --- Registration Authority / Validation ---
+DEFAULT_RA="third-party"
+DEFAULT_VALIDATION="third-party"
+
+# --- Admin Contact ---
+DEFAULT_ADMIN_EMAIL="michael.rudloff@digicert.com"
+DEFAULT_ADMIN_FIRSTNAME="Michael"
+DEFAULT_ADMIN_LASTNAME="Rudloff"
+DEFAULT_ADMIN_PHONE="800-896-7973"
+
+# --- Technical Contact ---
+DEFAULT_TECH_EMAIL="michael.rudloff@akamai.com"
+DEFAULT_TECH_FIRSTNAME="Michael"
+DEFAULT_TECH_LASTNAME="Rudloff"
+DEFAULT_TECH_PHONE="800-896-7973"
+
+# --- Organization Information ---
+DEFAULT_ORG_NAME="Digicert Inc."
+DEFAULT_ORG_ADDR1="2801 North Thanksgiving Way Suite 500"
+DEFAULT_ORG_ADDR2=""
+DEFAULT_ORG_CITY="Lehi"
+DEFAULT_ORG_COUNTRY="US"
+DEFAULT_ORG_PHONE="1.800.896.7973"
+DEFAULT_ORG_POSTAL="84043"
+DEFAULT_ORG_REGION="Utah"
+
+# --- DigiCert TLM Settings ---
+DEFAULT_DIGICERT_API_KEY="<API_KEY>"
+DEFAULT_RSA_PROFILE_ID="<RSA_PROFILE_ID>"
+DEFAULT_ECDSA_PROFILE_ID="<ECDSA_PROFILE_ID>"
+
+# SEAT_ID defaults to the Common Name if left empty
+DEFAULT_SEAT_ID=""
+
+# ============================================================================
+# END OF DEFAULT CONFIGURATION
+# ============================================================================
+
 # Function to print colored messages
 print_info() {
     echo -e "${GREEN}[INFO]${NC} $1"
@@ -61,22 +137,21 @@ show_usage() {
     echo "Usage: $0 [OPTIONS]"
     echo
     echo "Options:"
-    echo "  --init                  Initialize new enrollment (interactive mode)"
-    echo "  --init <config.json>    Initialize using config file (use with --auto for full automation)"
-    echo "  --init --auto           Initialize using hardcoded defaults (fully automated)"
+    echo "  --init                  Initialize a new certificate enrollment (default if no options)"
     echo "  --renew <CN>           Renew certificate for the specified Common Name"
     echo "  --renew-config <file>  Renew certificate using the specified config file"
     echo "  --list                 List all saved certificate configurations"
     echo "  --discover             Discover existing enrollments in Akamai"
     echo "  --no-save              Don't save configuration (for init mode)"
-    echo "  --auto                 Run in automated mode (no interactive prompts)"
+    echo "  --auto                 Run in automated mode (no interactive prompts, uses config values)"
     echo "  --help                 Show this help message"
     echo
     echo "Examples:"
-    echo "  $0 --init                                    # Interactive enrollment"
-    echo "  $0 --init --auto                             # Automated with script defaults"
-    echo "  $0 --init init-config.json --auto            # Automated with config file"
-    echo "  $0 --renew example.com --auto                # Automated renewal"
+    echo "  $0 --init                                    # Create new enrollment with config saving"
+    echo "  $0 --renew digicert-demo.com                # Renew certificate by Common Name (interactive)"
+    echo "  $0 --renew digicert-demo.com --auto         # Renew certificate by Common Name (automated)"
+    echo "  $0 --renew-config ~/config.json --auto      # Renew using specific config file (automated)"
+    echo "  $0 --discover                                # List existing enrollments"
     echo
     echo "Automated Mode:"
     echo "  When using --auto flag, the script will use configuration values for all decisions:"
@@ -86,16 +161,13 @@ show_usage() {
     echo "  - Acknowledge post-verification warnings (yes/no)"
     echo "  - Deploy to production (yes/no)"
     echo
-    echo "Init Config File Format:"
-    echo "  When using --init with a config file, provide a JSON file with the same"
-    echo "  structure as the saved configurations, but without enrollment_id/change_id"
+    echo "  Perfect for cron jobs and automated certificate renewal workflows!"
     echo
 }
 
 # Parse command line arguments
 MODE="init"
 CONFIG_FILE=""
-INIT_CONFIG_FILE=""  # New variable for init config
 COMMON_NAME=""
 SAVE_CONFIG=true
 DISCOVER_MODE=false
@@ -105,18 +177,7 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --init)
             MODE="init"
-            # Check if next argument is a config file
-            if [[ $# -gt 1 ]] && [[ "$2" != --* ]]; then
-                # Check if it's a file that exists
-                if [[ -f "$2" ]]; then
-                    INIT_CONFIG_FILE="$2"
-                    shift 2
-                else
-                    shift
-                fi
-            else
-                shift
-            fi
+            shift
             ;;
         --renew)
             MODE="renew"
@@ -235,9 +296,10 @@ save_configuration() {
   "digicert": {
     "seat_id": "$SEAT_ID",
     "api_key": "$DIGICERT_API_KEY",
-    "rsa_profile": "f1887d29-ee87-48f7-a873-1a0254dc99a9",
-    "ecdsa_profile": "8b566220-8e48-4b44-bf4c-20434f4f95c1"
+    "rsa_profile": "$DEFAULT_RSA_PROFILE_ID",
+    "ecdsa_profile": "$DEFAULT_ECDSA_PROFILE_ID"
   },
+  "san_list": $(printf '%s\n' "${SAN_LIST[@]}" | jq -R . | jq -s . 2>/dev/null || echo '["'"$CSR_CN"'"]'),
   "storage": {
     "cert_dir": "$CERT_STORAGE_DIR",
     "ica_file": "${ICA_FILE:-}"
@@ -338,6 +400,15 @@ load_configuration() {
     export EXCLUDE_SANS=$(jq -r '.third_party.exclude_sans' "$config_file")
     export CHANGE_MGMT=$(jq -r '.change_management' "$config_file")
 
+    # Load SANs (fall back to just the CN if not present)
+    SAN_LIST=()
+    while IFS= read -r san; do
+        SAN_LIST+=("$san")
+    done < <(jq -r '.san_list[]? // empty' "$config_file" 2>/dev/null)
+    if [ ${#SAN_LIST[@]} -eq 0 ]; then
+        SAN_LIST=("$CSR_CN")
+    fi
+
     # Load automation settings (with defaults if not present)
     export CERT_TYPE_CHOICE=$(jq -r '.automation.certificate_type // "RSA"' "$config_file")
     export AUTO_SUBMIT_DIGICERT=$(jq -r '.automation.auto_submit_digicert // true' "$config_file")
@@ -354,177 +425,6 @@ load_configuration() {
     print_info "Enrollment ID: $ENROLLMENT_ID"
     print_info "Common Name: $CSR_CN"
     print_info "Certificate Storage: $CERT_STORAGE_DIR"
-    echo
-}
-
-# New function to load init configuration
-load_init_configuration() {
-    local config_file="$1"
-    
-    if [ ! -f "$config_file" ]; then
-        print_error "Init configuration file not found: $config_file"
-        return 1
-    fi
-    
-    print_info "Loading init configuration from: $config_file"
-    
-    # Load all configuration values using jq
-    CONTRACT_ID=$(jq -r '.enrollment.contract_id // .contract_id // "M-27UV417"' "$config_file")
-    CERT_TYPE=$(jq -r '.enrollment.certificate_type // .certificate_type // "third-party"' "$config_file")
-    
-    # EdgeGrid settings
-    EDGEGRID_HOST=$(jq -r '.edgegrid.host' "$config_file")
-    EDGEGRID_CLIENT_SECRET=$(jq -r '.edgegrid.client_secret' "$config_file")
-    EDGEGRID_ACCESS_TOKEN=$(jq -r '.edgegrid.access_token' "$config_file")
-    EDGEGRID_CLIENT_TOKEN=$(jq -r '.edgegrid.client_token' "$config_file")
-    
-    # CSR config
-    CSR_CN=$(jq -r '.csr_config.cn // .enrollment.common_name' "$config_file")
-    CSR_C=$(jq -r '.csr_config.c' "$config_file")
-    CSR_ST=$(jq -r '.csr_config.st' "$config_file")
-    CSR_L=$(jq -r '.csr_config.l' "$config_file")
-    CSR_O=$(jq -r '.csr_config.o' "$config_file")
-    CSR_OU=$(jq -r '.csr_config.ou' "$config_file")
-    
-    # Network config
-    GEOGRAPHY=$(jq -r '.network_config.geography' "$config_file")
-    QUIC_ENABLED=$(jq -r '.network_config.quic_enabled' "$config_file")
-    SECURE_NETWORK=$(jq -r '.network_config.secure_network' "$config_file")
-    SNI_ONLY=$(jq -r '.network_config.sni_only' "$config_file")
-    MUST_HAVE_CIPHERS=$(jq -r '.network_config.must_have_ciphers' "$config_file")
-    OCSP_STAPLING=$(jq -r '.network_config.ocsp_stapling' "$config_file")
-    PREFERRED_CIPHERS=$(jq -r '.network_config.preferred_ciphers' "$config_file")
-    
-    # Validation
-    RA=$(jq -r '.validation.ra' "$config_file")
-    VALIDATION_TYPE=$(jq -r '.validation.validation_type' "$config_file")
-    
-    # Contacts
-    ADMIN_EMAIL=$(jq -r '.contacts.admin.email' "$config_file")
-    ADMIN_FIRSTNAME=$(jq -r '.contacts.admin.firstName' "$config_file")
-    ADMIN_LASTNAME=$(jq -r '.contacts.admin.lastName' "$config_file")
-    ADMIN_PHONE=$(jq -r '.contacts.admin.phone' "$config_file")
-    
-    TECH_EMAIL=$(jq -r '.contacts.tech.email' "$config_file")
-    TECH_FIRSTNAME=$(jq -r '.contacts.tech.firstName' "$config_file")
-    TECH_LASTNAME=$(jq -r '.contacts.tech.lastName' "$config_file")
-    TECH_PHONE=$(jq -r '.contacts.tech.phone' "$config_file")
-    
-    # Organization
-    ORG_NAME=$(jq -r '.organization.name' "$config_file")
-    ORG_ADDR1=$(jq -r '.organization.addressLineOne' "$config_file")
-    ORG_ADDR2=$(jq -r '.organization.addressLineTwo // ""' "$config_file")
-    ORG_CITY=$(jq -r '.organization.city' "$config_file")
-    ORG_COUNTRY=$(jq -r '.organization.country' "$config_file")
-    ORG_PHONE=$(jq -r '.organization.phone' "$config_file")
-    ORG_POSTAL=$(jq -r '.organization.postalCode' "$config_file")
-    ORG_REGION=$(jq -r '.organization.region' "$config_file")
-    
-    # DigiCert
-    SEAT_ID=$(jq -r '.digicert.seat_id // .csr_config.cn' "$config_file")
-    DIGICERT_API_KEY=$(jq -r '.digicert.api_key' "$config_file")
-    
-    # Storage
-    CERT_STORAGE_DIR=$(jq -r '.storage.cert_dir // "'$HOME'/akamai-certs"' "$config_file")
-    ICA_FILE=$(jq -r '.storage.ica_file // empty' "$config_file")
-    
-    # Other settings
-    EXCLUDE_SANS=$(jq -r '.third_party.exclude_sans // false' "$config_file")
-    CHANGE_MGMT=$(jq -r '.change_management // true' "$config_file")
-    
-    # Automation settings
-    CERT_TYPE_CHOICE=$(jq -r '.automation.certificate_type // "RSA"' "$config_file")
-    AUTO_SUBMIT_DIGICERT=$(jq -r '.automation.auto_submit_digicert // true' "$config_file")
-    AUTO_UPLOAD_CERT=$(jq -r '.automation.auto_upload_cert // true' "$config_file")
-    AUTO_ACK_WARNINGS=$(jq -r '.automation.auto_acknowledge_warnings // true' "$config_file")
-    AUTO_DEPLOY_PROD=$(jq -r '.automation.auto_deploy_production // true' "$config_file")
-    
-    print_info "✓ Init configuration loaded successfully!"
-    echo
-}
-
-# New function to set all defaults programmatically
-set_default_values() {
-    print_info "Using hardcoded default values for automated initialization"
-    
-    # EdgeGrid defaults
-    EDGEGRID_HOST="akab-<REDACTED>.akamaiapis.net"
-    EDGEGRID_CLIENT_SECRET="lw<REDACTED>4="
-    EDGEGRID_ACCESS_TOKEN="a<REDACTED>h"
-    EDGEGRID_CLIENT_TOKEN="a<REDACTED>f"
-    
-    # Storage
-    CERT_STORAGE_DIR="${CERT_STORAGE_DIR:-$HOME/akamai-certs}"
-    
-    # Contract
-    CONTRACT_ID="${CONTRACT_ID:-M-27UV417}"
-    
-    # Certificate settings
-    CERT_TYPE="third-party"
-    CHANGE_MGMT="true"
-    
-    # CSR Details - Allow environment variable overrides
-    CSR_CN="${CSR_CN:-digicert-demo.com}"
-    CSR_C="${CSR_C:-US}"
-    CSR_ST="${CSR_ST:-Utah}"
-    CSR_L="${CSR_L:-Lehi}"
-    CSR_O="${CSR_O:-Digicert}"
-    CSR_OU="${CSR_OU:-Product}"
-    
-    # Network Configuration
-    GEOGRAPHY="core"
-    QUIC_ENABLED="false"
-    SECURE_NETWORK="enhanced-tls"
-    SNI_ONLY="false"
-    MUST_HAVE_CIPHERS="ak-akamai-2020q1"
-    OCSP_STAPLING="on"
-    PREFERRED_CIPHERS="ak-akamai-2020q1"
-    
-    # RA and Validation
-    RA="third-party"
-    VALIDATION_TYPE="third-party"
-    
-    # Admin Contact
-    ADMIN_EMAIL="${ADMIN_EMAIL:-michael.rudloff@digicert.com}"
-    ADMIN_FIRSTNAME="${ADMIN_FIRSTNAME:-Michael}"
-    ADMIN_LASTNAME="${ADMIN_LASTNAME:-Rudloff}"
-    ADMIN_PHONE="${ADMIN_PHONE:-800-896-7973}"
-    
-    # Tech Contact
-    TECH_EMAIL="${TECH_EMAIL:-michael.rudloff@akamai.com}"
-    TECH_FIRSTNAME="${TECH_FIRSTNAME:-Michael}"
-    TECH_LASTNAME="${TECH_LASTNAME:-Rudloff}"
-    TECH_PHONE="${TECH_PHONE:-800-896-7973}"
-    
-    # Organization
-    ORG_NAME="${ORG_NAME:-Digicert Inc.}"
-    ORG_ADDR1="${ORG_ADDR1:-2801 North Thanksgiving Way Suite 500}"
-    ORG_ADDR2="${ORG_ADDR2:-}"
-    ORG_CITY="${ORG_CITY:-Lehi}"
-    ORG_COUNTRY="${ORG_COUNTRY:-US}"
-    ORG_PHONE="${ORG_PHONE:-1.800.896.7973}"
-    ORG_POSTAL="${ORG_POSTAL:-84043}"
-    ORG_REGION="${ORG_REGION:-Utah}"
-    
-    # Additional Settings
-    SEAT_ID="${SEAT_ID:-$CSR_CN}"
-    EXCLUDE_SANS="false"
-    DIGICERT_API_KEY="${DIGICERT_API_KEY:-0<REDACTED>c}"
-    
-    # ICA File default
-    ICA_FILE="${ICA_FILE:-$CERT_STORAGE_DIR/rudloff-ica.pem}"
-    
-    # Automation defaults
-    CERT_TYPE_CHOICE="${CERT_TYPE_CHOICE:-RSA}"
-    AUTO_SUBMIT_DIGICERT="${AUTO_SUBMIT_DIGICERT:-true}"
-    AUTO_UPLOAD_CERT="${AUTO_UPLOAD_CERT:-true}"
-    AUTO_ACK_WARNINGS="${AUTO_ACK_WARNINGS:-true}"
-    AUTO_DEPLOY_PROD="${AUTO_DEPLOY_PROD:-true}"
-    
-    print_info "✓ Default values set"
-    print_info "  Common Name: $CSR_CN"
-    print_info "  Organization: $ORG_NAME"
-    print_info "  Certificate Type: $CERT_TYPE_CHOICE"
     echo
 }
 
@@ -567,7 +467,6 @@ discover_enrollments() {
     
     # Prompt for contract ID if not set
     if [ -z "$CONTRACT_ID" ]; then
-        DEFAULT_CONTRACT_ID="M-27UV417"
         CONTRACT_ID=$(prompt_with_default "Enter Contract ID" "$DEFAULT_CONTRACT_ID")
     fi
     
@@ -638,7 +537,7 @@ get_latest_pending_change() {
         
         if [ "$PENDING_COUNT" -gt 0 ]; then
             # Get the latest (first) pending change
-            LATEST_CHANGE_ID=$(echo "$PENDING_CHANGES" | jq -r '.[0].location' 2>/dev/null | grep -oP '(?<=/changes/)[0-9]+' | head -1)
+            LATEST_CHANGE_ID=$(echo "$PENDING_CHANGES" | jq -r '.[0].location' 2>/dev/null | sed -n 's|.*/changes/\([0-9]*\).*|\1|p' | head -1)
             LATEST_CHANGE_STATUS=$(echo "$PENDING_CHANGES" | jq -r '.[0].statusInfo.status' 2>/dev/null)
             LATEST_CHANGE_STATE=$(echo "$PENDING_CHANGES" | jq -r '.[0].statusInfo.state' 2>/dev/null)
             
@@ -795,6 +694,9 @@ echo
 GLOBAL_ENROLLMENT_ID=""
 GLOBAL_CHANGE_ID=""
 
+# Initialise SAN list (populated during init; for renewal, defaults to CN)
+SAN_LIST=()
+
 # Initialize automation defaults (can be overridden by config)
 CERT_TYPE_CHOICE="${CERT_TYPE_CHOICE:-RSA}"
 AUTO_SUBMIT_DIGICERT="${AUTO_SUBMIT_DIGICERT:-true}"
@@ -857,259 +759,189 @@ EOF
     # The rest of the script continues from here...
     
 else
-    # INIT MODE
+    # INIT MODE - Original workflow
     print_info "=== INITIALIZATION MODE ==="
     echo
     
-    # Check if we're in automated mode with init
-    if [ "$AUTO_MODE" = true ]; then
-        print_info "Running in AUTOMATED mode"
-        
-        # Load configuration based on source
-        if [ -n "$INIT_CONFIG_FILE" ]; then
-            # Load from config file
-            print_info "Using configuration file: $INIT_CONFIG_FILE"
-            if ! load_init_configuration "$INIT_CONFIG_FILE"; then
-                exit 1
-            fi
-        else
-            # Use hardcoded defaults
-            set_default_values
-        fi
-        
-        # Create .edgerc file
-        EDGERC_PATH="$HOME/.edgerc"
-        print_info "Creating EdgeGrid configuration file at $EDGERC_PATH..."
-        
-        cat > "$EDGERC_PATH" << EOF
+    # ============================================================================
+    # STEP 2: EdgeGrid Configuration
+    # ============================================================================
+    
+    print_info "=== EdgeGrid Authentication Configuration ==="
+    echo
+    
+    # Prompt for EdgeGrid credentials
+    EDGEGRID_HOST=$(prompt_with_default "Enter Akamai API host" "$DEFAULT_HOST")
+    EDGEGRID_CLIENT_SECRET=$(prompt_with_default "Enter client_secret" "$DEFAULT_CLIENT_SECRET")
+    EDGEGRID_ACCESS_TOKEN=$(prompt_with_default "Enter access_token" "$DEFAULT_ACCESS_TOKEN")
+    EDGEGRID_CLIENT_TOKEN=$(prompt_with_default "Enter client_token" "$DEFAULT_CLIENT_TOKEN")
+    
+    # Create .edgerc file
+    EDGERC_PATH="$HOME/.edgerc"
+    print_info "Creating EdgeGrid configuration file at $EDGERC_PATH..."
+    
+    cat > "$EDGERC_PATH" << EOF
 [default]
 client_secret = $EDGEGRID_CLIENT_SECRET
 host = $EDGEGRID_HOST
 access_token = $EDGEGRID_ACCESS_TOKEN
 client_token = $EDGEGRID_CLIENT_TOKEN
 EOF
-        
-        chmod 600 "$EDGERC_PATH"
-        print_info "EdgeGrid configuration file created successfully"
-        
-        # Create storage directory
-        if [ ! -d "$CERT_STORAGE_DIR" ]; then
-            mkdir -p "$CERT_STORAGE_DIR"
-            print_info "Created certificate storage directory: $CERT_STORAGE_DIR"
-        fi
-        
-        print_info "Configuration loaded. Proceeding with enrollment creation..."
-        echo
-        
-        # Skip all prompts and go directly to enrollment creation
-        PROCEED="y"
-        
-    else
-        # INTERACTIVE MODE - Original workflow
-        print_info "Running in INTERACTIVE mode"
-        echo
-        
-        # ============================================================================
-        # STEP 2: EdgeGrid Configuration
-        # ============================================================================
-        
-        print_info "=== EdgeGrid Authentication Configuration ==="
-        echo
-        
-        # Default values for EdgeGrid configuration
-        DEFAULT_HOST="akab-<REDACTED>.akamaiapis.net"
-        DEFAULT_CLIENT_SECRET="lw<REDACTED>4="
-        DEFAULT_ACCESS_TOKEN="a<REDACTED>h"
-        DEFAULT_CLIENT_TOKEN="a<REDACTED>f"
-        
-        # Prompt for EdgeGrid credentials
-        EDGEGRID_HOST=$(prompt_with_default "Enter Akamai API host" "$DEFAULT_HOST")
-        EDGEGRID_CLIENT_SECRET=$(prompt_with_default "Enter client_secret" "$DEFAULT_CLIENT_SECRET")
-        EDGEGRID_ACCESS_TOKEN=$(prompt_with_default "Enter access_token" "$DEFAULT_ACCESS_TOKEN")
-        EDGEGRID_CLIENT_TOKEN=$(prompt_with_default "Enter client_token" "$DEFAULT_CLIENT_TOKEN")
-        
-        # Create .edgerc file
-        EDGERC_PATH="$HOME/.edgerc"
-        print_info "Creating EdgeGrid configuration file at $EDGERC_PATH..."
-        
-        cat > "$EDGERC_PATH" << EOF
-[default]
-client_secret = $EDGEGRID_CLIENT_SECRET
-host = $EDGEGRID_HOST
-access_token = $EDGEGRID_ACCESS_TOKEN
-client_token = $EDGEGRID_CLIENT_TOKEN
-EOF
-        
-        chmod 600 "$EDGERC_PATH"
-        print_info "EdgeGrid configuration file created successfully with secure permissions"
-        
-        clear
-        echo
+    
+    chmod 600 "$EDGERC_PATH"
+    print_info "EdgeGrid configuration file created successfully with secure permissions"
+    
+    clear
+    echo
 
-        # ============================================================================
-        # STEP 3: Storage Location Configuration
-        # ============================================================================
-        
-        print_info "=== Storage Location Configuration ==="
-        echo
-        
-        DEFAULT_CERT_DIR="$HOME/akamai-certs"
-        
-        CERT_STORAGE_DIR=$(prompt_with_default "Enter directory for certificates and CSR storage" "$DEFAULT_CERT_DIR")
-        
-        # Create storage directory if it doesn't exist
-        if [ ! -d "$CERT_STORAGE_DIR" ]; then
-            mkdir -p "$CERT_STORAGE_DIR"
-            print_info "Created certificate storage directory: $CERT_STORAGE_DIR"
-        fi
-        
-        echo
-        
-        # ============================================================================
-        # STEP 4: Contract ID Configuration
-        # ============================================================================
-        
-        print_info "=== Contract Configuration ==="
-        echo
-        
-        DEFAULT_CONTRACT_ID="M-27UV417"
-        CONTRACT_ID=$(prompt_with_default "Enter Contract ID" "$DEFAULT_CONTRACT_ID")
-        
-        echo
-        
-        # ============================================================================
-        # STEP 5: Enrollment Configuration
-        # ============================================================================
-        
-        print_info "=== CPS Enrollment Configuration ==="
-        echo
-        
-        # Certificate Type
-        DEFAULT_CERT_TYPE="third-party"
-        CERT_TYPE=$(prompt_with_default "Certificate Type" "$DEFAULT_CERT_TYPE")
-        
-        # Change Management
-        DEFAULT_CHANGE_MGMT="true"
-        CHANGE_MGMT=$(prompt_with_default "Enable Change Management (true/false)" "$DEFAULT_CHANGE_MGMT")
-        
-        echo
-        print_info "--- CSR Information ---"
-        
-        # CSR Details
-        DEFAULT_CSR_CN="digicert-demo.com"
-        DEFAULT_CSR_C="US"
-        DEFAULT_CSR_ST="Utah"
-        DEFAULT_CSR_L="Lehi"
-        DEFAULT_CSR_O="Digicert"
-        DEFAULT_CSR_OU="Product"
-        
-        CSR_CN=$(prompt_with_default "Common Name (CN)" "$DEFAULT_CSR_CN")
-        CSR_C=$(prompt_with_default "Country (C)" "$DEFAULT_CSR_C")
-        CSR_ST=$(prompt_with_default "State/Province (ST)" "$DEFAULT_CSR_ST")
-        CSR_L=$(prompt_with_default "Locality (L)" "$DEFAULT_CSR_L")
-        CSR_O=$(prompt_with_default "Organization (O)" "$DEFAULT_CSR_O")
-        CSR_OU=$(prompt_with_default "Organizational Unit (OU)" "$DEFAULT_CSR_OU")
-        
-        echo
-        print_info "--- Network Configuration ---"
-        
-        # Network Configuration
-        DEFAULT_GEOGRAPHY="core"
-        DEFAULT_QUIC="false"
-        DEFAULT_SECURE_NETWORK="enhanced-tls"
-        DEFAULT_SNI_ONLY="false"
-        DEFAULT_MUST_HAVE_CIPHERS="ak-akamai-2020q1"
-        DEFAULT_OCSP_STAPLING="on"
-        DEFAULT_PREFERRED_CIPHERS="ak-akamai-2020q1"
-        
-        GEOGRAPHY=$(prompt_with_default "Geography" "$DEFAULT_GEOGRAPHY")
-        QUIC_ENABLED=$(prompt_with_default "QUIC Enabled (true/false)" "$DEFAULT_QUIC")
-        SECURE_NETWORK=$(prompt_with_default "Secure Network" "$DEFAULT_SECURE_NETWORK")
-        SNI_ONLY=$(prompt_with_default "SNI Only (true/false)" "$DEFAULT_SNI_ONLY")
-        MUST_HAVE_CIPHERS=$(prompt_with_default "Must Have Ciphers" "$DEFAULT_MUST_HAVE_CIPHERS")
-        OCSP_STAPLING=$(prompt_with_default "OCSP Stapling (on/off)" "$DEFAULT_OCSP_STAPLING")
-        PREFERRED_CIPHERS=$(prompt_with_default "Preferred Ciphers" "$DEFAULT_PREFERRED_CIPHERS")
-        
-        clear
-        echo
-        print_info "--- Registration Authority and Validation ---"
-        
-        # RA and Validation
-        DEFAULT_RA="third-party"
-        DEFAULT_VALIDATION="third-party"
-        
-        RA=$(prompt_with_default "Registration Authority (RA)" "$DEFAULT_RA")
-        VALIDATION_TYPE=$(prompt_with_default "Validation Type" "$DEFAULT_VALIDATION")
-        
-        echo
-        print_info "--- Admin Contact ---"
-        
-        # Admin Contact
-        DEFAULT_ADMIN_EMAIL="michael.rudloff@digicert.com"
-        DEFAULT_ADMIN_FIRSTNAME="Michael"
-        DEFAULT_ADMIN_LASTNAME="Rudloff"
-        DEFAULT_ADMIN_PHONE="800-896-7973"
-        
-        ADMIN_EMAIL=$(prompt_with_default "Admin Email" "$DEFAULT_ADMIN_EMAIL")
-        ADMIN_FIRSTNAME=$(prompt_with_default "Admin First Name" "$DEFAULT_ADMIN_FIRSTNAME")
-        ADMIN_LASTNAME=$(prompt_with_default "Admin Last Name" "$DEFAULT_ADMIN_LASTNAME")
-        ADMIN_PHONE=$(prompt_with_default "Admin Phone" "$DEFAULT_ADMIN_PHONE")
-        
-        echo
-        print_info "--- Technical Contact ---"
-        
-        # Tech Contact
-        DEFAULT_TECH_EMAIL="michael.rudloff@akamai.com"
-        DEFAULT_TECH_FIRSTNAME="Michael"
-        DEFAULT_TECH_LASTNAME="Rudloff"
-        DEFAULT_TECH_PHONE="800-896-7973"
-        
-        TECH_EMAIL=$(prompt_with_default "Tech Email" "$DEFAULT_TECH_EMAIL")
-        TECH_FIRSTNAME=$(prompt_with_default "Tech First Name" "$DEFAULT_TECH_FIRSTNAME")
-        TECH_LASTNAME=$(prompt_with_default "Tech Last Name" "$DEFAULT_TECH_LASTNAME")
-        TECH_PHONE=$(prompt_with_default "Tech Phone" "$DEFAULT_TECH_PHONE")
-        
-        echo
-        print_info "--- Organization Information ---"
-        
-        # Organization
-        DEFAULT_ORG_NAME="Digicert Inc."
-        DEFAULT_ORG_ADDR1="2801 North Thanksgiving Way Suite 500"
-        DEFAULT_ORG_ADDR2=""
-        DEFAULT_ORG_CITY="Lehi"
-        DEFAULT_ORG_COUNTRY="US"
-        DEFAULT_ORG_PHONE="1.800.896.7973"
-        DEFAULT_ORG_POSTAL="84043"
-        DEFAULT_ORG_REGION="Utah"
-        
-        ORG_NAME=$(prompt_with_default "Organization Name" "$DEFAULT_ORG_NAME")
-        ORG_ADDR1=$(prompt_with_default "Address Line 1" "$DEFAULT_ORG_ADDR1")
-        ORG_ADDR2=$(prompt_with_default "Address Line 2 (optional)" "$DEFAULT_ORG_ADDR2")
-        ORG_CITY=$(prompt_with_default "City" "$DEFAULT_ORG_CITY")
-        ORG_COUNTRY=$(prompt_with_default "Country" "$DEFAULT_ORG_COUNTRY")
-        ORG_PHONE=$(prompt_with_default "Phone" "$DEFAULT_ORG_PHONE")
-        ORG_POSTAL=$(prompt_with_default "Postal Code" "$DEFAULT_ORG_POSTAL")
-        ORG_REGION=$(prompt_with_default "Region/State" "$DEFAULT_ORG_REGION")
-        
-        echo
-        print_info "--- Additional Settings ---"
-        
-        # Seat ID for DigiCert (default to common name)
-        SEAT_ID=$(prompt_with_default "Seat ID (for DigiCert certificate issuance)" "$CSR_CN")
-        
-        # Third Party Settings
-        DEFAULT_EXCLUDE_SANS="false"
-        EXCLUDE_SANS=$(prompt_with_default "Exclude SANs (true/false)" "$DEFAULT_EXCLUDE_SANS")
-        
-        # DigiCert API Key
-        DEFAULT_DIGICERT_API_KEY="0<REDACTED>c"
-        DIGICERT_API_KEY=$(prompt_with_default "Enter DigiCert API Key" "$DEFAULT_DIGICERT_API_KEY")
-        
-        echo
-        
-        # Prompt to proceed with API call
-        read -p "Do you want to submit the enrollment now? (y/n): " PROCEED
+
+    # ============================================================================
+    # STEP 3: Storage Location Configuration
+    # ============================================================================
+    
+    print_info "=== Storage Location Configuration ==="
+    echo
+    
+    CERT_STORAGE_DIR=$(prompt_with_default "Enter directory for certificates and CSR storage" "$DEFAULT_CERT_DIR")
+    
+    # Create storage directory if it doesn't exist
+    if [ ! -d "$CERT_STORAGE_DIR" ]; then
+        mkdir -p "$CERT_STORAGE_DIR"
+        print_info "Created certificate storage directory: $CERT_STORAGE_DIR"
     fi
+    
+    echo
+    
+    # ============================================================================
+    # STEP 4: Contract ID Configuration
+    # ============================================================================
+    
+    print_info "=== Contract Configuration ==="
+    echo
+    
+    CONTRACT_ID=$(prompt_with_default "Enter Contract ID" "$DEFAULT_CONTRACT_ID")
+    
+    echo
+    
+    # ============================================================================
+    # STEP 5: Enrollment Configuration
+    # ============================================================================
+    
+    print_info "=== CPS Enrollment Configuration ==="
+    echo
+    
+    CERT_TYPE=$(prompt_with_default "Certificate Type" "$DEFAULT_CERT_TYPE")
+    
+    # Change Management
+    CHANGE_MGMT=$(prompt_with_default "Enable Change Management (true/false)" "$DEFAULT_CHANGE_MGMT")
+    
+    echo
+    print_info "--- CSR Information ---"
+    
+    # CSR Details
+    CSR_CN=$(prompt_with_default "Common Name (CN)" "$DEFAULT_CSR_CN")
+    CSR_C=$(prompt_with_default "Country (C)" "$DEFAULT_CSR_C")
+    CSR_ST=$(prompt_with_default "State/Province (ST)" "$DEFAULT_CSR_ST")
+    CSR_L=$(prompt_with_default "Locality (L)" "$DEFAULT_CSR_L")
+    CSR_O=$(prompt_with_default "Organization (O)" "$DEFAULT_CSR_O")
+    CSR_OU=$(prompt_with_default "Organizational Unit (OU)" "$DEFAULT_CSR_OU")
+    
+    echo
+    print_info "--- Network Configuration ---"
+    
+    # Network Configuration
+    GEOGRAPHY=$(prompt_with_default "Geography" "$DEFAULT_GEOGRAPHY")
+    QUIC_ENABLED=$(prompt_with_default "QUIC Enabled (true/false)" "$DEFAULT_QUIC")
+    SECURE_NETWORK=$(prompt_with_default "Secure Network" "$DEFAULT_SECURE_NETWORK")
+    SNI_ONLY=$(prompt_with_default "SNI Only (true/false)" "$DEFAULT_SNI_ONLY")
+    MUST_HAVE_CIPHERS=$(prompt_with_default "Must Have Ciphers" "$DEFAULT_MUST_HAVE_CIPHERS")
+    OCSP_STAPLING=$(prompt_with_default "OCSP Stapling (on/off)" "$DEFAULT_OCSP_STAPLING")
+    PREFERRED_CIPHERS=$(prompt_with_default "Preferred Ciphers" "$DEFAULT_PREFERRED_CIPHERS")
+    
+    clear
+    echo
+    print_info "--- Registration Authority and Validation ---"
+    
+    # RA and Validation
+    RA=$(prompt_with_default "Registration Authority (RA)" "$DEFAULT_RA")
+    VALIDATION_TYPE=$(prompt_with_default "Validation Type" "$DEFAULT_VALIDATION")
+    
+    echo
+    print_info "--- Admin Contact ---"
+    
+    # Admin Contact
+    ADMIN_EMAIL=$(prompt_with_default "Admin Email" "$DEFAULT_ADMIN_EMAIL")
+    ADMIN_FIRSTNAME=$(prompt_with_default "Admin First Name" "$DEFAULT_ADMIN_FIRSTNAME")
+    ADMIN_LASTNAME=$(prompt_with_default "Admin Last Name" "$DEFAULT_ADMIN_LASTNAME")
+    ADMIN_PHONE=$(prompt_with_default "Admin Phone" "$DEFAULT_ADMIN_PHONE")
+    
+    echo
+    print_info "--- Technical Contact ---"
+    
+    # Tech Contact
+    TECH_EMAIL=$(prompt_with_default "Tech Email" "$DEFAULT_TECH_EMAIL")
+    TECH_FIRSTNAME=$(prompt_with_default "Tech First Name" "$DEFAULT_TECH_FIRSTNAME")
+    TECH_LASTNAME=$(prompt_with_default "Tech Last Name" "$DEFAULT_TECH_LASTNAME")
+    TECH_PHONE=$(prompt_with_default "Tech Phone" "$DEFAULT_TECH_PHONE")
+    
+    echo
+    print_info "--- Organization Information ---"
+    
+    # Organization
+    ORG_NAME=$(prompt_with_default "Organization Name" "$DEFAULT_ORG_NAME")
+    ORG_ADDR1=$(prompt_with_default "Address Line 1" "$DEFAULT_ORG_ADDR1")
+    ORG_ADDR2=$(prompt_with_default "Address Line 2 (optional)" "$DEFAULT_ORG_ADDR2")
+    ORG_CITY=$(prompt_with_default "City" "$DEFAULT_ORG_CITY")
+    ORG_COUNTRY=$(prompt_with_default "Country" "$DEFAULT_ORG_COUNTRY")
+    ORG_PHONE=$(prompt_with_default "Phone" "$DEFAULT_ORG_PHONE")
+    ORG_POSTAL=$(prompt_with_default "Postal Code" "$DEFAULT_ORG_POSTAL")
+    ORG_REGION=$(prompt_with_default "Region/State" "$DEFAULT_ORG_REGION")
+    
+    echo
+    print_info "--- Additional Settings ---"
+    
+    # Seat ID for DigiCert (default to common name)
+    SEAT_ID=$(prompt_with_default "Seat ID (for DigiCert certificate issuance)" "${DEFAULT_SEAT_ID:-$CSR_CN}")
+    
+    echo
+    print_info "--- Subject Alternative Names (SANs) ---"
+    print_info "Enter additional DNS names for the certificate."
+    print_info "The Common Name ($CSR_CN) is included automatically."
+    print_info "Press Enter on an empty line when finished."
+    echo
+    
+    # Initialise the SANs array with the CN
+    SAN_LIST=()
+    SAN_LIST+=("$CSR_CN")
+    
+    SAN_INDEX=1
+    while true; do
+        read -p "  Enter SAN $SAN_INDEX (blank to finish): " SAN_ENTRY
+        # Strip whitespace
+        SAN_ENTRY=$(echo "$SAN_ENTRY" | xargs 2>/dev/null)
+        if [ -z "$SAN_ENTRY" ]; then
+            break
+        fi
+        SAN_LIST+=("$SAN_ENTRY")
+        SAN_INDEX=$((SAN_INDEX + 1))
+    done
+    
+    echo
+    print_info "SANs configured (${#SAN_LIST[@]} total):"
+    for san in "${SAN_LIST[@]}"; do
+        echo "   • $san"
+    done
+    echo
+    
+    # Third Party Settings
+    EXCLUDE_SANS=$(prompt_with_default "Exclude SANs (true/false)" "$DEFAULT_EXCLUDE_SANS")
+    clear
+    echo
+
+    # DigiCert API Key
+    DIGICERT_API_KEY=$(prompt_with_default "Enter DigiCert API Key" "$DEFAULT_DIGICERT_API_KEY")
+    
+    echo
 fi
 
 # Continue from here for both init and renewal modes...
@@ -1140,6 +972,19 @@ if [ "$MODE" = "init" ]; then
         print_info "Created directory: $CERT_STORAGE_DIR"
     fi
     
+    # Build the Akamai SANs JSON array (excluding the CN since it's already the cn field)
+    AKAMAI_SANS_JSON=""
+    for ((s=0; s<${#SAN_LIST[@]}; s++)); do
+        # Skip the CN as it's already in the csr.cn field
+        if [ "${SAN_LIST[$s]}" = "$CSR_CN" ]; then
+            continue
+        fi
+        if [ -n "$AKAMAI_SANS_JSON" ]; then
+            AKAMAI_SANS_JSON+=", "
+        fi
+        AKAMAI_SANS_JSON+="\"${SAN_LIST[$s]}\""
+    done
+
     cat > "$ENROLLMENT_PATH" << EOF
 {
   "certificateType": "$CERT_TYPE",
@@ -1150,7 +995,8 @@ if [ "$MODE" = "init" ]; then
     "l": "$CSR_L",
     "o": "$CSR_O",
     "ou": "$CSR_OU",
-    "st": "$CSR_ST"
+    "st": "$CSR_ST",
+    "sans": [$AKAMAI_SANS_JSON]
   },
   "enableMultiStackedCertificates": false,
   "networkConfiguration": {
@@ -1161,7 +1007,10 @@ if [ "$MODE" = "init" ]; then
     "disallowedTlsVersions": ["TLSv1", "TLSv1_1"],
     "mustHaveCiphers": "$MUST_HAVE_CIPHERS",
     "ocspStapling": "$OCSP_STAPLING",
-    "preferredCiphers": "$PREFERRED_CIPHERS"
+    "preferredCiphers": "$PREFERRED_CIPHERS",
+    "dnsNameSettings": {
+      "cloneDnsNames": true
+    }
   },
   "ra": "$RA",
   "validationType": "$VALIDATION_TYPE",
@@ -1203,8 +1052,7 @@ EOF
     
     print_info "=== API Call Configuration ==="
     echo
-    clear
-    echo
+    
     print_info "Configuration complete! Ready to submit enrollment."
     echo
     
@@ -1215,8 +1063,10 @@ EOF
     echo "Certificate Storage: $CERT_STORAGE_DIR"
     echo "API Host: $EDGEGRID_HOST"
     echo "Contract ID: $CONTRACT_ID"
-    echo "Common Name: $CSR_CN"
     echo
+    
+    # Prompt to proceed with API call
+    read -p "Do you want to submit the enrollment now? (y/n): " PROCEED
     
     if [[ "$PROCEED" =~ ^[Yy]$ ]]; then
         print_info "Submitting enrollment to Akamai CPS..."
@@ -1246,8 +1096,8 @@ EOF
                 print_info "Parsing enrollment and change IDs from response..."
                 
                 # More robust parsing using different methods
-                ENROLLMENT_ID=$(cat "$RESPONSE_FILE" | grep -oP '(?<=/enrollments/)[0-9]+' | head -1)
-                CHANGE_ID=$(cat "$RESPONSE_FILE" | grep -oP '(?<=/changes/)[0-9]+' | head -1)
+                ENROLLMENT_ID=$(cat "$RESPONSE_FILE" | sed -n 's|.*/enrollments/\([0-9]*\).*|\1|p' | head -1)
+                CHANGE_ID=$(cat "$RESPONSE_FILE" | sed -n 's|.*/changes/\([0-9]*\).*|\1|p' | head -1)
                 
                 # Fallback parsing method if first one fails
                 if [ -z "$ENROLLMENT_ID" ]; then
@@ -1276,17 +1126,6 @@ EOF
         exit 0
     fi
 fi
-
-# The rest of the script continues with the common workflow for both init and renewal modes
-# [CSR retrieval, certificate issuance, upload, deployment, etc.]
-# This is lines 1077-2730 from the original script which remain unchanged
-
-# I'll include just a marker here since the rest is identical:
-# ... [Lines 1077-2730 from the original script remain exactly the same] ...
-
-# Note: Due to length limits, I'm not reproducing the entire rest of the script,
-# but it continues exactly as in your original from the CSR retrieval section onwards.
-# The key changes are all in the initialization section above.
 
 # Continue with the rest of the workflow (CSR retrieval, certificate issuance, etc.)
 # This part is common to both init and renewal modes
@@ -1492,16 +1331,18 @@ if [ -n "$ENROLLMENT_ID" ] && [ -n "$CHANGE_ID" ]; then
 
             # Set profile ID and CSR file based on choice
             if [ "$CSR_CHOICE" = "1" ]; then
-                PROFILE_ID="f1887d29-ee87-48f7-a873-1a0254dc99a9"
+                PROFILE_ID="$DEFAULT_RSA_PROFILE_ID"
                 SELECTED_CSR_FILE="$RSA_CSR_FILE"
                 CERT_TYPE_NAME="RSA"
+                CERT_TYPE_CHOICE="RSA"
                 ISSUED_CERT_TYPE="RSA"
                 print_info "Selected: RSA certificate"
                 print_info "Using Profile ID: $PROFILE_ID"
             elif [ "$CSR_CHOICE" = "2" ]; then
-                PROFILE_ID="8b566220-8e48-4b44-bf4c-20434f4f95c1"
+                PROFILE_ID="$DEFAULT_ECDSA_PROFILE_ID"
                 SELECTED_CSR_FILE="$ECDSA_CSR_FILE"
                 CERT_TYPE_NAME="ECDSA"
+                CERT_TYPE_CHOICE="ECDSA"
                 ISSUED_CERT_TYPE="ECDSA"
                 print_info "Selected: ECDSA certificate"
                 print_info "Using Profile ID: $PROFILE_ID"
@@ -1511,9 +1352,22 @@ if [ -n "$ENROLLMENT_ID" ] && [ -n "$CHANGE_ID" ]; then
             fi
             
             if [ -n "$SELECTED_CSR_FILE" ]; then
+                # Update saved configuration with the actual certificate type choice
+                if [ "$MODE" = "init" ] && [ "$SAVE_CONFIG" = true ] && [ -f "$CONFIG_FILE" ]; then
+                    jq ".automation.certificate_type = \"$CERT_TYPE_CHOICE\"" "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+                    # Update the symlink target too
+                    local_cn_link="$CONFIG_DIR/${CSR_CN}.json"
+                    if [ -L "$local_cn_link" ]; then
+                        real_target=$(readlink "$local_cn_link" 2>/dev/null || true)
+                        if [ -n "$real_target" ] && [ -f "$real_target" ]; then
+                            jq ".automation.certificate_type = \"$CERT_TYPE_CHOICE\"" "$real_target" > "${real_target}.tmp" && mv "${real_target}.tmp" "$real_target"
+                        fi
+                    fi
+                    print_info "Configuration updated with certificate type: $CERT_TYPE_CHOICE"
+                fi
+
                 # Prompt for DigiCert API key if not already set
                 if [ -z "$DIGICERT_API_KEY" ]; then
-                    DEFAULT_DIGICERT_API_KEY="REMOVED_SECRET"
                     echo
                     DIGICERT_API_KEY=$(prompt_with_default "Enter DigiCert API Key" "$DEFAULT_DIGICERT_API_KEY")
                 fi
@@ -1528,6 +1382,20 @@ if [ -n "$ENROLLMENT_ID" ] && [ -n "$CHANGE_ID" ]; then
                 
                 print_info "Creating DigiCert certificate request..."
                 
+                # Build the dns_names JSON array from SAN_LIST
+                # If SAN_LIST is empty (e.g. renewal mode), fall back to just the CN
+                if [ ${#SAN_LIST[@]} -eq 0 ]; then
+                    SAN_LIST=("$CSR_CN")
+                fi
+                
+                DNS_NAMES_JSON=""
+                for ((s=0; s<${#SAN_LIST[@]}; s++)); do
+                    if [ $s -gt 0 ]; then
+                        DNS_NAMES_JSON+=","
+                    fi
+                    DNS_NAMES_JSON+="\"${SAN_LIST[$s]}\""
+                done
+                
                 cat > "$DIGICERT_REQUEST_FILE" << EOF
 {
   "profile": {
@@ -1537,20 +1405,25 @@ if [ -n "$ENROLLMENT_ID" ] && [ -n "$CHANGE_ID" ]; then
     "seat_id": "$SEAT_ID"
   },
   "csr": "$CSR_CONTENT",
+  "include_ca_chain": "true",
   "attributes": {
     "subject": {
-      "common_name": "$CSR_CN"
+      "common_name": "$CSR_CN",
+      "country": "$CSR_C",
+      "organization_name": "$CSR_O",
+      "locality": "$CSR_L",
+      "state": "$CSR_ST",
+      "organization_units": [
+        "$CSR_OU"
+      ]
+    },
+    "extensions": {
+      "san": {
+        "dns_names": [
+          $DNS_NAMES_JSON
+        ]
+      }
     }
-  },
-  "org": {
-    "name": "$ORG_NAME",
-    "addressLineOne": "$ORG_ADDR1",
-    "addressLineTwo": "$ORG_ADDR2",
-    "city": "$ORG_CITY",
-    "country": "$ORG_COUNTRY",
-    "phone": "$ORG_PHONE",
-    "postalCode": "$ORG_POSTAL",
-    "region": "$ORG_REGION"
   }
 }
 EOF
@@ -1564,7 +1437,10 @@ EOF
                 echo "Profile ID: $PROFILE_ID"
                 echo "Seat ID: $SEAT_ID"
                 echo "Common Name: $CSR_CN"
-                echo "Organization: $ORG_NAME"
+                echo "SANs (${#SAN_LIST[@]}):"
+                for san in "${SAN_LIST[@]}"; do
+                    echo "   • $san"
+                done
                 echo
 
                 # Determine whether to proceed based on AUTO_MODE or config
@@ -1797,7 +1673,7 @@ EOF
                                                             
                                                             # Try to parse the new change ID if present
                                                             if [ -f "$UPLOAD_RESPONSE_FILE" ]; then
-                                                                NEW_CHANGE_ID=$(grep -oP '(?<="change":|/changes/)[0-9]+' "$UPLOAD_RESPONSE_FILE" | head -1)
+                                                                NEW_CHANGE_ID=$(sed -n 's|.*"change":\s*\([0-9]*\).*|\1|p; s|.*/changes/\([0-9]*\).*|\1|p' "$UPLOAD_RESPONSE_FILE" | head -1)
                                                                 if [ -n "$NEW_CHANGE_ID" ]; then
                                                                     print_info "New Change ID created: $NEW_CHANGE_ID"
                                                                     CURRENT_CHANGE_ID="$NEW_CHANGE_ID"
@@ -1910,7 +1786,7 @@ EOF
                                                                         
                                                                         # Try to parse any new change ID from acknowledgement response
                                                                         if [ -f "$ACKNOWLEDGE_RESPONSE_FILE" ]; then
-                                                                            ACK_CHANGE_ID=$(grep -oP '(?<="change":|/changes/)[0-9]+' "$ACKNOWLEDGE_RESPONSE_FILE" | head -1)
+                                                                            ACK_CHANGE_ID=$(sed -n 's|.*"change":\s*\([0-9]*\).*|\1|p; s|.*/changes/\([0-9]*\).*|\1|p' "$ACKNOWLEDGE_RESPONSE_FILE" | head -1)
                                                                             if [ -n "$ACK_CHANGE_ID" ]; then
                                                                                 print_info "New Change ID after acknowledgement: $ACK_CHANGE_ID"
                                                                                 CURRENT_CHANGE_ID="$ACK_CHANGE_ID"
