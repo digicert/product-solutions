@@ -31,7 +31,7 @@ The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
 LEGAL_NOTICE_ACCEPT="true"
-LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/dc1_data.log"
+LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/kemp.log"
 
 # Function to log messages with timestamp
 log_message() {
@@ -336,7 +336,7 @@ else
 fi
 
 # Clean up the combined PEM on script exit
-trap 'rm -f "$COMBINED_PEM_PATH"' EXIT
+# trap 'rm -f "$COMBINED_PEM_PATH"' EXIT
 
 # Step 2: Check if certificate already exists on LoadMaster
 LISTCERT_URL="${BASE_URL}/access/listcert"
@@ -382,6 +382,9 @@ UPLOAD_STATUS=$(echo "$UPLOAD_RESPONSE" | sed -n 's/^HTTP_STATUS://p')
 UPLOAD_BODY=$(echo "$UPLOAD_RESPONSE" | sed '/HTTP_STATUS:/d')
 
 log_message "addcert HTTP status: $UPLOAD_STATUS"
+
+log_message "addcert response body: $UPLOAD_BODY"
+
 # Only log non-sensitive parts of response
 if echo "$UPLOAD_BODY" | grep -q "Success\|success\|OK"; then
     log_message "addcert response: Success"
