@@ -34,7 +34,7 @@ LEGAL_NOTICE
 # LEGAL NOTICE ACCEPTANCE
 # Set to "true" to accept the legal notice and allow script execution
 # ============================================================================
-LEGAL_NOTICE_ACCEPT="true"
+LEGAL_NOTICE_ACCEPT="false"
 
 if [ "$LEGAL_NOTICE_ACCEPT" != "true" ]; then
     echo "ERROR: Legal notice not accepted. Set LEGAL_NOTICE_ACCEPT=\"true\" to proceed."
