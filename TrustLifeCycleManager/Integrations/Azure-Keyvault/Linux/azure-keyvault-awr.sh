@@ -31,7 +31,7 @@ The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
 # Configuration
-LEGAL_NOTICE_ACCEPT="true"
+LEGAL_NOTICE_ACCEPT="false" # Set to "true" to accept the legal notice and proceed with execution
 LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/keyvault.log"
 
 # ============================================================================

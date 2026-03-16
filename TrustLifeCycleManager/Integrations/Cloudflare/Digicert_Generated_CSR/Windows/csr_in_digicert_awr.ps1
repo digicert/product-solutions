@@ -1,7 +1,3 @@
-#!/usr/bin/env pwsh
-# Note: This script works with PowerShell 5.1+ (including PowerShell 7+)
-# Removed #Requires -Version 6.0 for compatibility with DigiCert TLM Agent
-
 <#
 Legal Notice (version October 29, 2024)
 Copyright © 2024 DigiCert. All rights reserved.
@@ -32,13 +28,59 @@ as applicable, and the Technical Data - Commercial Items clause at DFARS 252.227
 The contractor/manufacturer is DIGICERT, INC.
 #>
 
+<#
+.SYNOPSIS
+    Uploads SSL certificates to Cloudflare using the Cloudflare API
+    
+.DESCRIPTION
+    This script is designed to work with DigiCert TLM Agent to automatically upload
+    certificates to Cloudflare. It supports both Custom Legacy and Custom Modern certificate types.
+    
+.PARAMETER ZONE_ID
+    The Cloudflare Zone ID (passed via DC1_POST_SCRIPT_DATA environment variable)
+    
+.PARAMETER AUTH_TOKEN
+    The Cloudflare API authentication token (passed via DC1_POST_SCRIPT_DATA environment variable)
+    
+.PARAMETER BUNDLE_METHOD
+    Certificate bundling method: "ubiquitous", "optimal", or "force"
+    Default: "force"
+    
+.PARAMETER CERT_DELETE_MODE
+    Certificate deletion strategy:
+    - "none": Don't delete any existing certificates
+    - "all": Delete all existing certificates before uploading
+    - "matching": Only delete certificates covering the same hostname(s)
+    Default: "matching"
+    
+.PARAMETER CERTIFICATE_TYPE
+    Certificate type to upload:
+    - "legacy_custom": Custom Legacy (supports non-SNI clients, broader compatibility)
+    - "sni_custom": Custom Modern (SNI required, recommended for modern setups)
+    Default: "sni_custom"
+    
+.NOTES
+    The script accepts parameters through the DC1_POST_SCRIPT_DATA environment variable
+    as a base64-encoded JSON object. The args array should contain:
+    1. Zone ID (required)
+    2. Auth Token (required)
+    3. Bundle Method (optional)
+    4. Certificate Delete Mode (optional)
+    5. Certificate Type (optional)
+#>
+
 # ========================================
 # Configuration
 # ========================================
-$LEGAL_NOTICE_ACCEPT = "true"
+$LEGAL_NOTICE_ACCEPT = "false"
 $LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\cloudflare-awr.log"
 
 $BUNDLE_METHOD = "force"  # Can be "ubiquitous", "optimal", or "force"
+
+# Certificate type configuration:
+# "legacy_custom" - Custom Legacy (supports non-SNI clients, broader compatibility)
+# "sni_custom" - Custom Modern (SNI required, recommended for modern setups)
+$CERTIFICATE_TYPE = "sni_custom"  # Default: "sni_custom" (Custom Modern)
 
 # Certificate deletion strategy:
 # "none" - Don't delete any existing certificates (accumulate all)
@@ -142,6 +184,7 @@ Write-Log "Configuration:"
 Write-Log "  LEGAL_NOTICE_ACCEPT: $LEGAL_NOTICE_ACCEPT"
 Write-Log "  LOGFILE: $LOGFILE"
 Write-Log "  Default BUNDLE_METHOD: $BUNDLE_METHOD"
+Write-Log "  CERTIFICATE_TYPE: $CERTIFICATE_TYPE"
 Write-Log "  CERT_DELETE_MODE: $CERT_DELETE_MODE"
 
 # Log OpenSSL status
@@ -218,6 +261,18 @@ try {
         $CERT_DELETE_MODE = $JSON_DATA.args[3].ToString().Trim()
         Write-Log "CERT_DELETE_MODE extracted from args: $CERT_DELETE_MODE"
     }
+    
+    # Extract CERTIFICATE_TYPE - fifth argument (if provided)
+    if ($JSON_DATA.args.Count -ge 5 -and ![string]::IsNullOrWhiteSpace($JSON_DATA.args[4])) {
+        $CERTIFICATE_TYPE = $JSON_DATA.args[4].ToString().Trim()
+        Write-Log "CERTIFICATE_TYPE extracted from args: $CERTIFICATE_TYPE"
+        
+        # Validate certificate type
+        if ($CERTIFICATE_TYPE -ne "legacy_custom" -and $CERTIFICATE_TYPE -ne "sni_custom") {
+            Write-Log "WARNING: Invalid CERTIFICATE_TYPE '$CERTIFICATE_TYPE'. Using default 'sni_custom'"
+            $CERTIFICATE_TYPE = "sni_custom"
+        }
+    }
 }
 catch {
     Write-Log "ERROR: Failed to parse JSON: $_"
@@ -249,6 +304,7 @@ else {
 
 Write-Log "  BUNDLE_METHOD: '$BUNDLE_METHOD'"
 Write-Log "  CERT_DELETE_MODE: '$CERT_DELETE_MODE'"
+Write-Log "  CERTIFICATE_TYPE: '$CERTIFICATE_TYPE' $(if($CERTIFICATE_TYPE -eq 'legacy_custom'){'(Custom Legacy)'} else {'(Custom Modern - SNI required)'})"
 
 # Validate and clean AUTH_TOKEN and ZONE_ID
 Write-Log "Validating extracted values..."
@@ -345,6 +401,15 @@ $apiPayloadObject = @{
     bundle_method = $BUNDLE_METHOD
 }
 
+# Add certificate type if specified (only add if not default to maintain backwards compatibility)
+# Note: Cloudflare API defaults to legacy_custom if type is not specified
+if ($CERTIFICATE_TYPE -eq "sni_custom") {
+    $apiPayloadObject["type"] = "sni_custom"
+} elseif ($CERTIFICATE_TYPE -eq "legacy_custom") {
+    # Explicitly set legacy_custom if that's what user wants
+    $apiPayloadObject["type"] = "legacy_custom"
+}
+
 # Convert to JSON - PowerShell will automatically escape newlines properly
 $API_PAYLOAD = $apiPayloadObject | ConvertTo-Json -Depth 10 -Compress
 
@@ -352,6 +417,7 @@ $API_PAYLOAD = $apiPayloadObject | ConvertTo-Json -Depth 10 -Compress
 Write-Log "Preparing Cloudflare API call..."
 Write-Log "API Endpoint: https://api.cloudflare.com/client/v4/zones/$ZONE_ID/custom_certificates"
 Write-Log "Bundle method: $BUNDLE_METHOD"
+Write-Log "Certificate type: $CERTIFICATE_TYPE $(if($CERTIFICATE_TYPE -eq 'legacy_custom'){'(Custom Legacy - supports non-SNI clients)'} else {'(Custom Modern - SNI required)'})"
 
 if ($DEBUG_MODE -eq "true") {
     $payloadSnippet = $API_PAYLOAD.Substring(0, [Math]::Min(200, $API_PAYLOAD.Length))
@@ -478,7 +544,7 @@ elseif ($CERT_DELETE_MODE -eq "all" -or $CERT_DELETE_MODE -eq "matching") {
                 Write-Log "Deleting certificate ID: $certId"
                 
                 try {
-                    $deleteResponse = Invoke-WebRequest -Uri "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/custom_certificates/$certId" `
+                    $null = Invoke-WebRequest -Uri "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/custom_certificates/$certId" `
                         -Method Delete -Headers $headers -UseBasicParsing
                     
                     Write-Log "Successfully deleted certificate ID: $certId"
