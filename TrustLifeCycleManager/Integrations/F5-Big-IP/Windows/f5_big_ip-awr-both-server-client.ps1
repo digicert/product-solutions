@@ -43,12 +43,12 @@
 #>
 
 # Configuration
-$LEGAL_NOTICE_ACCEPT = "false"
+$LEGAL_NOTICE_ACCEPT = "false"  # Set to "true" to accept the legal notice and enable script execution
 $LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\f5_data.log"
 
 # BIG-IP SSL Profile Update Configuration
-$UPDATE_SERVER_SSL_PROFILE = "false"  # Set to "true" to enable Server SSL profile update
-$UPDATE_CLIENT_SSL_PROFILE = "false"  # Set to "true" to enable Client SSL profile update
+$UPDATE_SERVER_SSL_PROFILE = "true"  # Set to "true" to enable Server SSL profile update
+$UPDATE_CLIENT_SSL_PROFILE = "true"  # Set to "true" to enable Client SSL profile update
 
 # ============================================================================
 # CUSTOM SCRIPT SECTION - BIG-IP F5 API INTEGRATION
