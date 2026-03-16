@@ -14,17 +14,17 @@ pool:
 variables:
   - group: certbot-secrets
   - name: domain
-    value: kv-003.tlsguru.io
+    value: <domain>
   - name: keyVaultName
-    value: kv-demo-r6qkIl
+    value: <keyVaultName>
   - name: certName
-    value: tlsguru-io-pub
+    value: <certName>
   - name: resourceGroup
-    value: keyvault-demo-NxRfMW
+    value: <resourceGroup>
   - name: appGatewayName
-    value: TLM-AGW
+    value: <appGatewayName>
   - name: keyVaultSecretId
-    value: https://kv-demo-r6qkil.vault.azure.net/secrets/tlsguru-io-pub
+    value: https://<keyVaultName>.vault.azure.net/secrets/<certName>
 
 steps:
   - script: |
