@@ -1,0 +1,177 @@
+---
+- name: Install and activate DigiCert TLM Agent on Windows hosts
+  hosts: windows
+  gather_facts: yes
+  vars:
+    # Local paths on Ansible control node
+    installer_local_path: "./files/DigiCert TLM Agent.exe"
+    deployment_script: "./files/Deploy-TLMAgent.ps1"
+
+    # Remote temporary directory (use ansible_env to get system drive dynamically)
+    remote_temp_dir: "C:\\Temp"
+
+    # Service name to check
+    service_name: "DigiCertAdmAgentService"
+
+    # Deployment parameters (can be overridden)
+    deployment_action: "InstallAndActivate" # Options: Install, Activate, InstallAndActivate, Upgrade, Uninstall, UninstallPreserveData
+    api_key: "{{ lookup('env', 'DC_API_KEY') | default('', true) }}"
+    business_unit_id: "{{ lookup('env', 'TLM_BUSINESS_UNIT') | default('', true) }}"
+    agent_name: "{{ inventory_hostname }}"
+    proxy_url: ""
+    custom_install_dir: ""
+    dcone_host: "{{ lookup('env', 'DCONE_HOST') | default('one.digicert.com', true) }}"
+
+    # Optional: For upgrade, specify the installer path if different from default
+    upgrade_installer_path: "" # Leave empty to use default installer
+
+  tasks:
+    - name: Ensure Temp directory exists on remote host
+      win_file:
+        path: "{{ remote_temp_dir }}"
+        state: directory
+      tags: install
+
+    - name: Copy installer to remote temp directory
+      win_copy:
+        src: "{{ installer_local_path }}"
+        dest: "{{ remote_temp_dir }}\\DigiCert TLM Agent.exe"
+      when: deployment_action in ['Install', 'InstallAndActivate', 'Upgrade', 'Uninstall', 'UninstallPreserveData']
+      tags: install
+
+    - name: Copy Deploy-TLMAgent.ps1 to remote temp directory
+      win_copy:
+        src: "{{ deployment_script }}"
+        dest: "{{ remote_temp_dir }}\\Deploy-TLMAgent.ps1"
+      tags: install
+
+    - name: Check if TLM Agent is already installed
+      win_service:
+        name: "{{ service_name }}"
+      register: service_check
+      failed_when: false
+      tags: install
+
+    - name: Display installation status
+      debug:
+        msg: "TLM Agent service {{ 'already exists' if service_check.exists else 'not found - will install' }}"
+      tags: install
+
+    - name: Determine installer path for deployment
+      set_fact:
+        actual_installer_path: "{{ upgrade_installer_path if (upgrade_installer_path and deployment_action == 'Upgrade') else remote_temp_dir + '\\\\DigiCert TLM Agent.exe' }}"
+      tags: install
+
+    - name: Run Deploy-TLMAgent.ps1 script
+      win_shell: |
+        Set-Location "{{ remote_temp_dir }}"
+        $params = @{
+          Action = "{{ deployment_action }}"
+          InstallerPath = "{{ actual_installer_path }}"
+        }
+        {% if custom_install_dir and deployment_action in ['Install', 'InstallAndActivate'] %}
+        $params.InstallDir = "{{ custom_install_dir }}"
+        {% endif %}
+        {% if api_key and deployment_action in ['Activate', 'InstallAndActivate'] %}
+        $params.ApiKey = "{{ api_key }}"
+        {% endif %}
+        {% if business_unit_id and deployment_action in ['Activate', 'InstallAndActivate'] %}
+        $params.BusinessUnitId = "{{ business_unit_id }}"
+        {% endif %}
+        {% if agent_name and deployment_action in ['Activate', 'InstallAndActivate'] %}
+        $params.AgentName = "{{ agent_name }}"
+        {% endif %}
+        {% if proxy_url and deployment_action in ['Activate', 'InstallAndActivate'] %}
+        $params.Proxy = "{{ proxy_url }}"
+        {% endif %}
+        {% if dcone_host and deployment_action in ['Install', 'InstallAndActivate'] %}
+        $params.DcOneHost = "{{ dcone_host }}"
+        {% endif %}
+
+        .\Deploy-TLMAgent.ps1 @params
+        exit $LASTEXITCODE
+      register: deployment_result
+      tags: install
+
+    - name: Display deployment output
+      debug:
+        msg: "{{ deployment_result.stdout_lines }}"
+      tags: install
+
+    - name: Display deployment result
+      debug:
+        msg: "Deployment script completed with exit code: {{ deployment_result.rc }}"
+      tags: install
+
+    - name: Fail if deployment failed
+      fail:
+        msg: "Deployment failed with exit code: {{ deployment_result.rc }}"
+      when: deployment_result.rc != 0
+      tags: install
+
+    - name: Verify service was created
+      win_service:
+        name: "{{ service_name }}"
+      register: service_verify
+      failed_when: false
+      when: deployment_action not in ['Uninstall', 'UninstallPreserveData']
+      tags: verify
+
+    - name: Display service status
+      debug:
+        msg: "Service {{ service_name }} is {{ service_verify.state }}"
+      when: deployment_action not in ['Uninstall', 'UninstallPreserveData'] and service_verify.state is defined
+      tags: verify
+
+    - name: Verify service was removed (uninstall)
+      win_service:
+        name: "{{ service_name }}"
+      register: service_verify_uninstall
+      failed_when: false
+      when: deployment_action in ['Uninstall', 'UninstallPreserveData']
+      tags: verify
+
+    - name: Display uninstall verification
+      debug:
+        msg: "Service {{ service_name }} {{ 'still exists' if service_verify_uninstall.exists else 'has been removed successfully' }}"
+      when: deployment_action in ['Uninstall', 'UninstallPreserveData']
+      tags: verify
+
+    - name: Check deployment log
+      win_shell: |
+        $systemDrive = $env:SystemDrive
+        $logPath = "$systemDrive\\tlm_agent_deployment.log"
+        if (Test-Path $logPath) {
+          Get-Content $logPath -Tail 30
+        } else {
+          Write-Host "Deployment log file not found at $logPath"
+        }
+      register: deployment_log
+      tags: verify
+
+    - name: Display deployment log (last 30 lines)
+      debug:
+        msg: "{{ deployment_log.stdout_lines }}"
+      tags: verify
+
+    - name: Clean up temporary files (optional)
+      win_file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ remote_temp_dir }}\\DigiCert TLM Agent.exe"
+        - "{{ remote_temp_dir }}\\Deploy-TLMAgent.ps1"
+      tags: cleanup
+
+    - name: Final status report
+      debug:
+        msg: |
+          ====================================
+          TLM Agent Deployment Summary
+          ====================================
+          Host: {{ inventory_hostname }}
+          Action: {{ deployment_action }}
+          Service Status: {{ service_verify.state | default('Removed') }}
+          Deployment Exit Code: {{ deployment_result.rc }}
+          ====================================
+      tags: report

@@ -1,0 +1,24 @@
+---
+- name: Test Windows Connectivity
+  hosts: windows
+  gather_facts: false
+
+  tasks:
+    - name: Test WinRM connection (ping)
+      ansible.windows.win_ping:
+
+    - name: Get OS information
+      ansible.windows.win_command: systeminfo
+      register: sysinfo
+
+    - name: Display OS info
+      debug:
+        msg: "{{ sysinfo.stdout_lines[:5] }}"
+
+    - name: Get PowerShell version
+      ansible.windows.win_shell: $PSVersionTable.PSVersion
+      register: ps_version
+
+    - name: Display PowerShell version
+      debug:
+        msg: "PowerShell version: {{ ps_version.stdout }}"
