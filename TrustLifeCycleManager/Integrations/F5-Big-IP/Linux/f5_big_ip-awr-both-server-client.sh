@@ -31,7 +31,7 @@ The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
 # Configuration
-LEGAL_NOTICE_ACCEPT="true"
+LEGAL_NOTICE_ACCEPT="false"
 LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/f5server.log"
 
 # BIG-IP SSL Profile Update Configuration
