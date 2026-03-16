@@ -1,0 +1,13 @@
+certificate:
+  csr_path: './certificates/cert-request_csr.csr'
+  key_path: './certificates/private_key.key'
+  cert_path: './certificates/certificate_pem.pem'
+  country: 'US'
+  state: 'Utah'
+  locality: 'Lehi'
+  organization: 'Digicert'
+  common_name: 'ansible.local'
+  url: '< API Profile URL HERE >'
+  api_key: '< TLM API KEY HERE >'
+  profile_id: '< TLM PROFILE ID HERE >'
+  seat_id: 'ansible.local'

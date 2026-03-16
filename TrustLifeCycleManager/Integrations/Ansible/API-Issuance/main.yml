@@ -1,0 +1,77 @@
+---
+- name: Install and configure certificate
+  hosts: localhost
+  vars_files:
+    - variables.yml
+
+  tasks:
+    - name: Install openssl
+      ansible.builtin.package:
+        name: openssl
+        state: present
+
+    - name: Install jq
+      ansible.builtin.package:
+        name: jq
+        state: present
+
+    - name: Generate CSR
+      ansible.builtin.command:
+        cmd: >
+          openssl req -new -newkey rsa:2048 -nodes
+          -keyout {{ certificate.key_path }}
+          -out {{ certificate.csr_path }}
+          -subj "/C={{ certificate.country }}/ST={{ certificate.state }}/L={{ certificate.locality }}/O={{ certificate.organization }}/CN={{ certificate.common_name }}"
+      args:
+        creates: "{{ certificate.csr_path }}"
+
+    - name: Check if CSR exists
+      ansible.builtin.stat:
+        path: "{{ certificate.csr_path }}"
+      register: csr_file
+
+    - name: Read CSR content
+      ansible.builtin.slurp:
+        src: "{{ certificate.csr_path }}"
+      register: csr_content
+      when: csr_file.stat.exists
+
+    - name: Display CSR content
+      ansible.builtin.debug:
+        var: csr_content.content | b64decode
+      when: csr_file.stat.exists
+
+    - name: Send CSR request
+      ansible.builtin.uri:
+        url: "{{ certificate.url }}"
+        method: POST
+        headers:
+          x-api-key: "{{ certificate.api_key }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          profile:
+            id: "{{ certificate.profile_id }}"
+          seat:
+            seat_id: "{{ certificate.seat_id }}"
+          serial_no:
+            serial_no: "{{ certificate.serial_no }}"
+          thumbprint_256:
+            thumbprint_256: "{{ certificate.thumbprint_256 }}"
+          csr: "{{ csr_content.content | b64decode | replace('\n', '') }}"
+          attributes:
+            subject:
+              common_name: "{{ certificate.common_name }}"
+        status_code: [200, 201]  # Accept both 200 and 201 as successful status codes
+      register: api_response
+      when: csr_file.stat.exists
+
+    - name: Display API response
+      ansible.builtin.debug:
+        var: api_response
+
+    - name: Save certificate
+      ansible.builtin.copy:
+        content: "{{ api_response.json.certificate }}"
+        dest: "{{ certificate.cert_path }}"
+      when: api_response is defined and api_response.json is defined and api_response.json.certificate is defined
