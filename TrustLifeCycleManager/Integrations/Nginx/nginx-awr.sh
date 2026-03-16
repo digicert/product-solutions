@@ -31,7 +31,7 @@ The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
 # Configuration
-LEGAL_NOTICE_ACCEPT="true"
+LEGAL_NOTICE_ACCEPT="false"  # Must be set to "true" to accept the legal notice and allow script execution
 LOGFILE="/home/ubuntu/tlm_agent_3.1.4_linux64/log/nginx.log"
 
 # --- Custom deployment configuration (added) ---
@@ -45,8 +45,8 @@ RESTART_NGINX="true"            # True/False (default False)
 VALIDATE_NGINX_CONFIG="true"     # True/False (default True)
 
 # Target certificate/key paths as configured in nginx:
-NGINX_CERT_PATH="/etc/nginx/ssl/nginx.demo2me.com.crt"
-NGINX_KEY_PATH="/etc/nginx/ssl/nginx.demo2me.com.key"
+NGINX_CERT_PATH="/etc/nginx/ssl/<certificate>.crt"
+NGINX_KEY_PATH="/etc/nginx/ssl/<private key>.key"
 # --- End custom deployment configuration ---
 
 
