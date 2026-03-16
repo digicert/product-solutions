@@ -31,7 +31,7 @@ The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
 # Configuration
-LEGAL_NOTICE_ACCEPT="true"  # Set to "true" to accept the legal notice and proceed with script execution
+LEGAL_NOTICE_ACCEPT="false"  # Set to "true" to accept the legal notice and proceed with script execution
 LOGFILE="/opt/digicert/tlm_agent_3.1.9_linux64/log/fortigate.log"
 
 # Function to log messages with timestamp

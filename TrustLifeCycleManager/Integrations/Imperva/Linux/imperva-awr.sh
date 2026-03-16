@@ -31,7 +31,7 @@ The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
 # Configuration
-LEGAL_NOTICE_ACCEPT="true"
+LEGAL_NOTICE_ACCEPT="false"
 LOGFILE="/home/ubuntu/terraform/tlmagent/cdn/tlm_agent_3.1.4_linux64/log/imperva.log"
 API_CALL_LOGFILE="/home/ubuntu/terraform/tlmagent/cdn/tlm_agent_3.1.4_linux64/log/imperva-api-call.log"
 

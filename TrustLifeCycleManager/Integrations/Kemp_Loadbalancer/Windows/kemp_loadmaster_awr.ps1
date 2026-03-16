@@ -33,7 +33,7 @@ LEGAL_NOTICE
 # ============================
 # Configuration (matches bash)
 # ============================
-$LEGAL_NOTICE_ACCEPT = "true"
+$LEGAL_NOTICE_ACCEPT = "false"
 $LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\kemp_data.log"
 
 # ============================
