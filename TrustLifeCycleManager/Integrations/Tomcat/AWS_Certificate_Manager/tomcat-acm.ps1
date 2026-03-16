@@ -310,8 +310,8 @@ try {
 # Step 5: Configure Route53 plugin arguments
 Write-Host "`nStep 5: Configuring Route53 plugin..." -ForegroundColor Yellow
 $pArgs = @{
-    R53AccessKey = 'YOUR_AWS_ACCESS_KEY_ID'
-    R53SecretKey = 'YOUR_AWS_SECRET_ACCESS_KEY' | ConvertTo-SecureString -AsPlainText -Force
+    R53AccessKey = '< AWS Access Key ID>'
+    R53SecretKey = '< AWS Secret Access Key>' | ConvertTo-SecureString -AsPlainText -Force
 }
 Write-Host "Route53 plugin configured." -ForegroundColor Green
 
