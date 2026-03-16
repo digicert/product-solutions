@@ -35,7 +35,7 @@ LEGAL_NOTICE
 # ============================================================================
 
 # Legal Notice
-LEGAL_NOTICE_ACCEPT="true"
+LEGAL_NOTICE_ACCEPT="false"
 
 # Logging
 LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/avi-upload.log"

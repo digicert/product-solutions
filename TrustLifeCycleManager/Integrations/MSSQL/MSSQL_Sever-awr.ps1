@@ -40,6 +40,21 @@ The contractor/manufacturer is DIGICERT, INC.
 # Legal notice acceptance variable (user must set to $true to accept and allow script execution)
 $LEGAL_NOTICE_ACCEPT = $false  # Change this to $true to accept the legal notice and run the script
 
+# Configuration
+$logFile = "C:\Program Files\DigiCert\TLM Agent\log\sqlserver_cert.log"
+
+# SQL Server instance registry path
+# Adjust for your SQL Server version and instance name:
+#   MSSQL15 = SQL Server 2019, MSSQL16 = SQL Server 2022
+#   MSSQLSERVER = default instance, replace for named instances
+$SqlRegistryPath = "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQL15.MSSQLSERVER\MSSQLServer\SuperSocketNetLib"
+
+# SQL Server service name (default instance = MSSQLSERVER, named instance = MSSQL$InstanceName)
+$SqlServiceName = "MSSQLSERVER"
+
+# SQL Server service account (used for private key read permissions)
+$SqlServiceAccount = "NT Service\MSSQLSERVER"
+
 # Function to write to log file
 function Write-Log {
     param(
@@ -47,6 +62,7 @@ function Write-Log {
     )
     $logMessage = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'): $Message"
     Add-Content -Path $logFile -Value $logMessage
+    Write-Host $Message
 }
 
 # Function to decode base64 encoded string
@@ -59,8 +75,6 @@ function Decode-Base64 {
     return $decodedString
 }
 
-# Set up logging
-$logFile = "C:\CertificateImport.log"
 Write-Log "Script execution started"
 
 # Check legal notice acceptance
@@ -98,97 +112,81 @@ try {
     # Validate inputs
     if (-not (Test-Path -Path $pfxFile)) {
         Write-Log "ERROR: The PFX file does not exist at path: $pfxFile"
-        throw "The PFX file does not exist."
+        exit 1
     }
     Write-Log "PFX file exists"
-
-    # Get certificate thumbprint and store it in a text file
-    try {
-        $pfxCert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
-        
-        # First validate if we can read the password
-        Write-Log "Attempting to verify password..."
-        $securePassword = ConvertTo-SecureString -String $password -Force -AsPlainText
-        
-        # Add password debugging information
-        Write-Log "Password length: $($password.Length)"
-        Write-Log "First character of password: $($password[0])"
-        Write-Log "Password value (first 2 chars): $($password.Substring(0, [Math]::Min(2, $password.Length)))"
-        
-        # Try to import with more detailed error handling
-        try {
-            $pfxCert.Import($pfxFile, $password, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
-        }
-        catch [System.Security.Cryptography.CryptographicException] {
-            Write-Log "ERROR: Invalid password or corrupted PFX file. Please verify the password is correct."
-            throw "Invalid certificate password or corrupted PFX file."
-        }
-        
-        $thumbprint = $pfxCert.Thumbprint
-        Write-Log "Retrieved certificate thumbprint: $thumbprint"
-        
-        # Create thumbprint file in the same folder as the certificate
-        $thumbprintFile = Join-Path -Path $certFolder -ChildPath "certificate_thumbprint.txt"
-        $thumbprint | Out-File -FilePath $thumbprintFile -Force
-        Write-Log "Saved thumbprint to file: $thumbprintFile"
-        
-        # Dispose of the certificate object
-        $pfxCert.Dispose()
-        Write-Log "Disposed certificate object"
-    } catch {
-        Write-Log "ERROR: Failed to get certificate thumbprint. Error: $_"
-        throw $_
-    }
 
     # Import the PFX file into the LocalMachine\My store
     try {
         $cert = Import-PfxCertificate -FilePath $pfxFile -CertStoreLocation Cert:\LocalMachine\My -Password (ConvertTo-SecureString -String $password -Force -AsPlainText)
         if ($null -eq $cert) {
-            Write-Log "ERROR: Failed to import the certificate"
             throw "Failed to import the certificate."
         }
         Write-Log "Certificate imported successfully"
-    } catch {
-        Write-Log "ERROR: Failed to import the certificate. Error: $_"
-        throw $_
-    }
-
-    # Step 2: Grant access to the private key to NETWORK SERVICE using certutil
-    Write-Log "Attempting to repair certificate store for thumbprint: $thumbprint"
-    $certutilCommand = "certutil -repairstore my $thumbprint"
-    try {
-        Start-Process cmd.exe -ArgumentList "/c $certutilCommand" -Wait -NoNewWindow
-        Write-Log "Successfully ran certutil repair command"
-    } catch {
-        Write-Log "ERROR: Failed to run certutil command. Error: $_"
-        throw $_
-    }
-
-    # Step 3: Use WMI to set the RDP listener certificate
-    try {
-        $tsConfig = Get-WmiObject -Namespace "Root\CIMv2\TerminalServices" -Class Win32_TSGeneralSetting -Filter "TerminalName='RDP-Tcp'"
         
-        if ($tsConfig) {
-            # Use reflection to set the SSLThumbprint
-            $tsConfig.PSBase.Properties["SSLCertificateSHA1Hash"].Value = $thumbprint
-            $tsConfig.Put()
-            Write-Log "Successfully updated certificate thumbprint via WMI"
+        # Get the thumbprint from the imported certificate
+        $thumbprint = $cert.Thumbprint.ToLower()  # Convert thumbprint to lowercase
+        Write-Log "Certificate thumbprint (lowercase): $thumbprint"
+        
+        # Use certutil to get the unique container name
+        Write-Log "Querying certutil for unique container name..."
+        $certUtilOutput = certutil -store my $thumbprint
+        
+        # Parse the certutil output to extract the unique container name
+        $uniqueContainerNameLine = $certUtilOutput | Where-Object { $_ -match "Unique container name:" }
+        if ($uniqueContainerNameLine) {
+            $uniqueContainerName = ($uniqueContainerNameLine -split "Unique container name: ")[1].Trim()
+            Write-Log "Unique container name: $uniqueContainerName"
+            
+            # Construct the path to the key file
+            $keyFilePath = Join-Path -Path "C:\ProgramData\Microsoft\Crypto\Keys" -ChildPath $uniqueContainerName
+            
+            if (Test-Path -Path $keyFilePath) {
+                Write-Log "Key file found at: $keyFilePath"
+                
+                # Add read permissions for the SQL Server service account
+                Write-Log "Granting read permissions to $SqlServiceAccount on private key file..."
+                $acl = Get-Acl -Path $keyFilePath
+                $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule($SqlServiceAccount, "Read", "Allow")
+                $acl.AddAccessRule($accessRule)
+                Set-Acl -Path $keyFilePath -AclObject $acl
+                
+                Write-Log "Read permissions added for $SqlServiceAccount to the key file"
+                
+                # Configure SQL Server to use the certificate for encryption via Registry
+                Write-Log "Configuring SQL Server to use the certificate for encryption via registry..."
+                
+                try {
+                    # Set the certificate thumbprint in the registry
+                    if (Test-Path -Path $SqlRegistryPath) {
+                        Set-ItemProperty -Path $SqlRegistryPath -Name "Certificate" -Value $thumbprint
+                        Write-Log "Successfully configured SQL Server registry with thumbprint: $thumbprint"
+                        
+                        # Restart SQL Server service to apply changes
+                        Write-Log "Restarting $SqlServiceName service to apply changes..."
+                        Restart-Service -Name $SqlServiceName -Force
+                        Write-Log "$SqlServiceName service restarted successfully"
+                    } else {
+                        Write-Log "ERROR: Registry path '$SqlRegistryPath' does not exist"
+                        Write-Log "Verify the SQL Server version and instance name in the configuration"
+                        exit 1
+                    }
+                }
+                catch {
+                    Write-Log "ERROR: Failed to configure SQL Server via registry. $_"
+                    exit 1
+                }
+            } else {
+                Write-Log "ERROR: Key file not found at expected location: $keyFilePath"
+                exit 1
+            }
         } else {
-            Write-Log "ERROR: Failed to retrieve the TS configuration"
-            throw "Failed to retrieve the TS configuration"
+            Write-Log "ERROR: Could not find unique container name in certutil output"
+            exit 1
         }
     } catch {
-        Write-Log "ERROR: Failed to set certificate thumbprint via WMI. Error: $_"
-        throw $_
-    }
-
-    # Step 4: Restart the RDP service to apply changes
-    try {
-        Restart-Service -Name "TermService" -Force
-        Write-Log "Successfully restarted the Terminal Services service"
-    } catch {
-        Write-Log "ERROR: Failed to restart Terminal Services. Error: $_"
-        throw $_
+        Write-Log "ERROR: Failed to process the certificate. $_"
+        exit 1
     }
 
 } catch {
