@@ -4,20 +4,52 @@
 .DESCRIPTION
     Processes certificate data from DigiCert TLM Agent and uploads to Azure App Proxy
 .NOTES
-    Based on DigiCert template with Azure App Proxy integration
+    Legal Notice (version October 29, 2024)
+    Copyright © 2024 DigiCert. All rights reserved.
+    DigiCert and its logo are registered trademarks of DigiCert, Inc.
+    Other names may be trademarks of their respective owners.
+    
+    For the purposes of this Legal Notice, "DigiCert" refers to:
+    - DigiCert, Inc., if you are located in the United States;
+    - DigiCert Ireland Limited, if you are located outside of the United States or Japan;
+    - DigiCert Japan G.K., if you are located in Japan.
+    
+    The software described in this notice is provided by DigiCert and distributed under licenses
+    restricting its use, copying, distribution, and decompilation or reverse engineering.
+    No part of the software may be reproduced in any form by any means without prior written authorization
+    of DigiCert and its licensors, if any.
+    
+    Use of the software is subject to the terms and conditions of your agreement with DigiCert, including
+    any dispute resolution and applicable law provisions. The terms set out herein are supplemental to
+    your agreement and, in the event of conflict, these terms control.
+    
+    THE SOFTWARE IS PROVIDED "AS IS" AND ALL EXPRESS OR IMPLIED CONDITIONS, REPRESENTATIONS AND WARRANTIES,
+    INCLUDING ANY IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT,
+    ARE DISCLAIMED, EXCEPT TO THE EXTENT THAT SUCH DISCLAIMERS ARE HELD TO BE LEGALLY INVALID.
+    
+    Export Regulation: The software and related technical data and services (collectively "Controlled Technology")
+    are subject to the import and export laws of the United States, specifically the U.S. Export Administration
+    Regulations (EAR), and the laws of any country where Controlled Technology is imported or re-exported.
+    
+    US Government Restricted Rights: The software is provided with "Restricted Rights," Use, duplication, or
+    disclosure by the U.S. Government is subject to restrictions as set forth in subparagraph (c)(1)(ii) of the
+    Rights in Technical Data and Computer Software clause at DFARS 252.227-7013,
+    subparagraphs (c)(1) and (2) of the Commercial Computer Software—Restricted Rights at 48 CFR 52.227-19,
+    as applicable, and the Technical Data - Commercial Items clause at DFARS 252.227-7015 (Nov 1995) and any successor regulations.
+    The contractor/manufacturer is DIGICERT, INC.
 #>
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
-$LEGAL_NOTICE_ACCEPT = "true"
+$LEGAL_NOTICE_ACCEPT = "false" # Set to "true" to accept the legal notice and proceed with execution
 $LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\azure-app-proxy_data.log"
 
 # Azure App Proxy Configuration
-$AZURE_TENANT_ID = "7637ffcf-4082-46e2-8e89-c9814eb8b3c4"
-$AZURE_CLIENT_ID = "4b9d544a-c7ef-499b-9ba9-c8087ab82e92"
-$AZURE_CERT_THUMBPRINT = "CC7CE8BB04AD220D393A6593249DF71A679A6227"
-$APP_PROXY_OBJECT_ID = "e5d4a899-317b-4de7-82db-e1d2cc4891b0"
+$AZURE_TENANT_ID = "< Azure Tenant ID >"
+$AZURE_CLIENT_ID = "< Azure Client ID >"
+$AZURE_CERT_THUMBPRINT = "< Azure Certificate Thumbprint >"
+$APP_PROXY_OBJECT_ID = "< Azure App Proxy Object ID >"
 
 # ============================================================================
 # FUNCTIONS
