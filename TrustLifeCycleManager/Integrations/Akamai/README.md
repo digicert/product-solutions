@@ -8,8 +8,8 @@ These scripts handle end-to-end certificate provisioning — from creating CPS e
 
 | Script | Certificate Type | Use Case |
 |--------|-----------------|----------|
-| `issue-cert-akamai-public.sh` | Public (DV) | Publicly trusted certificates for internet-facing properties |
-| `issue-cert-akamai-private.sh` | Private (OV/IV) | Privately trusted certificates requiring full organizational subject details |
+| `issue-cert-akamai-public.sh` | Public (EV/OV) | Publicly trusted certificates for internet-facing properties |
+| `issue-cert-akamai-private.sh` | Private | Privately trusted certificates requiring full organizational subject details |
 
 ## Key Difference
 
