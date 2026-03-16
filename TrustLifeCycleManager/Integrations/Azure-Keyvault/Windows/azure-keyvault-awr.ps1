@@ -40,7 +40,7 @@
 #>
 
 # Configuration
-$LEGAL_NOTICE_ACCEPT = "true"
+$LEGAL_NOTICE_ACCEPT = "false" # Set to "true" to accept the legal notice and proceed with execution
 $LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\keyvault.log"
 
 # ============================================================================
