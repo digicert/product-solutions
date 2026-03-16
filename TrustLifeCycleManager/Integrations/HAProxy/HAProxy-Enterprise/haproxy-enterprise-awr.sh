@@ -31,13 +31,13 @@ The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
 # ============================================================================
-# HAPROXY OSS CERTIFICATE DEPLOYMENT SCRIPT
+# HAPROXY ENTERPRISE CERTIFICATE DEPLOYMENT SCRIPT
 # DigiCert Trust Lifecycle Manager Integration
 # ============================================================================
 #
-# This script automates certificate deployment to HAProxy (Open Source).
+# This script automates certificate deployment to HAProxy Enterprise.
 # It extracts certificate data from TLM Agent's DC1_POST_SCRIPT_DATA,
-# creates combined PEM files, and optionally restarts HAProxy.
+# creates combined PEM files, and optionally restarts HAProxy Enterprise.
 #
 # ============================================================================
 
@@ -46,26 +46,24 @@ LEGAL_NOTICE
 # ============================================================================
 
 # Legal notice acceptance (required)
-LEGAL_NOTICE_ACCEPT="true"
+LEGAL_NOTICE_ACCEPT="false" # Set to "true" to accept the legal notice and allow script execution
 
 # Log file location
-LOGFILE="/home/ubuntu/tlmagent/tlm_agent_3.1.7_linux64/log/haproxy-oss-awr.log"
+LOGFILE="/home/ubuntu/tlm_agent/tlm_agent_3.1.7_linux64/log/haproxy.log"
 
 # ----------------------------------------------------------------------------
-# HAPROXY CONFIGURATION PATHS
+# HAPROXY ENTERPRISE VERSION SETTINGS
 # ----------------------------------------------------------------------------
-# HAProxy configuration file location
-# Standard locations:
-#   - Debian/Ubuntu: /etc/haproxy/haproxy.cfg
-#   - RHEL/CentOS: /etc/haproxy/haproxy.cfg
-#   - Docker: /usr/local/etc/haproxy/haproxy.cfg
-HAPROXY_CONFIG_FILE="/etc/haproxy/haproxy.cfg"
+# HAProxy Enterprise version (e.g., "3.2", "3.1", "3.0", "2.9", "2.8")
+# Leave empty for auto-detection
+# Example: HAPEE_VERSION="3.2"
+HAPEE_VERSION=""
 
-# HAProxy base directory (where config and certs are stored)
-HAPROXY_BASE_DIR="/etc/haproxy"
-
-# Certificate directory
-HAPROXY_CERTS_DIR="/etc/haproxy/certs"
+# Manual override for HAProxy Enterprise base directory
+# Leave empty to use auto-detected path based on version
+# Standard path: /etc/hapee-<VERSION>/
+# Example: HAPEE_BASE_DIR="/etc/hapee-3.2"
+HAPEE_BASE_DIR=""
 
 # ----------------------------------------------------------------------------
 # CERTIFICATE DEPLOYMENT SETTINGS
@@ -75,8 +73,9 @@ HAPROXY_CERTS_DIR="/etc/haproxy/certs"
 # - overwrite: Directly overwrites existing certificate without backup
 CERT_BACKUP_MODE="backup"
 
-# Directory for certificate backups
-BACKUP_DIR="/etc/haproxy/certs-backup"
+# Directory for certificate backups (relative to HAProxy config directory)
+# Example: If HAPEE_BASE_DIR is /etc/hapee-3.2, backups go to /etc/hapee-3.2/certs-backup/
+BACKUP_SUBDIR="certs-backup"
 
 # ----------------------------------------------------------------------------
 # CERTIFICATE LOCATION SETTINGS
@@ -89,25 +88,25 @@ BACKUP_DIR="/etc/haproxy/certs-backup"
 CERT_CONFIG_LOCATION="frontend"
 
 # Frontend name (required if CERT_CONFIG_LOCATION="frontend")
-# This is the name of the frontend section in haproxy.cfg where the certificate is bound
-# Example: FRONTEND_NAME="https_front"
-FRONTEND_NAME="https_front"
+# This is the name of the frontend section in hapee-lb.cfg where the certificate is bound
+# Example: FRONTEND_NAME="fe_https"
+FRONTEND_NAME="fe_http"
 
 # CRT-list file path (required if CERT_CONFIG_LOCATION="crt-list")
 # Full path to the crt-list file that references the certificate
-# Example: CRT_LIST_FILE="/etc/haproxy/crt-list.txt"
+# Example: CRT_LIST_FILE="/etc/hapee-3.2/certificate-list.txt"
 CRT_LIST_FILE=""
 
 # Target certificate path and filename
 # This is where the combined PEM file will be deployed
 # Leave empty to auto-detect from HAProxy configuration
-# Example: TARGET_CERT_PATH="/etc/haproxy/certs/haproxy.pem"
+# Example: TARGET_CERT_PATH="/etc/hapee-3.2/certs/site.pem"
 TARGET_CERT_PATH=""
 
 # ----------------------------------------------------------------------------
 # SERVICE RESTART SETTINGS
 # ----------------------------------------------------------------------------
-# Whether to restart/reload HAProxy after certificate deployment
+# Whether to restart/reload HAProxy Enterprise after certificate deployment
 # Options: "yes" or "no" (DEFAULT: no)
 RESTART_HAPROXY="yes"
 
@@ -119,29 +118,12 @@ RESTART_METHOD="restart"
 # Whether to use Runtime API for hot certificate update (no reload needed)
 # This updates the certificate in memory without any service interruption
 # Note: Changes are NOT persistent until files are also updated on disk
-# Requires HAProxy 2.1+ and stats socket configured with admin level
 # Options: "yes" or "no" (DEFAULT: no)
 USE_RUNTIME_API="no"
 
-# Runtime API socket path
-# Common locations:
-#   - /run/haproxy/admin.sock
-#   - /var/run/haproxy/admin.sock
-#   - /var/lib/haproxy/stats
-RUNTIME_API_SOCKET="/run/haproxy/admin.sock"
-
-# ----------------------------------------------------------------------------
-# SERVICE MANAGEMENT SETTINGS
-# ----------------------------------------------------------------------------
-# Service name for systemctl commands
-# Standard: "haproxy"
-HAPROXY_SERVICE="haproxy"
-
-# Path to haproxy binary (for config validation)
-# Standard locations:
-#   - /usr/sbin/haproxy
-#   - /usr/local/sbin/haproxy
-HAPROXY_BINARY="/usr/sbin/haproxy"
+# Runtime API socket path (auto-detected if empty)
+# Example: RUNTIME_API_SOCKET="/var/run/hapee-3.2/hapee-lb.sock"
+RUNTIME_API_SOCKET=""
 
 # ============================================================================
 # END OF CONFIGURATION SECTION
@@ -152,74 +134,85 @@ log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOGFILE"
 }
 
-# Function to detect HAProxy version
-detect_haproxy_version() {
-    log_message "Detecting HAProxy version..."
+# Function to detect HAProxy Enterprise version
+detect_hapee_version() {
+    log_message "Attempting to auto-detect HAProxy Enterprise version..."
     
-    if [ -x "$HAPROXY_BINARY" ]; then
-        local version=$("$HAPROXY_BINARY" -v 2>/dev/null | head -1)
-        log_message "HAProxy version: $version"
-        
-        # Extract version number
-        local version_num=$(echo "$version" | grep -oP 'version\s+\K[0-9]+\.[0-9]+' | head -1)
-        if [ -n "$version_num" ]; then
-            echo "$version_num"
+    # Method 1: Check for installed hapee-lb binary in standard locations
+    for version in "3.2" "3.1" "3.0" "2.9" "2.8" "2.7" "2.6" "2.5" "2.4"; do
+        if [ -f "/opt/hapee-${version}/sbin/hapee-lb" ]; then
+            log_message "Found HAProxy Enterprise ${version} binary at /opt/hapee-${version}/sbin/hapee-lb"
+            echo "$version"
             return 0
-        fi
-    fi
-    
-    # Try alternative binary locations
-    for bin in /usr/sbin/haproxy /usr/local/sbin/haproxy /usr/bin/haproxy; do
-        if [ -x "$bin" ]; then
-            local version=$("$bin" -v 2>/dev/null | head -1)
-            local version_num=$(echo "$version" | grep -oP 'version\s+\K[0-9]+\.[0-9]+' | head -1)
-            if [ -n "$version_num" ]; then
-                HAPROXY_BINARY="$bin"
-                log_message "Found HAProxy at $bin, version: $version_num"
-                echo "$version_num"
-                return 0
-            fi
         fi
     done
     
-    log_message "WARNING: Could not detect HAProxy version"
+    # Method 2: Check for config directories
+    for version in "3.2" "3.1" "3.0" "2.9" "2.8" "2.7" "2.6" "2.5" "2.4"; do
+        if [ -d "/etc/hapee-${version}" ]; then
+            log_message "Found HAProxy Enterprise ${version} config directory at /etc/hapee-${version}"
+            echo "$version"
+            return 0
+        fi
+    done
+    
+    # Method 3: Check running process
+    local running_version=$(ps aux | grep -oP 'hapee-\K[0-9]+\.[0-9]+' | head -1)
+    if [ -n "$running_version" ]; then
+        log_message "Detected HAProxy Enterprise ${running_version} from running process"
+        echo "$running_version"
+        return 0
+    fi
+    
+    # Method 4: Check systemd services
+    local systemd_version=$(systemctl list-units --type=service | grep -oP 'hapee-\K[0-9]+\.[0-9]+' | head -1)
+    if [ -n "$systemd_version" ]; then
+        log_message "Detected HAProxy Enterprise ${systemd_version} from systemd service"
+        echo "$systemd_version"
+        return 0
+    fi
+    
+    log_message "ERROR: Could not auto-detect HAProxy Enterprise version"
     return 1
 }
 
-# Function to verify HAProxy installation
-verify_haproxy_installation() {
-    log_message "Verifying HAProxy installation..."
+# Function to get HAProxy Enterprise paths
+get_hapee_paths() {
+    local version="$1"
     
-    # Check binary exists
-    if [ ! -x "$HAPROXY_BINARY" ]; then
-        log_message "ERROR: HAProxy binary not found at: $HAPROXY_BINARY"
-        return 1
-    fi
-    log_message "HAProxy binary found: $HAPROXY_BINARY"
-    
-    # Check config file exists
-    if [ ! -f "$HAPROXY_CONFIG_FILE" ]; then
-        log_message "ERROR: HAProxy configuration file not found: $HAPROXY_CONFIG_FILE"
-        return 1
-    fi
-    log_message "HAProxy configuration file found: $HAPROXY_CONFIG_FILE"
-    
-    # Check service exists
-    if systemctl list-unit-files | grep -q "^${HAPROXY_SERVICE}.service"; then
-        log_message "HAProxy service found: $HAPROXY_SERVICE"
-    else
-        log_message "WARNING: HAProxy service '$HAPROXY_SERVICE' not found in systemd"
+    # Set base directory
+    if [ -z "$HAPEE_BASE_DIR" ]; then
+        HAPEE_BASE_DIR="/etc/hapee-${version}"
     fi
     
-    return 0
+    # Set other paths
+    HAPEE_CONFIG_FILE="${HAPEE_BASE_DIR}/hapee-lb.cfg"
+    HAPEE_CERTS_DIR="${HAPEE_BASE_DIR}/certs"
+    HAPEE_BACKUP_DIR="${HAPEE_BASE_DIR}/${BACKUP_SUBDIR}"
+    
+    # Runtime API socket
+    if [ -z "$RUNTIME_API_SOCKET" ]; then
+        RUNTIME_API_SOCKET="/var/run/hapee-${version}/hapee-lb.sock"
+    fi
+    
+    # Service name
+    HAPEE_SERVICE="hapee-${version}-lb"
+    
+    log_message "HAProxy Enterprise paths configured:"
+    log_message "  Base directory: $HAPEE_BASE_DIR"
+    log_message "  Config file: $HAPEE_CONFIG_FILE"
+    log_message "  Certificates directory: $HAPEE_CERTS_DIR"
+    log_message "  Backup directory: $HAPEE_BACKUP_DIR"
+    log_message "  Runtime API socket: $RUNTIME_API_SOCKET"
+    log_message "  Service name: $HAPEE_SERVICE"
 }
 
 # Function to find certificate path from HAProxy configuration
 find_cert_path_from_config() {
     log_message "Searching for certificate path in HAProxy configuration..."
     
-    if [ ! -f "$HAPROXY_CONFIG_FILE" ]; then
-        log_message "ERROR: HAProxy config file not found: $HAPROXY_CONFIG_FILE"
+    if [ ! -f "$HAPEE_CONFIG_FILE" ]; then
+        log_message "ERROR: HAProxy config file not found: $HAPEE_CONFIG_FILE"
         return 1
     fi
     
@@ -228,35 +221,35 @@ find_cert_path_from_config() {
     case "$CERT_CONFIG_LOCATION" in
         "global")
             # Look for ssl-default-bind-crt in global section
-            cert_path=$(grep -oP '^\s*ssl-default-bind-crt\s+\K[^\s]+' "$HAPROXY_CONFIG_FILE" | head -1)
+            cert_path=$(grep -oP '^\s*ssl-default-bind-crt\s+\K[^\s]+' "$HAPEE_CONFIG_FILE" | head -1)
             log_message "Searching global section for ssl-default-bind-crt..."
             ;;
         "frontend")
             # Look for crt on bind line in specific frontend
             log_message "Searching frontend '$FRONTEND_NAME' for certificate path..."
             
-            # Extract the frontend section using line numbers (more reliable)
-            local start_line=$(grep -n "^frontend[[:space:]]\+${FRONTEND_NAME}[[:space:]]*$" "$HAPROXY_CONFIG_FILE" | head -1 | cut -d: -f1)
+            # Extract the frontend section using line numbers (more reliable than awk with variables)
+            local start_line=$(grep -n "^frontend[[:space:]]\+${FRONTEND_NAME}[[:space:]]*$" "$HAPEE_CONFIG_FILE" | head -1 | cut -d: -f1)
             
             if [ -z "$start_line" ]; then
                 # Try without strict end-of-line match
-                start_line=$(grep -n "^frontend[[:space:]]\+${FRONTEND_NAME}" "$HAPROXY_CONFIG_FILE" | head -1 | cut -d: -f1)
+                start_line=$(grep -n "^frontend[[:space:]]\+${FRONTEND_NAME}" "$HAPEE_CONFIG_FILE" | head -1 | cut -d: -f1)
             fi
             
             if [ -n "$start_line" ]; then
                 log_message "Found frontend '$FRONTEND_NAME' at line $start_line"
                 
                 # Find the next section (frontend, backend, defaults, global, listen) after start_line
-                local end_line=$(tail -n +$((start_line + 1)) "$HAPROXY_CONFIG_FILE" | grep -n "^[[:space:]]*\(frontend\|backend\|defaults\|global\|listen\)[[:space:]]" | head -1 | cut -d: -f1)
+                local end_line=$(tail -n +$((start_line + 1)) "$HAPEE_CONFIG_FILE" | grep -n "^[[:space:]]*\(frontend\|backend\|defaults\|global\|listen\)[[:space:]]" | head -1 | cut -d: -f1)
                 
                 local frontend_section=""
                 if [ -n "$end_line" ]; then
                     local actual_end=$((start_line + end_line - 1))
-                    frontend_section=$(sed -n "${start_line},${actual_end}p" "$HAPROXY_CONFIG_FILE")
+                    frontend_section=$(sed -n "${start_line},${actual_end}p" "$HAPEE_CONFIG_FILE")
                     log_message "Frontend section: lines $start_line to $actual_end"
                 else
                     # No next section found, take rest of file
-                    frontend_section=$(tail -n +${start_line} "$HAPROXY_CONFIG_FILE")
+                    frontend_section=$(tail -n +${start_line} "$HAPEE_CONFIG_FILE")
                     log_message "Frontend section: line $start_line to end of file"
                 fi
                 
@@ -267,6 +260,7 @@ find_cert_path_from_config() {
                 done
                 
                 # Extract certificate path from bind line with ssl and crt
+                # Pattern: find line with 'bind' and 'ssl' and 'crt', then extract path after 'crt'
                 cert_path=$(echo "$frontend_section" | grep -E '^\s*bind.*ssl.*crt' | sed -n 's/.*[[:space:]]crt[[:space:]]\+\([^[:space:]]\+\).*/\1/p' | head -1)
                 
                 if [ -z "$cert_path" ]; then
@@ -328,7 +322,7 @@ backup_certificate() {
     
     # Create backup directory with timestamp
     local timestamp=$(date '+%Y%m%d_%H%M%S')
-    local backup_folder="${BACKUP_DIR}/${timestamp}"
+    local backup_folder="${HAPEE_BACKUP_DIR}/${timestamp}"
     
     log_message "Creating backup directory: $backup_folder"
     mkdir -p "$backup_folder"
@@ -399,11 +393,6 @@ create_combined_pem() {
     # Set appropriate permissions
     chmod 600 "$output_file"
     
-    # Set ownership to haproxy user if it exists
-    if id "haproxy" &>/dev/null; then
-        chown haproxy:haproxy "$output_file" 2>/dev/null || true
-    fi
-    
     # Verify the combined file
     local cert_count=$(grep -c "BEGIN CERTIFICATE" "$output_file")
     local key_count=$(grep -c "BEGIN.*PRIVATE KEY" "$output_file")
@@ -438,7 +427,6 @@ update_cert_via_runtime_api() {
     # Check if socket exists
     if [ ! -S "$RUNTIME_API_SOCKET" ]; then
         log_message "ERROR: Runtime API socket not found: $RUNTIME_API_SOCKET"
-        log_message "Ensure 'stats socket' is configured in haproxy.cfg with 'level admin'"
         return 1
     fi
     
@@ -473,13 +461,13 @@ update_cert_via_runtime_api() {
     return 0
 }
 
-# Function to restart/reload HAProxy
+# Function to restart/reload HAProxy Enterprise
 restart_haproxy() {
-    log_message "Preparing to ${RESTART_METHOD} HAProxy..."
+    log_message "Preparing to ${RESTART_METHOD} HAProxy Enterprise..."
     
     # Validate configuration before restart
     log_message "Validating HAProxy configuration..."
-    local validation_result=$("$HAPROXY_BINARY" -c -f "$HAPROXY_CONFIG_FILE" 2>&1)
+    local validation_result=$(/opt/hapee-${DETECTED_VERSION}/sbin/hapee-lb -c -f "$HAPEE_CONFIG_FILE" 2>&1)
     local validation_status=$?
     
     if [ $validation_status -ne 0 ]; then
@@ -494,12 +482,12 @@ restart_haproxy() {
     # Perform restart or reload
     case "$RESTART_METHOD" in
         "reload")
-            log_message "Executing: systemctl reload ${HAPROXY_SERVICE}"
-            systemctl reload "$HAPROXY_SERVICE"
+            log_message "Executing: systemctl reload ${HAPEE_SERVICE}"
+            systemctl reload "$HAPEE_SERVICE"
             ;;
         "restart")
-            log_message "Executing: systemctl restart ${HAPROXY_SERVICE}"
-            systemctl restart "$HAPROXY_SERVICE"
+            log_message "Executing: systemctl restart ${HAPEE_SERVICE}"
+            systemctl restart "$HAPEE_SERVICE"
             ;;
         *)
             log_message "ERROR: Invalid RESTART_METHOD: $RESTART_METHOD"
@@ -510,19 +498,19 @@ restart_haproxy() {
     local restart_status=$?
     
     if [ $restart_status -ne 0 ]; then
-        log_message "ERROR: Failed to ${RESTART_METHOD} HAProxy (exit code: $restart_status)"
+        log_message "ERROR: Failed to ${RESTART_METHOD} HAProxy Enterprise (exit code: $restart_status)"
         return 1
     fi
     
     # Wait a moment and check service status
     sleep 2
     
-    if systemctl is-active --quiet "$HAPROXY_SERVICE"; then
-        log_message "HAProxy ${RESTART_METHOD}ed successfully"
+    if systemctl is-active --quiet "$HAPEE_SERVICE"; then
+        log_message "HAProxy Enterprise ${RESTART_METHOD}ed successfully"
         log_message "Service status: active"
     else
-        log_message "WARNING: HAProxy may not be running properly after ${RESTART_METHOD}"
-        local status=$(systemctl status "$HAPROXY_SERVICE" 2>&1)
+        log_message "WARNING: HAProxy Enterprise may not be running properly after ${RESTART_METHOD}"
+        local status=$(systemctl status "$HAPEE_SERVICE" 2>&1)
         log_message "Service status output:"
         log_message "$status"
         return 1
@@ -537,7 +525,7 @@ restart_haproxy() {
 
 # Start logging
 log_message "=========================================="
-log_message "Starting HAProxy OSS Certificate Deployment Script"
+log_message "Starting HAProxy Enterprise Certificate Deployment Script"
 log_message "=========================================="
 
 # Check legal notice acceptance
@@ -555,14 +543,11 @@ fi
 log_message "=========================================="
 log_message "Configuration Settings:"
 log_message "=========================================="
+log_message "  LEGAL_NOTICE_ACCEPT: $LEGAL_NOTICE_ACCEPT"
 log_message "  LOGFILE: $LOGFILE"
-log_message "  HAPROXY_CONFIG_FILE: $HAPROXY_CONFIG_FILE"
-log_message "  HAPROXY_BASE_DIR: $HAPROXY_BASE_DIR"
-log_message "  HAPROXY_CERTS_DIR: $HAPROXY_CERTS_DIR"
-log_message "  HAPROXY_BINARY: $HAPROXY_BINARY"
-log_message "  HAPROXY_SERVICE: $HAPROXY_SERVICE"
+log_message "  HAPEE_VERSION: ${HAPEE_VERSION:-'(auto-detect)'}"
+log_message "  HAPEE_BASE_DIR: ${HAPEE_BASE_DIR:-'(auto-detect)'}"
 log_message "  CERT_BACKUP_MODE: $CERT_BACKUP_MODE"
-log_message "  BACKUP_DIR: $BACKUP_DIR"
 log_message "  CERT_CONFIG_LOCATION: $CERT_CONFIG_LOCATION"
 log_message "  FRONTEND_NAME: $FRONTEND_NAME"
 log_message "  CRT_LIST_FILE: ${CRT_LIST_FILE:-'(not set)'}"
@@ -570,31 +555,34 @@ log_message "  TARGET_CERT_PATH: ${TARGET_CERT_PATH:-'(auto-detect)'}"
 log_message "  RESTART_HAPROXY: $RESTART_HAPROXY"
 log_message "  RESTART_METHOD: $RESTART_METHOD"
 log_message "  USE_RUNTIME_API: $USE_RUNTIME_API"
-log_message "  RUNTIME_API_SOCKET: $RUNTIME_API_SOCKET"
 log_message "=========================================="
 
-# Detect HAProxy version
-HAPROXY_VERSION=$(detect_haproxy_version)
-if [ -n "$HAPROXY_VERSION" ]; then
-    log_message "Detected HAProxy version: $HAPROXY_VERSION"
-    
-    # Check if Runtime API is supported (requires 2.1+)
-    if [ "$USE_RUNTIME_API" = "yes" ]; then
-        major_version=$(echo "$HAPROXY_VERSION" | cut -d. -f1)
-        minor_version=$(echo "$HAPROXY_VERSION" | cut -d. -f2)
-        if [ "$major_version" -lt 2 ] || ([ "$major_version" -eq 2 ] && [ "$minor_version" -lt 1 ]); then
-            log_message "WARNING: Runtime API certificate updates require HAProxy 2.1+"
-            log_message "Detected version $HAPROXY_VERSION may not support this feature"
-        fi
+# Detect or use configured HAProxy Enterprise version
+if [ -z "$HAPEE_VERSION" ]; then
+    DETECTED_VERSION=$(detect_hapee_version)
+    if [ $? -ne 0 ] || [ -z "$DETECTED_VERSION" ]; then
+        log_message "ERROR: Failed to detect HAProxy Enterprise version"
+        log_message "Please set HAPEE_VERSION manually in the configuration section"
+        exit 1
     fi
+else
+    DETECTED_VERSION="$HAPEE_VERSION"
+    log_message "Using configured HAProxy Enterprise version: $DETECTED_VERSION"
 fi
 
-# Verify HAProxy installation
-verify_haproxy_installation
-if [ $? -ne 0 ]; then
-    log_message "ERROR: HAProxy installation verification failed"
+log_message "HAProxy Enterprise version: $DETECTED_VERSION"
+
+# Set HAProxy Enterprise paths
+get_hapee_paths "$DETECTED_VERSION"
+
+# Verify HAProxy Enterprise installation
+if [ ! -f "$HAPEE_CONFIG_FILE" ]; then
+    log_message "ERROR: HAProxy Enterprise configuration file not found: $HAPEE_CONFIG_FILE"
+    log_message "Please verify HAProxy Enterprise is installed and HAPEE_VERSION is correct"
     exit 1
 fi
+
+log_message "HAProxy Enterprise configuration file found: $HAPEE_CONFIG_FILE"
 
 # Log environment variable check
 log_message "=========================================="
@@ -729,10 +717,10 @@ if [ -z "$TARGET_CERT_PATH" ]; then
         log_message "Please set TARGET_CERT_PATH in the script configuration."
         log_message ""
         log_message "To find the correct path, check your HAProxy config:"
-        log_message "  grep -E 'bind.*ssl.*crt' $HAPROXY_CONFIG_FILE"
+        log_message "  grep -E 'bind.*ssl.*crt' $HAPEE_CONFIG_FILE"
         log_message ""
         log_message "Then set TARGET_CERT_PATH to match the 'crt' value."
-        log_message "Example: TARGET_CERT_PATH=\"/etc/haproxy/certs/haproxy.pem\""
+        log_message "Example: TARGET_CERT_PATH=\"/etc/hapee-3.1/certs/haproxy.pem\""
         log_message "=========================================="
         exit 1
     fi
@@ -807,7 +795,7 @@ fi
 # Restart/reload HAProxy if enabled
 if [ "$RESTART_HAPROXY" = "yes" ]; then
     log_message "=========================================="
-    log_message "Restarting HAProxy..."
+    log_message "Restarting HAProxy Enterprise..."
     log_message "=========================================="
     
     restart_haproxy
@@ -822,8 +810,8 @@ else
     log_message "=========================================="
     log_message "IMPORTANT: The new certificate has been deployed to: $TARGET_CERT_PATH"
     log_message "To apply the new certificate, you must either:"
-    log_message "  1. Reload HAProxy: systemctl reload ${HAPROXY_SERVICE}"
-    log_message "  2. Restart HAProxy: systemctl restart ${HAPROXY_SERVICE}"
+    log_message "  1. Reload HAProxy: systemctl reload ${HAPEE_SERVICE}"
+    log_message "  2. Restart HAProxy: systemctl restart ${HAPEE_SERVICE}"
     log_message "  3. Use Runtime API to update certificate in memory"
     log_message "=========================================="
 fi
@@ -832,7 +820,7 @@ fi
 log_message "=========================================="
 log_message "DEPLOYMENT SUMMARY:"
 log_message "=========================================="
-log_message "  HAProxy version: ${HAPROXY_VERSION:-'unknown'}"
+log_message "  HAProxy Enterprise version: $DETECTED_VERSION"
 log_message "  Source certificate: $CRT_FILE_PATH"
 log_message "  Source private key: $KEY_FILE_PATH"
 log_message "  Target PEM file: $TARGET_CERT_PATH"
