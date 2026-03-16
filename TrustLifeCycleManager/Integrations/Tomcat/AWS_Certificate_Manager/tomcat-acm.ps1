@@ -297,8 +297,8 @@ try {
 # Step 4: Create new PA Account with EAB credentials
 Write-Host "`nStep 4: Creating new PA Account..." -ForegroundColor Yellow
 try {
-    $eabKID = '90NeXhlThWbUMLGz2ujn3QBOjmJ76tk_srR7UZjE_Ro'
-    $eabHMAC = 'OTMzNjhlMjE0MDE0NGY1OGNhMTdhOTIxZjYwZDIxZDVkMzc2NjdjMTRkMDA1YjAxZDU0NzcwZDFmZjk5MmY4Ng'
+    $eabKID = '<ACME KID>'
+    $eabHMAC = '<ACME HMAC>'
     
     New-PAAccount -ExtAcctKID $eabKID -ExtAcctHMACKey $eabHMAC -Contact 'michael.rudloff@digicert.com' -AcceptTOS
     Write-Host "New PA Account created successfully." -ForegroundColor Green
