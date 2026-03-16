@@ -35,7 +35,7 @@ LEGAL_NOTICE
 # ============================================================================
 
 # Legal Notice Acceptance - must be set to "true" to run
-LEGAL_NOTICE_ACCEPT="true"
+LEGAL_NOTICE_ACCEPT="false"  # Set to "true" to accept the legal notice and proceed with script execution
 
 # Log file location
 LOGFILE="/home/ubuntu/fortinac.log"

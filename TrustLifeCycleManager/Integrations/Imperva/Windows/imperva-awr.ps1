@@ -40,7 +40,7 @@
 #>
 
 # Configuration
-$LEGAL_NOTICE_ACCEPT = "true"
+$LEGAL_NOTICE_ACCEPT = "false"
 $LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\imperva.log"
 $API_CALL_LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\imperva-api-call.log"
 
