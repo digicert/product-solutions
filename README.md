@@ -234,15 +234,6 @@ Streamline your certificate management with our production-ready integration scr
       <sub>Content filtering proxy certificate management for secure web gateway deployments.</sub>
     </td>
     <td align="center" width="33%">
-      <!-- Empty cell for alignment -->
-    </td>
-  </tr>
-</table>
-
-<!-- Row 8: Microsoft Solutions - Server -->
-<table>
-  <tr>
-    <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MS_Exchange_2019">
         <img src="https://img.shields.io/badge/Microsoft-Exchange_2019-0078D4?style=for-the-badge&logo=microsoft-exchange&logoColor=white" alt="MS Exchange">
         <br><br>
@@ -251,6 +242,12 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Exchange Server certificate management for secure email services and client connectivity.</sub>
     </td>
+  </tr>
+</table>
+
+<!-- Row 8: Microsoft Solutions - Server -->
+<table>
+  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MS_GPO">
         <img src="https://img.shields.io/badge/Microsoft-GPO-0078D4?style=for-the-badge&logo=microsoft&logoColor=white" alt="MS GPO">
@@ -269,12 +266,6 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>IIS SMTP service certificate management for secure email relay and communication services.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 9: Microsoft Solutions - Remote & Database -->
-<table>
-  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MS_Multiple_IIS_DPAPI">
         <img src="https://img.shields.io/badge/Microsoft-IIS_DPAPI-0078D4?style=for-the-badge&logo=microsoft&logoColor=white" alt="MS IIS DPAPI">
@@ -284,6 +275,12 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Multi-site IIS certificate deployment with DPAPI-protected private key management.</sub>
     </td>
+  </tr>
+</table>
+
+<!-- Row 9: Microsoft Solutions - Remote & Database -->
+<table>
+  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MS_Remote_Desktop">
         <img src="https://img.shields.io/badge/Microsoft-RDP-0078D4?style=for-the-badge&logo=microsoft&logoColor=white" alt="MS RDP">
@@ -302,12 +299,6 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Remote Desktop Services certificate deployment for enterprise-scale remote access infrastructure.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 10: Microsoft SQL & Web Servers -->
-<table>
-  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MSSQL">
         <img src="https://img.shields.io/badge/Microsoft-SQL_Server-CC2927?style=for-the-badge&logo=microsoft-sql-server&logoColor=white" alt="MS SQL">
@@ -317,6 +308,12 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Database encryption certificate management for SQL Server TDE and connection security.</sub>
     </td>
+  </tr>
+</table>
+
+<!-- Row 10: Web Servers -->
+<table>
+  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Nginx">
         <img src="https://img.shields.io/badge/Nginx-Web_Server-009639?style=for-the-badge&logo=nginx&logoColor=white" alt="Nginx">
@@ -335,12 +332,6 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Docker-based mail server solution with automated certificate deployment for secure email services.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 11: Application Servers -->
-<table>
-  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Tomcat">
         <img src="https://img.shields.io/badge/Apache-Tomcat-F8DC75?style=for-the-badge&logo=apache-tomcat&logoColor=black" alt="Tomcat">
@@ -350,6 +341,12 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Java application server certificate management with keystore automation for secure web application deployment.</sub>
     </td>
+  </tr>
+</table>
+
+<!-- Row 11: Application Servers -->
+<table>
+  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Weblogic">
         <img src="https://img.shields.io/badge/Oracle-WebLogic-F80000?style=for-the-badge&logo=oracle&logoColor=white" alt="Oracle WebLogic">
