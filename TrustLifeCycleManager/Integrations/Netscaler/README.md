@@ -115,4 +115,4 @@ netscaler-awr.ps1          # Main AWR post-enrollment script
 
 ## License
 
-Copyright © 2024 DigiCert, Inc. All rights reserved. Use of this software is subject to the terms and conditions of your agreement with DigiCert. See the legal notice embedded in the script header for full details.
+Copyright © 2026 DigiCert, Inc. All rights reserved. Use of this software is subject to the terms and conditions of your agreement with DigiCert. See the legal notice embedded in the script header for full details.

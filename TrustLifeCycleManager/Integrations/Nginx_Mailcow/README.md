@@ -104,4 +104,4 @@ Each log entry is timestamped. The script logs the start and end of execution, d
 
 ## License
 
-Copyright © 2024 DigiCert, Inc. All rights reserved. See the legal notice within the script for full terms.
+Copyright © 2026 DigiCert, Inc. All rights reserved. See the legal notice within the script for full terms.
