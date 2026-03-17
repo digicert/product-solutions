@@ -212,7 +212,7 @@ All operations are logged to the configured `LOGFILE` with timestamps. Example l
 
 ## Legal Notice
 
-Copyright © 2024 DigiCert. All rights reserved. See the embedded legal notice in each script for full terms. The `LEGAL_NOTICE_ACCEPT` flag must be set to `"true"` in the AWR script to acknowledge acceptance.
+Copyright © 2026 DigiCert. All rights reserved. See the embedded legal notice in each script for full terms. The `LEGAL_NOTICE_ACCEPT` flag must be set to `"true"` in the AWR script to acknowledge acceptance.
 
 ---
 

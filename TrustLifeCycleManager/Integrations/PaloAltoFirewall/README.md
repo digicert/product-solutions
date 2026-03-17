@@ -180,4 +180,4 @@ Progress is written directly to stdout with status indicators at each step.
 
 ## License
 
-Copyright © 2024 DigiCert, Inc. All rights reserved. See the legal notice within each script for full terms.
+Copyright © 2026 DigiCert, Inc. All rights reserved. See the legal notice within each script for full terms.

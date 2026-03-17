@@ -121,4 +121,4 @@ ansible-playbook ansible-deploy-tlm-agent.yaml -i inventory.ini --skip-tags clea
 
 ## License
 
-Copyright © 2024 DigiCert, Inc. All rights reserved.
+Copyright © 2026 DigiCert, Inc. All rights reserved.

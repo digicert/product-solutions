@@ -360,6 +360,6 @@ Common pairings:
 
 ## License
 
-Copyright © 2024 DigiCert. All rights reserved.
+Copyright © 2026 DigiCert. All rights reserved.
 
 DigiCert and its logo are registered trademarks of DigiCert, Inc. Use of these scripts is subject to the terms and conditions of your agreement with DigiCert. See the legal notice embedded in each script file for full details.

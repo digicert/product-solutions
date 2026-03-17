@@ -4,8 +4,8 @@
 .DESCRIPTION
     Processes certificate data from DigiCert TLM Agent and uploads to Azure App Proxy
 .NOTES
-    Legal Notice (version October 29, 2024)
-    Copyright © 2024 DigiCert. All rights reserved.
+    Legal Notice (version January 1, 2026)
+    Copyright © 2026 DigiCert. All rights reserved.
     DigiCert and its logo are registered trademarks of DigiCert, Inc.
     Other names may be trademarks of their respective owners.
     

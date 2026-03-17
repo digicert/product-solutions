@@ -374,4 +374,4 @@ tail -f /home/ubuntu/tlm_agent_3.0.15_linux64/log/apigee.log
 
 ## License
 
-Copyright © 2024 DigiCert, Inc. All rights reserved. These scripts are provided under the terms of the DigiCert software license. See the legal notice within each script for full details.
+Copyright © 2026 DigiCert, Inc. All rights reserved. These scripts are provided under the terms of the DigiCert software license. See the legal notice within each script for full details.

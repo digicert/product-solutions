@@ -201,4 +201,4 @@ After the keystore is updated, WebLogic must be configured to use it. In the Web
 
 ## Legal Notice
 
-Copyright © 2024 DigiCert. All rights reserved. See the embedded legal notice in each script for full terms. The `LEGAL_NOTICE_ACCEPT` flag must be set to `"true"` to acknowledge acceptance before the scripts will execute.
+Copyright © 2026 DigiCert. All rights reserved. See the embedded legal notice in each script for full terms. The `LEGAL_NOTICE_ACCEPT` flag must be set to `"true"` to acknowledge acceptance before the scripts will execute.

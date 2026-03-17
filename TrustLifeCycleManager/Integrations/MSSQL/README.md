@@ -176,4 +176,4 @@ The script exits with code `1` on any failure — every step is critical for a w
 
 ## License
 
-Copyright © 2024 DigiCert, Inc. All rights reserved. See the legal notice within the script for full terms.
+Copyright © 2026 DigiCert, Inc. All rights reserved. See the legal notice within the script for full terms.

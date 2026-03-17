@@ -213,4 +213,4 @@ Verify the Route53 credentials have `route53:ChangeResourceRecordSets` and `rout
 
 ## License
 
-Copyright © 2024 DigiCert. All rights reserved. See the legal notice embedded in each script for full terms.
+Copyright © 2026 DigiCert. All rights reserved. See the legal notice embedded in each script for full terms.
