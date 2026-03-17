@@ -155,4 +155,4 @@ The script exits with code `0` (non-error) when:
 
 ## License
 
-Copyright © 2024 DigiCert, Inc. All rights reserved. See the legal notice within the script for full terms.
+Copyright © 2026 DigiCert, Inc. All rights reserved. See the legal notice within the script for full terms.

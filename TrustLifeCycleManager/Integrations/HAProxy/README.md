@@ -325,4 +325,4 @@ tail -f /home/ubuntu/tlmagent/tlm_agent_3.1.7_linux64/log/haproxy-oss-awr.log
 
 ## License
 
-Copyright © 2024 DigiCert, Inc. All rights reserved. These scripts are provided under the terms of the DigiCert software license. See the legal notice within each script for full details.
+Copyright © 2026 DigiCert, Inc. All rights reserved. These scripts are provided under the terms of the DigiCert software license. See the legal notice within each script for full details.

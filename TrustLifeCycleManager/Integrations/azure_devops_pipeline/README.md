@@ -120,4 +120,4 @@ A cleanup step to remove temporary PFX and ACME files is included but currently 
 
 ## License
 
-Copyright © 2024 DigiCert, Inc. All rights reserved.
+Copyright © 2026 DigiCert, Inc. All rights reserved.
