@@ -122,4 +122,4 @@ All output is written to `/var/log/satellite-cert-update.log` (configurable) and
 
 ## License
 
-Copyright © 2024 DigiCert, Inc. All rights reserved. See the legal notice within the script for full terms.
+Copyright © 2026 DigiCert, Inc. All rights reserved. See the legal notice within the script for full terms.

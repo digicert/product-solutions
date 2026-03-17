@@ -133,4 +133,4 @@ Log location: `C:\Program Files\DigiCert\TLM Agent\log\azure-app-proxy_data.log`
 
 ## License
 
-Copyright © 2024 DigiCert, Inc. All rights reserved. See the legal notice in each script for full terms.
+Copyright © 2026 DigiCert, Inc. All rights reserved. See the legal notice in each script for full terms.

@@ -139,4 +139,4 @@ The log includes certificate details, Azure authentication status, upload result
 
 ## License
 
-Copyright © 2024 DigiCert, Inc. All rights reserved. See the legal notice in the script for full terms.
+Copyright © 2026 DigiCert, Inc. All rights reserved. See the legal notice in the script for full terms.

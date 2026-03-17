@@ -22,7 +22,7 @@
       - Saves the running configuration after changes
 
 .NOTES
-    Legal Notice (version October 29, 2024)
+    Legal Notice (version January 1, 2026)
     Copyright (c) 2024 DigiCert. All rights reserved.
     DigiCert and its logo are registered trademarks of DigiCert, Inc.
     Other names may be trademarks of their respective owners.

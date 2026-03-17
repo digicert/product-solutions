@@ -1,8 +1,8 @@
 #!/bin/bash
 
 : <<'LEGAL_NOTICE'
-Legal Notice (version October 29, 2024)
-Copyright © 2024 DigiCert. All rights reserved.
+Legal Notice (version January 1, 2026)
+Copyright © 2026 DigiCert. All rights reserved.
 DigiCert and its logo are registered trademarks of DigiCert, Inc.
 Other names may be trademarks of their respective owners.
 For the purposes of this Legal Notice, "DigiCert" refers to:
@@ -91,8 +91,8 @@ echo "==========================================================================
 echo "LEGAL NOTICE"
 echo "============================================================================"
 cat << 'EOF'
-Legal Notice (version October 29, 2024)
-Copyright © 2024 DigiCert. All rights reserved.
+Legal Notice (version January 1, 2026)
+Copyright © 2026 DigiCert. All rights reserved.
 DigiCert and its logo are registered trademarks of DigiCert, Inc.
 Other names may be trademarks of their respective owners.
 For the purposes of this Legal Notice, "DigiCert" refers to:
