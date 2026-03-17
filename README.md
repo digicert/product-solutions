@@ -2,8 +2,6 @@
   <img src="https://upload.wikimedia.org/wikipedia/commons/4/48/DigiCert_logo.svg" alt="DigiCert Logo" width="300">
   
   <h3>Enterprise Certificate Automation Solutions</h3>
-  
-  [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
   [![TLM](https://img.shields.io/badge/DigiCert-TLM-orange.svg)](https://www.digicert.com/trust-lifecycle-manager)
   [![Documentation](https://img.shields.io/badge/docs-latest-green.svg)](https://docs.digicert.com/)
 </div>
