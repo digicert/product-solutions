@@ -1,0 +1,72 @@
+# .github/workflows/backup.yml
+# Backs up the repository to an external EC2 server via SSH
+# Triggers: every push to master + daily at 02:00 UTC as a safety net
+#
+# Required repository secrets:
+#   EC2_SSH_PRIVATE_KEY - Private SSH key for ubuntu@ec2 (paste the full PEM)
+#
+# Server prerequisite:
+#   mkdir -p /home/ubuntu/github_backups
+
+name: Backup to EC2
+
+on:
+  push:
+    branches: [master]
+  schedule:
+    - cron: '0 2 * * *'
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      BACKUP_HOST: ec2-3-140-187-7.us-east-2.compute.amazonaws.com
+      BACKUP_USER: ubuntu
+      BACKUP_DIR: /home/ubuntu/github_backups
+      REPO_NAME: ${{ github.event.repository.name }}
+
+    steps:
+      - name: Checkout full repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create timestamped backup archive
+        run: |
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          TRIGGER="${{ github.event_name }}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          ARCHIVE_NAME="${REPO_NAME}_${TIMESTAMP}_${TRIGGER}_${SHORT_SHA}.tar.gz"
+          echo "ARCHIVE_NAME=${ARCHIVE_NAME}" >> $GITHUB_ENV
+          tar czf "/tmp/${ARCHIVE_NAME}" .
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          ssh-keyscan -H ${{ env.BACKUP_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Upload backup to EC2
+        run: |
+          scp -i ~/.ssh/ec2_key \
+            "/tmp/${ARCHIVE_NAME}" \
+            ${{ env.BACKUP_USER }}@${{ env.BACKUP_HOST }}:${{ env.BACKUP_DIR }}/
+
+      - name: Prune old backups (keep last 30)
+        run: |
+          ssh -i ~/.ssh/ec2_key \
+            ${{ env.BACKUP_USER }}@${{ env.BACKUP_HOST }} \
+            "cd ${{ env.BACKUP_DIR }} && ls -1t ${REPO_NAME}_*.tar.gz 2>/dev/null | tail -n +31 | xargs -r rm --"
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/ec2_key
+
+      - name: Verify
+        run: |
+          echo "✅ Backup uploaded: ${ARCHIVE_NAME}"
+          SIZE=$(du -h "/tmp/${ARCHIVE_NAME}" | cut -f1)
+          echo "   Size: ${SIZE}"
+          echo "   Trigger: ${{ github.event_name }}"
+          echo "   Commit: ${GITHUB_SHA:0:7}"
