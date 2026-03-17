@@ -564,9 +564,11 @@ if ((Test-Path -LiteralPath $CRT_FILE_PATH) -and (Test-Path -LiteralPath $KEY_FI
         
         # Combine and write with UTF8 encoding (no BOM)
         $combinedContent = $certContent + $keyContent
+      #  [System.IO.File]::WriteAllText($COMBINED_PEM_PATH, $combinedContent, [System.Text.UTF8Encoding]::new($false))
         $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
         [System.IO.File]::WriteAllText($COMBINED_PEM_PATH, $combinedContent, $utf8NoBom)
-        
+      
+
         Set-FilePrivate -Path $COMBINED_PEM_PATH
         $pemSize = (Get-Item -LiteralPath $COMBINED_PEM_PATH).Length
         Write-Log "Combined PEM created: $COMBINED_PEM_PATH"
