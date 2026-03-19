@@ -76,8 +76,7 @@ The Imperva Cloud WAF custom certificate API accepts a JSON payload containing t
 
 ## Quick Start
 
-1. Copy the appropriate script to the TLM Agent's user-scripts directory
-2. Edit the configuration section:
+1. Edit the configuration section:
 
    **Linux:**
    ```bash
@@ -88,6 +87,8 @@ The Imperva Cloud WAF custom certificate API accepts a JSON payload containing t
    ```powershell
    $LEGAL_NOTICE_ACCEPT = "true"
    ```
+
+2. Upload the script to the TLM Agent's Script section
 
 3. Configure the TLM certificate template with the script as the AWR post-enrollment script and set the three required arguments (see below)
 4. Enroll or renew a certificate — the script runs automatically and uploads to Imperva
