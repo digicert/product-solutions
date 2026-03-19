@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/4/48/DigiCert_logo.svg" alt="DigiCert Logo" width="300">
-  
+  <!--  <img src="https://upload.wikimedia.org/wikipedia/commons/4/48/DigiCert_logo.svg" alt="DigiCert Logo" width="300">  -->
+  <img src="https://www.digicert.com/content/dam/digicert/images/logo/digicert-blue-logo-large.jpg" alt="DigiCert Logo" width="300">
   <h3>Enterprise Certificate Automation Solutions</h3>
 
   [![TLM](https://img.shields.io/badge/DigiCert-TLM-orange.svg)](https://www.digicert.com/trust-lifecycle-manager)
