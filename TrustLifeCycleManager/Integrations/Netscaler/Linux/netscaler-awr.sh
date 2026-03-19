@@ -222,8 +222,6 @@ $JSON_OBJECT = $JSON_STRING | ConvertFrom-Json
 # Extract arguments from JSON
 Log-Message "Extracting arguments from JSON..."
 
-$ARGS_ARRAY = $JSON_OBJECT.args
-
 # Extract Argument_1 - NetScaler hostname/IP
 $ARGUMENT_1 = if ($ARGS_ARRAY.Count -ge 1) { ($ARGS_ARRAY[0]).Trim() } else { "" }
 Log-Message "ARGUMENT_1 (NetScaler Host) extracted: '$ARGUMENT_1'"
