@@ -22,7 +22,7 @@
       - Saves the running configuration after changes
 
 .NOTES
-    Legal Notice (version January 1, 2026)
+    Legal Notice (version October 29, 2024)
     Copyright (c) 2024 DigiCert. All rights reserved.
     DigiCert and its logo are registered trademarks of DigiCert, Inc.
     Other names may be trademarks of their respective owners.
@@ -216,20 +216,11 @@ Log-Message "CERT_INFO length: $($CERT_INFO.Length) characters"
 $JSON_STRING = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($CERT_INFO))
 Log-Message "JSON_STRING decoded successfully"
 
-# Log the raw JSON for debugging
-Log-Message "=========================================="
-Log-Message "Raw JSON content:"
-Log-Message "$JSON_STRING"
-Log-Message "=========================================="
-
 # Parse JSON
 $JSON_OBJECT = $JSON_STRING | ConvertFrom-Json
 
 # Extract arguments from JSON
 Log-Message "Extracting arguments from JSON..."
-
-$ARGS_ARRAY = $JSON_OBJECT.args
-Log-Message "Raw args array: $($ARGS_ARRAY -join ', ')"
 
 # Extract Argument_1 - NetScaler hostname/IP
 $ARGUMENT_1 = if ($ARGS_ARRAY.Count -ge 1) { ($ARGS_ARRAY[0]).Trim() } else { "" }
