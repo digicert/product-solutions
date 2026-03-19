@@ -91,7 +91,9 @@ Save running configuration
 All output is written to:
 
 ```
-C:\Program Files\DigiCert\TLM Agent\logs\awr-netscaler-adc.log
+C:\Program Files\DigiCert\TLM Agent\logs\awr-netscaler-adc.log or in Linux for example
+/home/ubuntu/netscaler/netscaler-adc.log"
+
 ```
 
 The log path is configurable via the `$LOGFILE` variable at the top of the script. Passwords are automatically obfuscated in log entries.
