@@ -5,7 +5,7 @@ PowerShell scripts for automating TLS certificate lifecycle management on **Apac
 | Script | Trigger | Use Case |
 |---|---|---|
 | `tomcat-awr.ps1` | TLM Agent AWR post-enrollment | Automated renewal via TLM Agent |
-| `tomcat-acm.ps1` | Standalone / scheduled task | Initial provisioning via ACME (Posh-ACME + DigiCert mPKI) |
+| `tomcat-acm.ps1` | Standalone / scheduled task | Initial provisioning via ACME (Posh-ACME + DigiCert mPKI) | Route53 DNS Validation
 
 ---
 
@@ -27,7 +27,7 @@ Runs as a **post-enrollment hook** triggered by the DigiCert TLM Agent after a c
 
 ### `tomcat-acm.ps1` — Standalone ACME Provisioning Script
 
-An **end-to-end provisioning script** that handles everything from dependency installation through to Tomcat restart. It uses [Posh-ACME](https://github.com/rmbolger/Posh-ACME) to request a certificate from the DigiCert mPKI ACME endpoint, converts it to a Java Keystore (JKS) format, updates `server.xml`, and restarts Tomcat.
+An **end-to-end provisioning script** that handles everything from dependency installation through to Tomcat restart. It uses [Posh-ACME](https://github.com/rmbolger/Posh-ACME) to request a certificate from the DigiCert mPKI ACME endpoint, converts it to a Java Keystore (JKS) format, updates `server.xml`, and restarts Tomcat. Posh-ACME is using here DNS validtion via AWS Route53
 
 **Workflow (9 steps):**
 
