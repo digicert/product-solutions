@@ -32,8 +32,8 @@ LEGAL_NOTICE
 
 # Configuration
 LEGAL_NOTICE_ACCEPT="false"
-LOGFILE="/home/ubuntu/terraform/tlmagent/cdn/tlm_agent_3.1.4_linux64/log/imperva.log"
-API_CALL_LOGFILE="/home/ubuntu/terraform/tlmagent/cdn/tlm_agent_3.1.4_linux64/log/imperva-api-call.log"
+LOGFILE="/opt/digicert/logs/imperva.log"
+API_CALL_LOGFILE="/opt/digicert/logs/imperva-api-call.log"
 
 # Function to log messages with timestamp
 log_message() {
