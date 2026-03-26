@@ -31,19 +31,24 @@ The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
 # Configuration
-LEGAL_NOTICE_ACCEPT="false"
-LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/cloudflare-awr.log"
+LEGAL_NOTICE_ACCEPT="true"
+LOGFILE="/opt/digicert/logs/cloudflare_upload.log"
 
 BUNDLE_METHOD="force"  # Can be "ubiquitous", "optimal", or "force"
+# Note on bundle methods:
+#   "ubiquitous" (Compatible) - Cloudflare builds chain from its CA trust store. Leaf cert only. Public CAs only.
+#   "optimal"    (Modern)     - Cloudflare builds chain from its CA trust store. Leaf cert only. Public CAs only.
+#   "force"      (User Defined) - You supply the full chain. Leaf + ICA required. Works with private CAs.
+#                                 Do NOT include the root certificate.
 
 # Certificate type configuration:
 # "legacy_custom" - Custom Legacy (supports non-SNI clients, broader compatibility)
-# "sni_custom" - Custom Modern (SNI required, recommended for modern setups)
+# "sni_custom"    - Custom Modern (SNI required, recommended for modern setups)
 CERTIFICATE_TYPE="sni_custom"  # Default: "sni_custom" (Custom Modern)
 
 # Certificate deletion strategy:
-# "none" - Don't delete any existing certificates (accumulate all)
-# "all" - Delete all existing certificates before uploading
+# "none"     - Don't delete any existing certificates (accumulate all)
+# "all"      - Delete all existing certificates before uploading
 # "matching" - Only delete certificates that cover the same hostname(s) being uploaded
 CERT_DELETE_MODE="matching"  # Recommended: "none" to keep multiple certificates
 
@@ -189,8 +194,8 @@ if [[ ! "$ZONE_ID" =~ ^[a-zA-Z0-9]{32}$ ]]; then
     log_message "WARNING: ZONE_ID format seems invalid. Expected 32 alphanumeric characters, got: '${ZONE_ID}' (length: ${#ZONE_ID})"
 fi
 
-# Validate AUTH_TOKEN format (typically 40 characters, alphanumeric with possible special chars)
-if [ ${#AUTH_TOKEN} -lt 30 ] || [ ${#AUTH_TOKEN} -gt 50 ]; then
+# Validate AUTH_TOKEN format (Cloudflare API tokens vary in length; typically 40-60 characters)
+if [ ${#AUTH_TOKEN} -lt 30 ] || [ ${#AUTH_TOKEN} -gt 100 ]; then
     log_message "WARNING: AUTH_TOKEN length seems unusual. Got length: ${#AUTH_TOKEN}"
 fi
 
@@ -236,9 +241,75 @@ else
     exit 1
 fi
 
-# Read certificate and key using dynamically constructed paths
-log_message "Reading certificate and key files..."
-CERT=$(cat "${CRT_FILE_PATH}" | sed 's/$/\\n/' | tr -d '\n')
+# ========================================
+# CHAIN VALIDATION AND PROCESSING
+# ========================================
+log_message "Analysing certificate chain..."
+
+# Count how many certificates are in the file
+CERT_COUNT=$(grep -c "BEGIN CERTIFICATE" "${CRT_FILE_PATH}")
+log_message "Certificate chain contains $CERT_COUNT certificate(s)"
+
+# Read and process certificate content based on bundle method and chain length
+if [ "$BUNDLE_METHOD" = "force" ]; then
+    # User Defined mode: Cloudflare requires leaf + ICA only. Root must be excluded.
+    log_message "Bundle method is 'force' (User Defined) - validating chain for leaf + ICA only..."
+
+    if [ "$CERT_COUNT" -eq 1 ]; then
+        # Only a leaf cert - warn but proceed (Cloudflare may still accept it depending on setup)
+        log_message "WARNING: Only 1 certificate found in chain. User Defined mode typically requires"
+        log_message "         leaf + ICA. Upload may succeed but chain may be incomplete for clients."
+        CERT=$(cat "${CRT_FILE_PATH}" | sed 's/$/\\n/' | tr -d '\n')
+
+    elif [ "$CERT_COUNT" -eq 2 ]; then
+        # Leaf + ICA - correct for User Defined mode
+        log_message "Chain contains 2 certificates (leaf + ICA) - correct for User Defined mode."
+        CERT=$(cat "${CRT_FILE_PATH}" | sed 's/$/\\n/' | tr -d '\n')
+
+    elif [ "$CERT_COUNT" -ge 3 ]; then
+        # Full chain including root - strip root (last cert) before upload
+        log_message "Chain contains $CERT_COUNT certificates (includes root). Stripping root for"
+        log_message "User Defined mode - only leaf + ICA will be uploaded."
+        # Extract only the first 2 certificates (leaf + ICA), discarding the root
+        CERT=$(awk '/-----BEGIN CERTIFICATE-----/{n++} n<=2{print}' "${CRT_FILE_PATH}" | sed 's/$/\\n/' | tr -d '\n')
+        log_message "Chain stripped to leaf + ICA only."
+    fi
+
+    # Verify processed chain by reading subjects directly from the source file via openssl
+    # (Reads from file per-cert position to avoid sed delimiter conflicts with DN slashes)
+    log_message "Verifying processed certificate chain subjects:"
+    LEAF_SUBJECT=$(awk '/-----BEGIN CERTIFICATE-----/{n++} n==1,/-----END CERTIFICATE-----/' "${CRT_FILE_PATH}" | openssl x509 -noout -subject 2>/dev/null)
+    if [ -n "$LEAF_SUBJECT" ]; then
+        log_message "  Cert 1 (leaf): $LEAF_SUBJECT"
+    else
+        log_message "  Cert 1 (leaf): (could not parse subject)"
+    fi
+    ICA_SUBJECT=$(awk '/-----BEGIN CERTIFICATE-----/{n++} n==2,/-----END CERTIFICATE-----/' "${CRT_FILE_PATH}" | openssl x509 -noout -subject 2>/dev/null)
+    if [ -n "$ICA_SUBJECT" ]; then
+        log_message "  Cert 2 (ICA):  $ICA_SUBJECT"
+    fi
+
+else
+    # Compatible (ubiquitous) or Modern (optimal) mode:
+    # Cloudflare builds the chain itself - only the leaf cert should be uploaded.
+    # These modes only work with publicly trusted CAs.
+    log_message "Bundle method is '$BUNDLE_METHOD' - Cloudflare will build chain automatically."
+    log_message "Only the leaf certificate will be used."
+
+    if [ "$CERT_COUNT" -gt 1 ]; then
+        log_message "WARNING: Chain file contains $CERT_COUNT certificates but only the leaf"
+        log_message "         (first certificate) will be sent for '$BUNDLE_METHOD' bundle mode."
+        log_message "WARNING: '$BUNDLE_METHOD' mode requires a publicly trusted CA."
+        log_message "         If using a private CA, switch BUNDLE_METHOD to 'force'."
+        # Extract only the first certificate (leaf)
+        CERT=$(awk '/-----BEGIN CERTIFICATE-----/{n++} n==1{print}' "${CRT_FILE_PATH}" | sed 's/$/\\n/' | tr -d '\n')
+    else
+        CERT=$(cat "${CRT_FILE_PATH}" | sed 's/$/\\n/' | tr -d '\n')
+    fi
+fi
+
+# Read the private key
+log_message "Reading private key..."
 KEY=$(cat "${KEY_FILE_PATH}" | sed 's/$/\\n/' | tr -d '\n')
 
 # Log certificate and key lengths
@@ -246,7 +317,6 @@ log_message "Certificate content length: ${#CERT} characters"
 log_message "Key content length: ${#KEY} characters"
 
 if [ "$DEBUG_MODE" = "true" ]; then
-    # Show first and last few characters of cert and key for debugging
     log_message "Certificate starts with: ${CERT:0:50}..."
     log_message "Certificate ends with: ...${CERT: -50}"
     log_message "Key starts with: ${KEY:0:50}..."
@@ -282,63 +352,59 @@ log_message "Created temporary response file: $RESPONSE_FILE"
 if [ "$CERT_DELETE_MODE" = "none" ]; then
     log_message "CERT_DELETE_MODE is 'none' - skipping certificate deletion check"
     log_message "New certificate will be added alongside any existing certificates"
-    
+
 elif [ "$CERT_DELETE_MODE" = "all" ] || [ "$CERT_DELETE_MODE" = "matching" ]; then
     log_message "Checking for existing certificates (mode: $CERT_DELETE_MODE)..."
-    
+
     # Get list of existing certificates
     LIST_RESPONSE_FILE=$(mktemp)
     LIST_HTTP_STATUS=$(curl -s -w "%{http_code}" -X GET "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/custom_certificates" \
          -H "Authorization: Bearer ${AUTH_TOKEN}" \
          -H "Content-Type: application/json" \
          -o "$LIST_RESPONSE_FILE" 2>&1)
-    
+
     LIST_RESPONSE=$(cat "$LIST_RESPONSE_FILE")
-    
+
     if [ "$DEBUG_MODE" = "true" ]; then
         log_message "List certificates HTTP Status: $LIST_HTTP_STATUS"
         log_message "List certificates response: $LIST_RESPONSE"
     fi
-    
+
     # Check if we got the list successfully
     if [ "$LIST_HTTP_STATUS" -eq 200 ]; then
-        
+
         if [ "$CERT_DELETE_MODE" = "all" ]; then
             # Delete ALL certificates
             log_message "Mode 'all': Will delete all existing certificates"
             CERT_IDS=$(echo "$LIST_RESPONSE" | grep -oP '"id":"\K[^"]+')
-            
+
         elif [ "$CERT_DELETE_MODE" = "matching" ]; then
             # Smart deletion - only delete certs covering the same hostname(s)
             log_message "Mode 'matching': Will only delete certificates covering the same hostnames"
             log_message "Extracting hostnames from new certificate..."
-            
+
             # Extract SANs from the new certificate being uploaded
-            # First convert the escaped newlines back to real newlines for openssl
             NEW_CERT_HOSTS=$(echo "$CERT" | sed 's/\\n/\n/g' | openssl x509 -noout -text 2>/dev/null | grep -A1 "Subject Alternative Name" | tail -n1 | tr ',' '\n' | grep -oP 'DNS:\K[^,\s]+' | sort | tr '\n' '|' | sed 's/|$//')
-            
+
             if [ -n "$NEW_CERT_HOSTS" ]; then
                 log_message "New certificate covers hostnames: $(echo "$NEW_CERT_HOSTS" | tr '|' ', ')"
-                
+
                 # Initialize empty list
                 CERT_IDS=""
-                
+
                 # Parse each certificate in the response
-                # We need to extract both ID and hosts for each certificate
-                CERT_COUNT=0
+                CERT_COUNT_DEL=0
                 while read -r line; do
                     if echo "$line" | grep -q '"id"'; then
                         CURRENT_ID=$(echo "$line" | grep -oP '"id":"\K[^"]+')
                         CURRENT_HOSTS=$(echo "$line" | grep -oP '"hosts":\[\K[^]]*' | tr -d '"' | tr ',' '\n' | sort | tr '\n' '|' | sed 's/|$//')
-                        
+
                         if [ -n "$CURRENT_ID" ] && [ -n "$CURRENT_HOSTS" ]; then
-                            # Check if any hostname matches
                             MATCH_FOUND=false
-                            
-                            # Convert pipe-separated lists to arrays for comparison
+
                             IFS='|' read -ra NEW_HOSTS_ARRAY <<< "$NEW_CERT_HOSTS"
                             IFS='|' read -ra CURRENT_HOSTS_ARRAY <<< "$CURRENT_HOSTS"
-                            
+
                             for new_host in "${NEW_HOSTS_ARRAY[@]}"; do
                                 for current_host in "${CURRENT_HOSTS_ARRAY[@]}"; do
                                     if [ "$new_host" = "$current_host" ]; then
@@ -347,17 +413,17 @@ elif [ "$CERT_DELETE_MODE" = "all" ] || [ "$CERT_DELETE_MODE" = "matching" ]; th
                                     fi
                                 done
                             done
-                            
+
                             if [ "$MATCH_FOUND" = true ]; then
                                 log_message "Found matching certificate ID $CURRENT_ID covering: $(echo "$CURRENT_HOSTS" | tr '|' ', ')"
                                 CERT_IDS="${CERT_IDS}${CURRENT_ID}"$'\n'
-                                CERT_COUNT=$((CERT_COUNT + 1))
+                                CERT_COUNT_DEL=$((CERT_COUNT_DEL + 1))
                             fi
                         fi
                     fi
                 done < <(echo "$LIST_RESPONSE" | jq -c '.result[]' 2>/dev/null || echo "$LIST_RESPONSE" | grep -oP '\{"id":"[^}]+,"hosts":\[[^\]]+\][^}]*\}')
-                
-                if [ $CERT_COUNT -eq 0 ]; then
+
+                if [ $CERT_COUNT_DEL -eq 0 ]; then
                     log_message "No certificates found with matching hostnames"
                 fi
             else
@@ -366,25 +432,23 @@ elif [ "$CERT_DELETE_MODE" = "all" ] || [ "$CERT_DELETE_MODE" = "matching" ]; th
                 CERT_IDS=""
             fi
         fi
-        
+
         if [ -n "$CERT_IDS" ]; then
-            # Count and delete certificates
-            CERT_COUNT=$(echo "$CERT_IDS" | grep -v '^$' | wc -l)
-            log_message "Found $CERT_COUNT certificate(s) to delete"
-            
-            # Delete each certificate
+            CERT_COUNT_DEL=$(echo "$CERT_IDS" | grep -v '^$' | wc -l)
+            log_message "Found $CERT_COUNT_DEL certificate(s) to delete"
+
             while IFS= read -r CERT_ID; do
                 if [ -n "$CERT_ID" ]; then
                     log_message "Deleting certificate ID: $CERT_ID"
-                    
+
                     DELETE_RESPONSE_FILE=$(mktemp)
                     DELETE_HTTP_STATUS=$(curl -s -w "%{http_code}" -X DELETE "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/custom_certificates/${CERT_ID}" \
                          -H "Authorization: Bearer ${AUTH_TOKEN}" \
                          -H "Content-Type: application/json" \
                          -o "$DELETE_RESPONSE_FILE" 2>&1)
-                    
+
                     DELETE_RESPONSE=$(cat "$DELETE_RESPONSE_FILE")
-                    
+
                     if [ "$DELETE_HTTP_STATUS" -eq 200 ] || [ "$DELETE_HTTP_STATUS" -eq 204 ]; then
                         log_message "Successfully deleted certificate ID: $CERT_ID"
                     else
@@ -393,11 +457,11 @@ elif [ "$CERT_DELETE_MODE" = "all" ] || [ "$CERT_DELETE_MODE" = "matching" ]; th
                             log_message "Delete response: $DELETE_RESPONSE"
                         fi
                     fi
-                    
+
                     rm -f "$DELETE_RESPONSE_FILE"
                 fi
             done <<< "$CERT_IDS"
-            
+
             # Add a small delay to ensure deletion is processed
             sleep 2
             log_message "Certificate deletion completed, proceeding with upload"
@@ -408,7 +472,7 @@ elif [ "$CERT_DELETE_MODE" = "all" ] || [ "$CERT_DELETE_MODE" = "matching" ]; th
         log_message "WARNING: Could not check for existing certificates (HTTP Status: $LIST_HTTP_STATUS)"
         log_message "Proceeding with certificate upload anyway..."
     fi
-    
+
     rm -f "$LIST_RESPONSE_FILE"
 fi
 
@@ -417,7 +481,6 @@ fi
 # ========================================
 log_message "Uploading new certificate..."
 
-# Debug: Show the exact curl command being used (with masked token)
 if [ "$DEBUG_MODE" = "true" ]; then
     log_message "Debug - Curl command structure:"
     log_message "  URL: https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/custom_certificates"
@@ -443,14 +506,17 @@ log_message "API Response: $RESPONSE"
 # Parse response for success/error
 if echo "$RESPONSE" | grep -q '"success":true'; then
     log_message "SUCCESS: Certificate uploaded successfully"
-    # Try to extract certificate ID if available
     CERT_ID=$(echo "$RESPONSE" | grep -oP '"id":"\K[^"]+' | head -1)
     if [ -n "$CERT_ID" ]; then
         log_message "Certificate ID: $CERT_ID"
     fi
+    # Log the deployed certificate status if available
+    CERT_STATUS=$(echo "$RESPONSE" | grep -oP '"status":"\K[^"]+' | head -1)
+    if [ -n "$CERT_STATUS" ]; then
+        log_message "Certificate status: $CERT_STATUS"
+    fi
 else
     log_message "ERROR: Certificate upload failed"
-    # Try to extract error messages
     ERRORS=$(echo "$RESPONSE" | grep -oP '"message":"\K[^"]+')
     if [ -n "$ERRORS" ]; then
         log_message "Error messages: $ERRORS"
