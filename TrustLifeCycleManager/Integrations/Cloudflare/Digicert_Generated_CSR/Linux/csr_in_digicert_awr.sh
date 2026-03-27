@@ -31,8 +31,8 @@ The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
 # Configuration
-LEGAL_NOTICE_ACCEPT="true"
-LOGFILE="/opt/digicert/logs/cloudflare_upload.log"
+LEGAL_NOTICE_ACCEPT="false"
+LOGFILE="/opt/digicert/logs/cloudflare.log"
 
 BUNDLE_METHOD="force"  # Can be "ubiquitous", "optimal", or "force"
 # Note on bundle methods:

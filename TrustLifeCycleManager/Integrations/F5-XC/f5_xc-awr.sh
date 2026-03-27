@@ -32,7 +32,7 @@ LEGAL_NOTICE
 
 # Configuration
 LEGAL_NOTICE_ACCEPT="false"
-LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/f5_xc-data.log"
+LOGFILE="/opt/digicert/logs/f5-xc.log"
 
 # Function to log messages with timestamp
 log_message() {
