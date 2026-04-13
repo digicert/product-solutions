@@ -59,7 +59,7 @@ Streamline your certificate management with our production-ready integration scr
       <sub>Certificate management for Azure AD Application Proxy enabling secure remote access to on-premises applications.</sub>
     </td>
     <td align="center" width="33%">
-      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Azure_DEVOPS_Pipeline">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Azure_DEVOPS_Pipeline_Certbot">
         <img src="https://img.shields.io/badge/Azure-DevOps_Pipeline-0078D4?style=for-the-badge&logo=azure-devops&logoColor=white" alt="Azure DevOps">
         <br><br>
         <strong>Azure DevOps Pipeline</strong>
