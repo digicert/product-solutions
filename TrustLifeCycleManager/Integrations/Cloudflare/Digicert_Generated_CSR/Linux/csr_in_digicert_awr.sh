@@ -32,7 +32,7 @@ LEGAL_NOTICE
 
 # Configuration
 LEGAL_NOTICE_ACCEPT="false"
-LOGFILE="/opt/digicert/logs/cloudflare.log"
+LOGFILE="/etc/digicert/AWR-Logs/cloudflare.log"
 
 BUNDLE_METHOD="force"  # Can be "ubiquitous", "optimal", or "force"
 # Note on bundle methods:

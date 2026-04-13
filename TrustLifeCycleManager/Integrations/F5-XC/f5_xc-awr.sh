@@ -32,7 +32,7 @@ LEGAL_NOTICE
 
 # Configuration
 LEGAL_NOTICE_ACCEPT="false"
-LOGFILE="/opt/digicert/logs/f5-xc.log"
+LOGFILE="/etc/digicert/AWR-Logs/f5-xc.log"
 
 # Function to log messages with timestamp
 log_message() {

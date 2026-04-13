@@ -32,8 +32,8 @@ LEGAL_NOTICE
 
 # Configuration
 LEGAL_NOTICE_ACCEPT="false"
-LOGFILE="/opt/digicert/logs/imperva.log"
-API_CALL_LOGFILE="/opt/digicert/logs/imperva-api-call.log"
+LOGFILE="/etc/digicert/AWR-Logs/imperva.log"
+API_CALL_LOGFILE="/etc/digicert/AWR-Logs/imperva-api-call-responses.log"
 
 # Function to log messages with timestamp
 log_message() {
