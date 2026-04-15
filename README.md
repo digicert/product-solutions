@@ -18,12 +18,12 @@ Streamline your certificate management with our production-ready integration scr
   <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Akamai">
-        <img src="https://img.shields.io/badge/Akamai-CDN-009ACD?style=for-the-badge&logo=akamai&logoColor=white" alt="Akamai">
+        <img src="https://img.shields.io/badge/Akamai-Edge-009ACD?style=for-the-badge&logo=akamai&logoColor=white" alt="Akamai">
         <br><br>
         <strong>Akamai</strong>
       </a>
       <br><br>
-      <sub>CDN and edge platform certificate automation with CPS API integration for secure content delivery.</sub>
+      <sub>Edge platform certificate automation with CPS API integration for secure content delivery.</sub>
     </td>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Ansible">
