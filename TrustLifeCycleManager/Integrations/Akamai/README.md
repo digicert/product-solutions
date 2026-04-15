@@ -1,6 +1,6 @@
 # Akamai CPS Certificate Management Scripts
 
-Automated certificate lifecycle management for Akamai CDN using the [Certificate Provisioning System (CPS) API](https://techdocs.akamai.com/cps/reference/api) and [DigiCert Trust Lifecycle Manager (TLM)](https://www.digicert.com/trust-lifecycle-manager).
+Automated certificate lifecycle management for Akamai using the [Certificate Provisioning System (CPS) API](https://techdocs.akamai.com/cps/reference/api) and [DigiCert Trust Lifecycle Manager (TLM)](https://www.digicert.com/trust-lifecycle-manager).
 
 These scripts handle end-to-end certificate provisioning — from creating CPS enrollments and issuing certificates through DigiCert, to uploading and deploying them across Akamai's staging and production networks. Two variants are provided to cover public and private certificate use cases.
 
