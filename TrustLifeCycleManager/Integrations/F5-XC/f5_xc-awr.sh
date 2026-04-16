@@ -102,7 +102,8 @@ if [ -n "$ARG4_TEMP" ]; then
     OBFUSCATED_ARG4=$(obfuscate_token "$ARG4_TEMP")
 
     # Replace the actual token with obfuscated version in the logged JSON
-    JSON_STRING_OBFUSCATED=$(echo "$JSON_STRING" | sed "s/${ARG4_TEMP}/${OBFUSCATED_ARG4}/g")
+    # Using | as sed delimiter to avoid collision with / in Base64 tokens
+    JSON_STRING_OBFUSCATED=$(echo "$JSON_STRING" | sed "s|${ARG4_TEMP}|${OBFUSCATED_ARG4}|g")
     log_message "$JSON_STRING_OBFUSCATED"
 else
     log_message "$JSON_STRING"
@@ -120,7 +121,8 @@ ARGS_ARRAY_LOG=$(echo "$ARGS_ARRAY")
 ARG4_RAW=$(echo "$ARGS_ARRAY" | awk -F',' '{print $4}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
 if [ -n "$ARG4_RAW" ]; then
     OBFUSCATED_ARG4=$(obfuscate_token "$ARG4_RAW")
-    ARGS_ARRAY_LOG=$(echo "$ARGS_ARRAY_LOG" | sed "s/${ARG4_RAW}/${OBFUSCATED_ARG4}/g")
+    # Using | as sed delimiter to avoid collision with / in Base64 tokens
+    ARGS_ARRAY_LOG=$(echo "$ARGS_ARRAY_LOG" | sed "s|${ARG4_RAW}|${OBFUSCATED_ARG4}|g")
 fi
 log_message "Raw args array: $ARGS_ARRAY_LOG"
 
@@ -328,7 +330,8 @@ else
             else
                 log_message "ERROR: Failed to upload certificate to F5 XC. HTTP Code: ${http_code}"
                 # Obfuscate any API tokens that might appear in error responses
-                local obfuscated_body=$(echo "$body" | sed "s/${F5XC_API_TOKEN}/$(obfuscate_token "$F5XC_API_TOKEN")/g")
+                # Using | as sed delimiter to avoid collision with / in Base64 tokens
+                local obfuscated_body=$(echo "$body" | sed "s|${F5XC_API_TOKEN}|$(obfuscate_token "$F5XC_API_TOKEN")|g")
                 log_message "Response body: $obfuscated_body"
                 return 1
             fi
@@ -371,7 +374,8 @@ else
             else
                 log_message "ERROR: Failed to replace certificate in F5 XC. HTTP Code: ${http_code}"
                 # Obfuscate any API tokens that might appear in error responses
-                local obfuscated_body=$(echo "$body" | sed "s/${F5XC_API_TOKEN}/$(obfuscate_token "$F5XC_API_TOKEN")/g")
+                # Using | as sed delimiter to avoid collision with / in Base64 tokens
+                local obfuscated_body=$(echo "$body" | sed "s|${F5XC_API_TOKEN}|$(obfuscate_token "$F5XC_API_TOKEN")|g")
                 log_message "Response body: $obfuscated_body"
                 return 1
             fi
