@@ -48,7 +48,7 @@ $MANUAL_CERT_NAME = "windows-ceaser-cert"
 $COMMIT_CONFIG = "true"  # Set to "true" to automatically commit after upload
 
 # Passphrase for private key (if needed)
-$PRIVATE_KEY_PASSPHRASE = "REMOVED_SECRET"
+$PRIVATE_KEY_PASSPHRASE = ""
 
 # Debug mode flag - set to "true" to enable detailed logging
 # WARNING: This will log sensitive information including full API_KEY
