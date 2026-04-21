@@ -51,7 +51,7 @@ Choose whichever matches the OS running your TLM Agent. Both follow the same wor
 
 **3. Azure AD Authentication** — Obtains an OAuth 2.0 access token from `login.microsoftonline.com` using the client credentials grant (`client_id` + `client_secret`), scoped to `https://vault.azure.net/.default`. No Azure CLI or PowerShell modules are needed — authentication is handled via direct HTTP requests.
 
-**4. Key Vault Import** — Imports the Base64-encoded PFX into Azure Key Vault using the [Certificates – Import](https://learn.microsoft.com/en-us/rest/api/keyvaultsecrets/) REST API (v7.4). The import policy specifies RSA key type, exportable private key, and PKCS#12 content type. The certificate name in Key Vault is derived from the PFX filename with non-alphanumeric characters replaced by hyphens.
+**4. Key Vault Import** — Imports the Base64-encoded PFX into Azure Key Vault using the [Certificates – Import](https://learn.microsoft.com/en-us/rest/api/keyvault/certificates/import-certificate/import-certificate?view=rest-keyvault-certificates-2025-07-01&tabs=HTTP) REST API. The import policy specifies RSA key type, exportable private key, and PKCS#12 content type. The certificate name in Key Vault is derived from the PFX filename with non-alphanumeric characters replaced by hyphens.
 
 **5. Verification** — Logs the certificate ID and thumbprint returned by Key Vault to confirm the import succeeded.
 
