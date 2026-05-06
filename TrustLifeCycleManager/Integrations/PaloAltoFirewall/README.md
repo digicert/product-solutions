@@ -18,9 +18,10 @@ These scripts are designed to run as **Admin Web Request (AWR) post-enrollment h
 
 1. TLM Agent completes certificate enrollment and sets the `DC1_POST_SCRIPT_DATA` environment variable with a Base64-encoded JSON payload.
 2. The script decodes the payload to locate the certificate (`.crt`) and private key (`.key`) files on disk.
-3. The certificate is uploaded to the Palo Alto firewall via the PAN-OS XML API import endpoint.
-4. The private key is uploaded separately, associated with the same certificate name.
-5. Optionally, a configuration commit is issued to activate the new certificate.
+3. The Palo Alto firewall URL and API key are extracted from the JSON `args` array (Argument 1 = `PA_URL`, Argument 2 = `PA_API_KEY`).
+4. The certificate is uploaded to the Palo Alto firewall via the PAN-OS XML API import endpoint.
+5. The private key is uploaded separately, associated with the same certificate name.
+6. Optionally, a configuration commit is issued to activate the new certificate.
 
 ### Standalone Script (`csr_in_paloalto-api.sh`)
 
@@ -61,23 +62,33 @@ This interactive script performs the full certificate lifecycle in a single sess
 
 ### AWR Scripts — `csr_in_digicert_paloalto-awr.sh` / `.ps1`
 
+#### Arguments (from JSON `args` array)
+
+The Palo Alto connection details are passed dynamically via the TLM automation profile's arguments, not hard-coded in the script. Configure these in the TLM AWR automation profile:
+
+| Argument | Variable | Description | Example |
+|----------|----------|-------------|---------|
+| Argument 1 | `PA_URL` | Firewall management URL (must include `https://`) | `https://192.168.1.1` |
+| Argument 2 | `PA_API_KEY` | PAN-OS API key | *(your API key)* |
+
+#### Script configuration variables
+
 Edit the configuration block at the top of the script:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `PA_URL` | Firewall management URL (HTTPS) | `https://192.168.1.1` |
-| `PA_API_KEY` | PAN-OS API key | *(your API key)* |
 | `CERT_NAME_METHOD` | How to name the certificate: `common_name` (extract CN from cert) or `manual` | `common_name` |
 | `MANUAL_CERT_NAME` | Certificate name when using the `manual` method | `my-firewall-cert` |
 | `COMMIT_CONFIG` | Automatically commit after upload (`true` / `false`) | `true` |
-| `PRIVATE_KEY_PASSPHRASE` | Passphrase for the private key | *(your passphrase)* |
-| `DEBUG_MODE` | Enable verbose logging including API call details (`true` / `false`) | `false` |
+| `PRIVATE_KEY_PASSPHRASE` | Passphrase for the private key (leave empty if none) | *(your passphrase)* |
 | `LEGAL_NOTICE_ACCEPT` | Must be set to `true` to allow execution | `true` |
 
 **Log file locations:**
 
-- **Bash:** Auto-detected under `<TLM_AGENT_DIR>/log/palo-alto-awr.log`
+- **Bash:** `/home/ubuntu/palo-alto-awr.log`
 - **PowerShell:** `C:\Program Files\DigiCert\TLM Agent\log\palo-alto-awr.log`
+
+The log directory is created automatically if it does not exist.
 
 ### Standalone Script — `csr_in_paloalto-api.sh`
 
@@ -90,9 +101,16 @@ The `DC1_POST_SCRIPT_DATA` environment variable contains a Base64-encoded JSON s
 ```json
 {
   "certfolder": "/path/to/certificate/directory",
-  "files": ["certificate.crt", "privatekey.key"]
+  "files": ["certificate.crt", "privatekey.key"],
+  "args": ["https://firewall.example.com", "your-api-key-here"]
 }
 ```
+
+| Field | Description |
+|-------|-------------|
+| `certfolder` | Directory path where the TLM Agent has written the certificate and key files |
+| `files` | Array of filenames produced by enrollment (`.crt` and `.key`) |
+| `args` | Arguments configured in the TLM automation profile — Argument 1 is the firewall URL, Argument 2 is the API key |
 
 ## PAN-OS API Endpoints Used
 
@@ -118,9 +136,10 @@ All API calls use `--insecure` / TLS validation bypass to accommodate self-signe
    ```bash
    chmod +x csr_in_digicert_paloalto-awr.sh
    ```
-3. Edit the configuration variables at the top of the script.
+3. Edit the script configuration variables at the top of the script (`CERT_NAME_METHOD`, `COMMIT_CONFIG`, `PRIVATE_KEY_PASSPHRASE`).
 4. Set `LEGAL_NOTICE_ACCEPT="true"`.
-5. Configure the TLM Agent to invoke this script as the post-enrollment hook for the relevant certificate profile.
+5. Configure the TLM AWR automation profile with the firewall URL (Argument 1) and API key (Argument 2).
+6. Configure the TLM Agent to invoke this script as the post-enrollment hook for the relevant certificate profile.
 
 ### Standalone Script
 
@@ -151,7 +170,14 @@ The standalone script creates the following files in the configured output direc
 
 ### AWR Scripts
 
-Both AWR scripts write timestamped log entries to their respective log files. Each run is bracketed with start/end markers. When `DEBUG_MODE` is enabled, the decoded JSON payload and full API call details are logged. The API key is masked in normal mode (first and last 4 characters shown).
+Both AWR scripts write timestamped log entries to their respective log files. Each run is bracketed with start/end markers. The log directory is created automatically if it does not exist.
+
+The scripts log a full extraction summary including arguments, certificate paths, file sizes, certificate count, and key type. The decoded JSON payload is logged for debugging. The API key is masked in log output (first and last 4 characters shown).
+
+Connection errors are captured and logged with detail:
+
+- **Bash:** curl errors (DNS resolution failures, connection refused, TLS handshake errors) are captured separately from the HTTP status code and logged explicitly.
+- **PowerShell:** exception messages and inner exceptions are logged when `Invoke-WebRequest` calls fail.
 
 ### Standalone Script
 
@@ -163,7 +189,10 @@ Progress is written directly to stdout with status indicators at each step.
 |---------|-------------|------------|
 | `DC1_POST_SCRIPT_DATA is not set` (AWR) | Script not invoked by TLM Agent | Verify TLM Agent post-enrollment hook configuration |
 | `Failed to decode base64 string` (AWR) | Corrupted environment variable | Check TLM Agent logs for enrollment errors |
-| Certificate upload returns non-200 status | Invalid API key, incorrect firewall URL, or network issue | Verify `PA_URL` and `PA_API_KEY`; test with `curl` manually |
+| `PA_URL (Argument 1) is empty` (AWR) | Firewall URL not configured in automation profile args | Add the firewall URL (including `https://`) as Argument 1 in the TLM AWR automation profile |
+| `PA_API_KEY (Argument 2) is empty` (AWR) | API key not configured in automation profile args | Add the PAN-OS API key as Argument 2 in the TLM AWR automation profile |
+| HTTP status `000` with curl error (bash AWR) | Connection failed before receiving a response — DNS failure, firewall blocking, TLS error, or missing `https://` in URL | Check the curl error detail in the log; verify `PA_URL` includes `https://` and the firewall is reachable |
+| Certificate upload returns non-200 status | Invalid API key, incorrect firewall URL, or network issue | Verify `PA_URL` and `PA_API_KEY` in the automation profile args; test with `curl` manually |
 | Private key upload fails | Passphrase mismatch or key format issue | Verify `PRIVATE_KEY_PASSPHRASE` matches the key; ensure PEM format |
 | Commit fails but uploads succeed | Pending configuration lock or insufficient privileges | Commit manually via the PAN-OS web UI; check API key permissions |
 | CSR generation fails (standalone) | Certificate name already exists on PAN-OS | Delete the existing certificate entry or use a different name |
@@ -172,8 +201,7 @@ Progress is written directly to stdout with status indicators at each step.
 
 ## Security Considerations
 
-- **API keys and passphrases** are stored in plaintext within the scripts. For production deployments, consider sourcing these from a secrets manager or environment variables rather than hard-coding them.
-- **Debug mode** logs sensitive information including decoded payloads and API call structures. Only enable in development/testing environments.
+- **API keys and passphrases:** The PAN-OS API key is passed via the TLM automation profile arguments (within the `DC1_POST_SCRIPT_DATA` JSON payload) rather than hard-coded in the script. The private key passphrase remains in the script configuration. For production deployments, consider sourcing passphrases from a secrets manager.
 - The standalone script stores DigiCert API responses (including the signed certificate) on disk. Secure the output directory with appropriate file permissions.
 - All PAN-OS API calls bypass TLS certificate verification (`--insecure`). In production, import the firewall's management certificate into the trusted store and remove this flag.
 - Ensure the scripts and their log files have restrictive permissions (`600` or `640`) to protect private key material and API credentials.
