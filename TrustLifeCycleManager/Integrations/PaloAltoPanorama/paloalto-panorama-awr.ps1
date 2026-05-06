@@ -81,7 +81,7 @@ successor regulations. The contractor/manufacturer is DIGICERT, INC.
 
 # Legal notice gate — set to $true to accept the DigiCert legal notice above.
 # The script will not run until this is set.
-$LegalNoticeAccept = $true
+$LegalNoticeAccept = $false
 
 # Mode: "template" or "system"
 #   template — Upload cert to a Panorama device template, commit to Panorama,

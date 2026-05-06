@@ -80,7 +80,7 @@ LEGAL_NOTICE
 
 # Legal notice gate — set to "true" to accept the DigiCert legal notice above.
 # The script will not run until this is set.
-LEGAL_NOTICE_ACCEPT="true"
+LEGAL_NOTICE_ACCEPT="false"
 
 # Mode: "template" or "system"
 #   template — Upload cert to a Panorama device template, commit to Panorama,
