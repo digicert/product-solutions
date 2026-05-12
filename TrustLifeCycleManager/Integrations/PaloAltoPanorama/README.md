@@ -6,7 +6,7 @@
 
   [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
   [![Bash](https://img.shields.io/badge/bash-%3E%3D4.0-4EAA25?style=flat&logo=gnubash&logoColor=white)](https://www.gnu.org/software/bash/)
-  [![PowerShell](https://img.shields.io/badge/powershell-%3E%3D7.0-5391FE?style=flat&logo=powershell&logoColor=white)](https://github.com/PowerShell/PowerShell)
+  [![PowerShell](https://img.shields.io/badge/powershell-%3E%3D5.1-5391FE?style=flat&logo=powershell&logoColor=white)](https://github.com/PowerShell/PowerShell)
   [![PAN-OS](https://img.shields.io/badge/PAN--OS-XML%20API-FA582D?style=flat&logo=paloaltonetworks&logoColor=white)](https://docs.paloaltonetworks.com/pan-os/11-1/pan-os-panorama-api)
   [![TLM](https://img.shields.io/badge/DigiCert-TLM-FF6D00?style=flat)](https://www.digicert.com/tls-ssl/trust-lifecycle-manager)
 </div>
@@ -35,14 +35,15 @@
 
 These production-ready reference scripts automate the upload of TLS certificates and private keys to **Palo Alto Panorama** via the PAN-OS XML API. They are designed to run non-interactively as **DigiCert Trust Lifecycle Manager (TLM) AWR (Automated Web Request) post-enrollment scripts**, triggering automatically each time a certificate is issued or renewed.
 
-Two script variants are provided for maximum platform flexibility:
+Three script variants are provided for maximum platform flexibility:
 
-| Script | Platform | Shell |
+| Script | Platform | Shell / Runtime |
 |---|---|---|
-| `panorama-awr.sh` | Linux / macOS | Bash ≥ 4.0 |
-| `panorama-awr.ps1` | Windows / Linux | PowerShell ≥ 7.0 |
+| `paloalto-panorama-awr.sh` | Linux / macOS | Bash ≥ 4.0 |
+| `paloalto-panorama-awr_ps5.ps1` | Windows (built-in) | Windows PowerShell ≥ 5.1 |
+| `paloalto-panorama-awr_ps7.ps1` | Windows / Linux | PowerShell ≥ 7.0 |
 
-Both scripts are functionally identical and implement the same six-step workflow.
+All three scripts implement the same six-step workflow. The two PowerShell variants differ only in how they handle multipart file uploads and TLS certificate validation — the PS5 variant implements both manually so it runs under the default `powershell.exe` shipped with Windows, while the PS7 variant uses the native `-Form` and `-SkipCertificateCheck` parameters available in PowerShell 7.
 
 ---
 
@@ -129,16 +130,35 @@ grep --version        # Confirm GNU grep (PCRE -P support)
 
 ### Windows (PowerShell)
 
-#### Required runtime
+Two PowerShell variants are provided. Choose the one that matches your environment.
+
+#### Option A — `paloalto-panorama-awr_ps5.ps1` (Windows PowerShell 5.1)
+
+This variant runs under the **Windows PowerShell 5.1** that ships built-in with Windows 10 and Windows Server 2016+. No additional installation is required. It implements multipart file uploads manually via `System.IO.MemoryStream` and disables server certificate validation process-wide via `[Net.ServicePointManager]::ServerCertificateValidationCallback`. It also explicitly enables TLS 1.2 since Windows PowerShell 5.1 defaults to TLS 1.0/1.1 on older builds.
 
 | Requirement | Minimum version | Notes |
 |---|---|---|
-| **PowerShell** | **7.0** | Required for `-Form` (multipart upload) and `-SkipCertificateCheck` on `Invoke-WebRequest`. The built-in Windows PowerShell 5.1 is **not** sufficient. |
+| **Windows PowerShell** | **5.1** | Built into Windows 10 / Server 2016+. No installation needed. |
+| **.NET Framework** | 4.5+ (bundled with Windows) | Used for `System.IO.MemoryStream`, `System.Convert`, `[uri]::EscapeDataString` |
+
+**No additional installation steps are required.** Invoke with:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\paloalto-panorama-awr_ps5.ps1
+```
+
+---
+
+#### Option B — `paloalto-panorama-awr_ps7.ps1` (PowerShell 7)
+
+This variant requires **PowerShell 7.0 or later** and uses the native `-Form` parameter on `Invoke-WebRequest` for multipart uploads and `-SkipCertificateCheck` for certificate validation bypass.
+
+| Requirement | Minimum version | Notes |
+|---|---|---|
+| **PowerShell** | **7.0** | Required for `-Form` (multipart upload) and `-SkipCertificateCheck` on `Invoke-WebRequest`. The built-in Windows PowerShell 5.1 is **not** compatible with this script variant. |
 | **.NET** | 6.0 (bundled with PS 7) | Used for `X509Certificate2`, `Convert::FromBase64String`, `HttpUtility::UrlEncode` |
 
-> **Windows PowerShell 5.1 is not supported.** It lacks the `-Form` parameter on `Invoke-WebRequest` which is required for multipart file uploads to the PAN-OS import API.
-
-#### Installing PowerShell 7
+##### Installing PowerShell 7
 
 **Option 1 — winget (Windows 10/11)**
 
@@ -156,12 +176,20 @@ Download the latest stable MSI from the [PowerShell GitHub releases page](https:
 Invoke-Expression "& { $(Invoke-RestMethod https://aka.ms/install-powershell.ps1) } -UseMSI"
 ```
 
-#### Verify the installation
+##### Verify the installation
 
 ```powershell
 pwsh --version
 # Expected: PowerShell 7.x.x
 ```
+
+Invoke with:
+
+```powershell
+pwsh -ExecutionPolicy Bypass -File .\paloalto-panorama-awr_ps7.ps1
+```
+
+---
 
 #### Execution policy
 
@@ -171,13 +199,16 @@ TLM typically executes scripts in a process-scoped execution context. If you nee
 # Allow locally-created scripts to run (recommended minimum)
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope LocalMachine
 
-# Or for a single process session only
-pwsh -ExecutionPolicy Bypass -File .\panorama-awr.ps1
+# Or for a single process session only (PS 5.1)
+powershell.exe -ExecutionPolicy Bypass -File .\paloalto-panorama-awr_ps5.ps1
+
+# Or for a single process session only (PS 7)
+pwsh -ExecutionPolicy Bypass -File .\paloalto-panorama-awr_ps7.ps1
 ```
 
 #### No additional modules required
 
-The script uses only .NET built-in types and `Invoke-WebRequest` — no third-party PowerShell modules need to be installed.
+Both PowerShell variants use only .NET built-in types and `Invoke-WebRequest` — no third-party PowerShell modules need to be installed.
 
 ---
 
@@ -203,7 +234,7 @@ The following variables are set at the top of each script and should be reviewed
 
 | Variable | Default | Description |
 |---|---|---|
-| `LEGAL_NOTICE_ACCEPT` / `$LegalNoticeAccept` | `"true"` / `$true` | Must be set to accept the DigiCert legal notice. The script exits immediately if this is not set. |
+| `LEGAL_NOTICE_ACCEPT` / `$LegalNoticeAccept` | `"false"` / `$false` | Must be changed to `"true"` / `$true` to accept the DigiCert legal notice. The script exits immediately if this is not set to the accepted value. |
 | `MODE` / `$Mode` | `"system"` | Upload mode. Set to `"template"` or `"system"` — see [Supported Modes](#-supported-modes). |
 | `KEY_PASSPHRASE` / `$KeyPassphrase` | `"ChangeMe123!"` | Storage passphrase passed to the PAN-OS private key import API. The PAN-OS XML API requires a non-empty passphrase parameter even for unencrypted PEM keys; this value is used purely as a placeholder on the PAN-OS side. **Change this to a site-specific value.** |
 | `WAIT_SECONDS` / `$WaitSeconds` | `10` | Polling interval in seconds when monitoring commit and push job status. |
@@ -328,8 +359,9 @@ Both scripts write a structured timestamped log to the path configured in `LOGFI
 
 **Symptom:** `A parameter cannot be found that matches parameter name 'Form'.`
 
-- You are running Windows PowerShell 5.1. The script requires **PowerShell 7.0 or later**.
-- Install PowerShell 7 as described in [Prerequisites → Windows](#windows-powershell) and invoke the script with `pwsh` rather than `powershell`.
+- You are running `paloalto-panorama-awr_ps7.ps1` under Windows PowerShell 5.1. The PS7 script variant requires **PowerShell 7.0 or later**.
+- **Recommended fix:** Switch to `paloalto-panorama-awr_ps5.ps1`, which is designed specifically for Windows PowerShell 5.1 and implements multipart uploads manually — no additional installation needed.
+- Alternatively, install PowerShell 7 as described in [Prerequisites → Windows](#windows-powershell) and invoke the PS7 script with `pwsh` rather than `powershell`.
 
 ---
 
@@ -337,8 +369,9 @@ Both scripts write a structured timestamped log to the path configured in `LOGFI
 
 **Symptom:** `The SSL connection could not be established` or `Could not establish trust relationship`
 
-- Panorama uses a self-signed certificate by default. The script uses `-SkipCertificateCheck` on all `Invoke-WebRequest` calls, which suppresses this error in PowerShell 7.
-- If errors persist, confirm you are running PowerShell 7 and not 5.1.
+- Panorama uses a self-signed certificate by default.
+- **`paloalto-panorama-awr_ps7.ps1`** uses `-SkipCertificateCheck` on all `Invoke-WebRequest` calls. If the error persists, confirm you are running PowerShell 7 and not 5.1.
+- **`paloalto-panorama-awr_ps5.ps1`** disables certificate validation process-wide via `[Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }` and forces TLS 1.2 via `[Net.ServicePointManager]::SecurityProtocol`. If the error persists, confirm you are running PowerShell 5.1 or later (not an older PS version) and that your Windows build supports TLS 1.2.
 
 ---
 
