@@ -47,7 +47,7 @@ successor regulations. The contractor/manufacturer is DIGICERT, INC.
 #               management UI certificate, syslog, SNMP, etc.
 #
 # The Common Name is extracted automatically from the certificate and used
-# for discovery unless Argument 3 provides an explicit certificate name.
+# for discovery unless Argument 5 provides an explicit certificate name.
 # If a certificate with the same CN already exists it is updated in place
 # (preserving any bindings such as SSL/TLS profiles, GP portals, etc.)
 #
@@ -64,14 +64,14 @@ successor regulations. The contractor/manufacturer is DIGICERT, INC.
 #   Argument 1 : Panorama IP address or FQDN
 #   Argument 2 : Panorama credentials in the format username:password
 #                (password may contain colons)
-#   Argument 3 : Certificate name override (optional)
+#   Argument 3 : Panorama Template Name  (used in 'template' mode)
+#   Argument 4 : Panorama Template Stack Name (used in 'template' mode)
+#   Argument 5 : Certificate name override (optional)
 #                If provided, the script targets this exact certificate name
 #                in Panorama and skips CN-based discovery entirely.
 #                If omitted, CN-based discovery is used. Discovery will fail
 #                with an error if multiple certificates share the same CN --
 #                in which case set this argument to resolve the ambiguity.
-#   Argument 4 : Panorama Template Name  (used in 'template' mode)
-#   Argument 5 : Panorama Template Stack Name (used in 'template' mode)
 #
 # =============================================================================
 
@@ -210,21 +210,21 @@ $PanoramaPass = $Arg2Credential.Substring($ColonIndex + 1)
 Write-Log "PANORAMA_USER (Arg2, from credential): '$PanoramaUser'"
 Write-Log 'PANORAMA_PASS (Arg2, from credential): ********'
 
-# Argument 3 -- Certificate name override (optional)
-$CertNameOverride = if ($ArgsArray.Count -ge 3) { $ArgsArray[2].Trim() } else { '' }
+# Argument 3 -- Panorama Template Name (template mode)
+$TemplateName = if ($ArgsArray.Count -ge 3) { $ArgsArray[2].Trim() } else { '' }
+Write-Log "TEMPLATE_NAME (Arg3): '$TemplateName'"
+
+# Argument 4 -- Panorama Template Stack Name (template mode)
+$TemplateStackName = if ($ArgsArray.Count -ge 4) { $ArgsArray[3].Trim() } else { '' }
+Write-Log "TEMPLATE_STACK_NAME (Arg4): '$TemplateStackName'"
+
+# Argument 5 -- Certificate name override (optional)
+$CertNameOverride = if ($ArgsArray.Count -ge 5) { $ArgsArray[4].Trim() } else { '' }
 if (-not [string]::IsNullOrEmpty($CertNameOverride)) {
-    Write-Log "CERT_NAME_OVERRIDE (Arg3): '$CertNameOverride'"
+    Write-Log "CERT_NAME_OVERRIDE (Arg5): '$CertNameOverride'"
 } else {
-    Write-Log 'CERT_NAME_OVERRIDE (Arg3): <not set -- CN discovery will be used>'
+    Write-Log 'CERT_NAME_OVERRIDE (Arg5): <not set -- CN discovery will be used>'
 }
-
-# Argument 4 -- Panorama Template Name (template mode)
-$TemplateName = if ($ArgsArray.Count -ge 4) { $ArgsArray[3].Trim() } else { '' }
-Write-Log "TEMPLATE_NAME (Arg4): '$TemplateName'"
-
-# Argument 5 -- Panorama Template Stack Name (template mode)
-$TemplateStackName = if ($ArgsArray.Count -ge 5) { $ArgsArray[4].Trim() } else { '' }
-Write-Log "TEMPLATE_STACK_NAME (Arg5): '$TemplateStackName'"
 
 # --- Validate required arguments ---------------------------------------------
 if ([string]::IsNullOrEmpty($PanoramaIP)) {
@@ -241,11 +241,11 @@ if ([string]::IsNullOrEmpty($PanoramaPass)) {
 }
 if ($Mode -eq 'template') {
     if ([string]::IsNullOrEmpty($TemplateName)) {
-        Write-Log 'ERROR: Argument 4 (Template Name) is required in template mode.'
+        Write-Log 'ERROR: Argument 3 (Template Name) is required in template mode.'
         exit 1
     }
     if ([string]::IsNullOrEmpty($TemplateStackName)) {
-        Write-Log 'ERROR: Argument 5 (Template Stack Name) is required in template mode.'
+        Write-Log 'ERROR: Argument 4 (Template Stack Name) is required in template mode.'
         exit 1
     }
 }
@@ -483,7 +483,7 @@ if (-not [string]::IsNullOrEmpty($CertNameOverride)) {
         foreach ($Name in $MatchingNames) {
             Write-Log "    - $Name"
         }
-        Write-Log '  ACTION REQUIRED: Set Argument 3 (certificate name override) to the exact'
+        Write-Log '  ACTION REQUIRED: Set Argument 5 (certificate name override) to the exact'
         Write-Log '  Panorama certificate entry name you want to update, then re-run.'
         exit 1
     }

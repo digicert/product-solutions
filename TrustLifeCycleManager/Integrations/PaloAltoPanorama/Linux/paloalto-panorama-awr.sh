@@ -49,7 +49,7 @@ LEGAL_NOTICE
 #               management UI certificate, syslog, SNMP, etc.
 #
 # The Common Name is extracted automatically from the certificate and used
-# for discovery unless Argument 3 provides an explicit certificate name.
+# for discovery unless Argument 5 provides an explicit certificate name.
 # If a certificate with the same CN already exists it is updated in place
 # (preserving any bindings such as SSL/TLS profiles, GP portals, etc.)
 #
@@ -63,14 +63,14 @@ LEGAL_NOTICE
 #   Argument 1 : Panorama IP address or FQDN
 #   Argument 2 : Panorama credentials in the format username:password
 #                (password may contain colons)
-#   Argument 3 : Certificate name override (optional)
+#   Argument 3 : Panorama Template Name  (used in 'template' mode)
+#   Argument 4 : Panorama Template Stack Name (used in 'template' mode)
+#   Argument 5 : Certificate name override (optional)
 #                If provided, the script targets this exact certificate name
 #                in Panorama and skips CN-based discovery entirely.
 #                If omitted, CN-based discovery is used. Discovery will fail
 #                with an error if multiple certificates share the same CN —
 #                in which case set this argument to resolve the ambiguity.
-#   Argument 4 : Panorama Template Name  (used in 'template' mode)
-#   Argument 5 : Panorama Template Stack Name (used in 'template' mode)
 #
 # =============================================================================
 
@@ -189,24 +189,24 @@ PANORAMA_PASS=$(echo "$ARG2_CREDENTIAL" | cut -d: -f2-)
 log_message "PANORAMA_USER (Arg2, from credential): '$PANORAMA_USER'"
 log_message "PANORAMA_PASS (Arg2, from credential): ********"
 
-# Argument 3 — Certificate name override (optional)
+# Argument 3 — Panorama Template Name (template mode)
+TEMPLATE_NAME=$(echo "$ARGS_ARRAY" | awk -F',' '{print $3}' | tr -d '"' | tr -d '[:space:]')
+log_message "TEMPLATE_NAME (Arg3): '$TEMPLATE_NAME'"
+
+# Argument 4 — Panorama Template Stack Name (template mode)
+TEMPLATE_STACK_NAME=$(echo "$ARGS_ARRAY" | awk -F',' '{print $4}' | tr -d '"' | tr -d '[:space:]')
+log_message "TEMPLATE_STACK_NAME (Arg4): '$TEMPLATE_STACK_NAME'"
+
+# Argument 5 — Certificate name override (optional)
 # If set, the script targets this exact Panorama certificate entry name and
 # skips CN-based discovery. If empty, CN discovery is used with ambiguity
 # detection (see Step 2).
-CERT_NAME_OVERRIDE=$(echo "$ARGS_ARRAY" | awk -F',' '{print $3}' | tr -d '"' | tr -d '[:space:]')
+CERT_NAME_OVERRIDE=$(echo "$ARGS_ARRAY" | awk -F',' '{print $5}' | tr -d '"' | tr -d '[:space:]')
 if [ -n "$CERT_NAME_OVERRIDE" ]; then
-    log_message "CERT_NAME_OVERRIDE (Arg3): '$CERT_NAME_OVERRIDE'"
+    log_message "CERT_NAME_OVERRIDE (Arg5): '$CERT_NAME_OVERRIDE'"
 else
-    log_message "CERT_NAME_OVERRIDE (Arg3): <not set — CN discovery will be used>"
+    log_message "CERT_NAME_OVERRIDE (Arg5): <not set — CN discovery will be used>"
 fi
-
-# Argument 4 — Panorama Template Name (template mode)
-TEMPLATE_NAME=$(echo "$ARGS_ARRAY" | awk -F',' '{print $4}' | tr -d '"' | tr -d '[:space:]')
-log_message "TEMPLATE_NAME (Arg4): '$TEMPLATE_NAME'"
-
-# Argument 5 — Panorama Template Stack Name (template mode)
-TEMPLATE_STACK_NAME=$(echo "$ARGS_ARRAY" | awk -F',' '{print $5}' | tr -d '"' | tr -d '[:space:]')
-log_message "TEMPLATE_STACK_NAME (Arg5): '$TEMPLATE_STACK_NAME'"
 
 # --- Validate required arguments ---------------------------------------------
 if [ -z "$PANORAMA_IP" ]; then
@@ -223,11 +223,11 @@ if [ -z "$PANORAMA_PASS" ]; then
 fi
 if [ "$MODE" = "template" ]; then
     if [ -z "$TEMPLATE_NAME" ]; then
-        log_message "ERROR: Argument 4 (Template Name) is required in template mode."
+        log_message "ERROR: Argument 3 (Template Name) is required in template mode."
         exit 1
     fi
     if [ -z "$TEMPLATE_STACK_NAME" ]; then
-        log_message "ERROR: Argument 5 (Template Stack Name) is required in template mode."
+        log_message "ERROR: Argument 4 (Template Stack Name) is required in template mode."
         exit 1
     fi
 fi
@@ -422,7 +422,7 @@ else
         for NAME in "${MATCHING_NAMES[@]}"; do
             log_message "    - $NAME"
         done
-        log_message "  ACTION REQUIRED: Set Argument 3 (certificate name override) to the exact"
+        log_message "  ACTION REQUIRED: Set Argument 5 (certificate name override) to the exact"
         log_message "  Panorama certificate entry name you want to update, then re-run."
         exit 1
     fi
