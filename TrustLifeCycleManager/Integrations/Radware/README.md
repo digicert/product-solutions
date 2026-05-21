@@ -95,44 +95,6 @@ C:\Program Files\DigiCert\TLM Agent\log\radware_alteon.log
 
 ---
 
-## Installation
-
-### Linux
-
-```bash
-# Place the script where the TLM Agent expects it
-sudo install -m 0750 -o admin -g admin radware_alteon.sh /home/admin/digicert-automation/radware/
-
-# Create the log directory
-sudo mkdir -p /home/admin/digicert-automation/radware/
-sudo chown admin:admin /home/admin/digicert-automation/radware/
-
-# Edit the script and accept the legal notice
-sudo sed -i 's/LEGAL_NOTICE_ACCEPT="false"/LEGAL_NOTICE_ACCEPT="true"/' \
-  /home/admin/digicert-automation/radware/radware_alteon.sh
-```
-
-### Windows
-
-```powershell
-# Copy the script to a fixed location
-Copy-Item radware_alteon.ps1 'C:\Program Files\DigiCert\TLM Agent\scripts\'
-
-# Ensure the log directory exists
-New-Item -ItemType Directory -Force -Path 'C:\Program Files\DigiCert\TLM Agent\log\'
-
-# Edit the script and set $LEGAL_NOTICE_ACCEPT = "true"
-notepad 'C:\Program Files\DigiCert\TLM Agent\scripts\radware_alteon.ps1'
-```
-
-If PowerShell execution policy blocks the script, sign it or set the appropriate policy:
-
-```powershell
-Set-ExecutionPolicy -Scope LocalMachine -ExecutionPolicy RemoteSigned
-```
-
----
-
 ## Logging
 
 Every step writes a timestamped entry to the log file. Sensitive values (the auth token) are obfuscated as `xxx***` so logs can be shared safely.
