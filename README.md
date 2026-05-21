@@ -365,6 +365,21 @@ Streamline your certificate management with our production-ready integration scr
       <sub>Postfix MTA certificate management for securing SMTP transport with automated TLS certificate deployment.</sub>
     </td>
     <td align="center" width="33%">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Radware">
+        <img src="https://img.shields.io/badge/Radware-ADC-CC0000?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0wLTE0Yy0zLjMxIDAtNiAyLjY5LTYgNnMyLjY5IDYgNiA2IDYtMi42OSA2LTYtMi42OS02LTYtNnoiLz48L3N2Zz4=" alt="Radware">
+        <br><br>
+        <strong>Radware</strong>
+      </a>
+      <br><br>
+      <sub>Application delivery controller and DDoS protection certificate management with Radware API integration.</sub>
+    </td>
+  </tr>
+</table>
+
+<!-- Row 12 -->
+<table>
+  <tr>
+    <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/RedHat_Satellite">
         <img src="https://img.shields.io/badge/RedHat-Satellite-EE0000?style=for-the-badge&logo=red-hat&logoColor=white" alt="RedHat Satellite">
         <br><br>
@@ -373,12 +388,6 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Enterprise Linux system management with automated certificate provisioning for managed nodes.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 12 -->
-<table>
-  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Sophos">
         <img src="https://img.shields.io/badge/Sophos-Firewall-003366?style=for-the-badge&logo=sophos&logoColor=white" alt="Sophos">
@@ -397,6 +406,12 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Software-defined load balancer with ACME integration and automated certificate lifecycle management.</sub>
     </td>
+  </tr>
+</table>
+
+<!-- Row 13 -->
+<table>
+  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Windows_Radius_NPS">
         <img src="https://img.shields.io/badge/Windows-RADIUS_NPS-0078D4?style=for-the-badge&logo=microsoft&logoColor=white" alt="Windows RADIUS NPS">
