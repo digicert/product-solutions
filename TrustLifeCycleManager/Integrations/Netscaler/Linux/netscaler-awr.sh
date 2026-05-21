@@ -1,8 +1,8 @@
 #!/bin/bash
 
 : <<'LEGAL_NOTICE'
-Legal Notice (version October 29, 2024)
-Copyright © 2024 DigiCert. All rights reserved.
+Legal Notice (version January 1, 2026)
+Copyright © 2026 DigiCert. All rights reserved.
 DigiCert and its logo are registered trademarks of DigiCert, Inc.
 Other names may be trademarks of their respective owners.
 For the purposes of this Legal Notice, "DigiCert" refers to:
@@ -76,8 +76,7 @@ obfuscate() {
 
 # Start logging
 log_message "=========================================="
-log_message "Starting DigiCert TLM AWR Post-Script"
-log_message "Target Platform: Citrix NetScaler ADC (Nitro API)"
+log_message "Starting DC1_POST_SCRIPT_DATA extraction script"
 log_message "=========================================="
 
 # Check legal notice acceptance
@@ -113,50 +112,50 @@ log_message "CERT_INFO length: ${#CERT_INFO} characters"
 JSON_STRING=$(echo "$CERT_INFO" | base64 -d)
 log_message "JSON_STRING decoded successfully"
 
+# Log the raw JSON for debugging
+log_message "=========================================="
+log_message "Raw JSON content:"
+log_message "$JSON_STRING"
+log_message "=========================================="
+
 # Extract arguments from JSON
 log_message "Extracting arguments from JSON..."
 
-# Extract the args array
+# First, let's log the args array
 ARGS_ARRAY=$(echo "$JSON_STRING" | grep -oP '"args":\[\K[^]]*')
+log_message "Raw args array: $ARGS_ARRAY"
 
-# Extract Argument_1 - NetScaler hostname/IP
+# Extract Argument_1 - first argument
 ARGUMENT_1=$(echo "$ARGS_ARRAY" | awk -F',' '{print $1}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
-log_message "ARGUMENT_1 (NetScaler Host) extracted: '$ARGUMENT_1'"
+log_message "ARGUMENT_1 extracted: '$ARGUMENT_1'"
 log_message "ARGUMENT_1 length: ${#ARGUMENT_1}"
 
-# Extract Argument_2 - Nitro API username
+# Extract Argument_2 - second argument
 ARGUMENT_2=$(echo "$ARGS_ARRAY" | awk -F',' '{print $2}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
-log_message "ARGUMENT_2 (Username) extracted: '$ARGUMENT_2'"
+log_message "ARGUMENT_2 extracted: '$ARGUMENT_2'"
 log_message "ARGUMENT_2 length: ${#ARGUMENT_2}"
 
-# Extract Argument_3 - Nitro API password
+# Extract Argument_3 - third argument
 ARGUMENT_3=$(echo "$ARGS_ARRAY" | awk -F',' '{print $3}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
-log_message "ARGUMENT_3 (Password) extracted: '$(obfuscate "$ARGUMENT_3")'"
+log_message "ARGUMENT_3 extracted: '$(obfuscate "$ARGUMENT_3")'"
 log_message "ARGUMENT_3 length: ${#ARGUMENT_3}"
 
-# Extract Argument_4 - SSL cert-key pair name
+# Extract Argument_4 - fourth argument
 ARGUMENT_4=$(echo "$ARGS_ARRAY" | awk -F',' '{print $4}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
-log_message "ARGUMENT_4 (CertKey Name) extracted: '$ARGUMENT_4'"
+log_message "ARGUMENT_4 extracted: '$ARGUMENT_4'"
 log_message "ARGUMENT_4 length: ${#ARGUMENT_4}"
 
-# Extract Argument_5 - reserved for future use
+# Extract Argument_5 - fifth argument
 ARGUMENT_5=$(echo "$ARGS_ARRAY" | awk -F',' '{print $5}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
-log_message "ARGUMENT_5 (Reserved) extracted: '$ARGUMENT_5'"
+log_message "ARGUMENT_5 extracted: '$ARGUMENT_5'"
 log_message "ARGUMENT_5 length: ${#ARGUMENT_5}"
 
-# Clean arguments
+# Clean arguments (remove whitespace, newlines, carriage returns)
 ARGUMENT_1=$(echo "$ARGUMENT_1" | tr -d '[:space:]')
 ARGUMENT_2=$(echo "$ARGUMENT_2" | tr -d '[:space:]')
 ARGUMENT_3=$(echo "$ARGUMENT_3" | tr -d '[:space:]')
 ARGUMENT_4=$(echo "$ARGUMENT_4" | tr -d '[:space:]')
 ARGUMENT_5=$(echo "$ARGUMENT_5" | tr -d '[:space:]')
-
-# Assign meaningful variable names
-NETSCALER_HOST="$ARGUMENT_1"
-NITRO_USER="$ARGUMENT_2"
-NITRO_PASS="$ARGUMENT_3"
-CERTKEY_NAME="$ARGUMENT_4"
-NITRO_BASE_URL="https://${NETSCALER_HOST}/nitro/v1/config"
 
 # Extract cert folder
 CERT_FOLDER=$(echo "$JSON_STRING" | grep -oP '"certfolder":"\K[^"]+')
@@ -183,18 +182,18 @@ log_message "=========================================="
 log_message "EXTRACTION SUMMARY:"
 log_message "=========================================="
 log_message "Arguments extracted:"
-log_message "  NetScaler Host:  $NETSCALER_HOST"
-log_message "  Nitro Username:  $NITRO_USER"
-log_message "  Nitro Password:  $(obfuscate "$NITRO_PASS")"
-log_message "  CertKey Name:    $CERTKEY_NAME"
-log_message "  Nitro Base URL:  $NITRO_BASE_URL"
+log_message "  Argument 1: $ARGUMENT_1"
+log_message "  Argument 2: $ARGUMENT_2"
+log_message "  Argument 3: $(obfuscate "$ARGUMENT_3")"
+log_message "  Argument 4: $ARGUMENT_4"
+log_message "  Argument 5: $ARGUMENT_5"
 log_message ""
 log_message "Certificate information:"
 log_message "  Certificate folder: $CERT_FOLDER"
-log_message "  Certificate file:   $CRT_FILE"
-log_message "  Private key file:   $KEY_FILE"
-log_message "  Certificate path:   $CRT_FILE_PATH"
-log_message "  Private key path:   $KEY_FILE_PATH"
+log_message "  Certificate file: $CRT_FILE"
+log_message "  Private key file: $KEY_FILE"
+log_message "  Certificate path: $CRT_FILE_PATH"
+log_message "  Private key path: $KEY_FILE_PATH"
 log_message ""
 log_message "All files in array: $FILES_ARRAY"
 log_message "=========================================="
@@ -237,12 +236,62 @@ else
 fi
 
 # ============================================================================
-# NETSCALER ADC INTEGRATION - NITRO REST API
+# CUSTOM SCRIPT SECTION - ADD YOUR CUSTOM LOGIC HERE
+# ============================================================================
+#
+# Available variables for your custom logic:
+#
+# Certificate-related variables:
+#   $CERT_FOLDER      - The folder path where certificates are stored
+#   $CRT_FILE         - The certificate filename (.crt)
+#   $KEY_FILE         - The private key filename (.key)
+#   $CRT_FILE_PATH    - Full path to the certificate file
+#   $KEY_FILE_PATH    - Full path to the private key file
+#   $FILES_ARRAY      - All files listed in the JSON files array
+#
+# Certificate inspection variables (if files exist):
+#   $CERT_COUNT       - Number of certificates in the CRT file
+#   $KEY_TYPE         - Type of key (RSA, ECC, PKCS#8 format, or Unknown)
+#   $KEY_FILE_CONTENT - The full content of the private key file
+#
+# Argument variables (from JSON args array):
+#   $ARGUMENT_1       - First argument from args array (NetScaler hostname/IP)
+#   $ARGUMENT_2       - Second argument from args array (Nitro API username)
+#   $ARGUMENT_3       - Third argument from args array (Nitro API password)
+#   $ARGUMENT_4       - Fourth argument from args array (SSL cert-key pair name)
+#   $ARGUMENT_5       - Fifth argument from args array (reserved)
+#
+# JSON-related variables:
+#   $JSON_STRING      - The complete decoded JSON string
+#   $ARGS_ARRAY       - The raw args array from JSON
+#
+# Utility functions:
+#   log_message "text"     - Function to write timestamped messages to log file
+#   obfuscate "value"      - Function to mask sensitive values for logging
+#
 # ============================================================================
 
 log_message "=========================================="
-log_message "Starting NetScaler ADC integration via Nitro API..."
+log_message "Starting custom script section..."
 log_message "=========================================="
+
+
+# ADD CUSTOM LOGIC HERE:
+# ----------------------------------------
+
+# Assign meaningful variable names for NetScaler integration
+NETSCALER_HOST="$ARGUMENT_1"
+NITRO_USER="$ARGUMENT_2"
+NITRO_PASS="$ARGUMENT_3"
+CERTKEY_NAME="$ARGUMENT_4"
+NITRO_BASE_URL="https://${NETSCALER_HOST}/nitro/v1/config"
+
+log_message "NetScaler integration parameters:"
+log_message "  NetScaler Host:  $NETSCALER_HOST"
+log_message "  Nitro Username:  $NITRO_USER"
+log_message "  Nitro Password:  $(obfuscate "$NITRO_PASS")"
+log_message "  CertKey Name:    $CERTKEY_NAME"
+log_message "  Nitro Base URL:  $NITRO_BASE_URL"
 
 # ---- Validate required arguments ----
 log_message "Validating required arguments..."
@@ -619,7 +668,7 @@ else
     log_message "NetScaler configuration saved successfully"
 fi
 
-# ---- Final Summary ----
+# ---- Final NetScaler integration summary ----
 log_message "=========================================="
 log_message "NETSCALER ADC INTEGRATION COMPLETE"
 log_message "=========================================="
@@ -631,12 +680,18 @@ log_message "  Uploaded Key File:     ${ADC_SSL_LOCATION}/${UPLOAD_KEY_FILENAME}
 log_message "  Config Saved:          $([ "$SAVE_ERROR" = "0" ] && echo "YES" || echo "NO (warning)")"
 log_message "=========================================="
 
+# ----------------------------------------
+# END CUSTOM LOGIC
+
+log_message "Custom script section completed"
+log_message "=========================================="
+
 # ============================================================================
-# END OF NETSCALER ADC INTEGRATION
+# END OF CUSTOM SCRIPT SECTION
 # ============================================================================
 
 log_message "=========================================="
-log_message "Script execution completed successfully"
+log_message "Script execution completed"
 log_message "=========================================="
 
 exit 0

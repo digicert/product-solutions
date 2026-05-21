@@ -22,8 +22,8 @@
       - Saves the running configuration after changes
 
 .NOTES
-    Legal Notice (version October 29, 2024)
-    Copyright (c) 2024 DigiCert. All rights reserved.
+    Legal Notice (version January 1, 2026)
+    Copyright (c) 2026 DigiCert. All rights reserved.
     DigiCert and its logo are registered trademarks of DigiCert, Inc.
     Other names may be trademarks of their respective owners.
     For the purposes of this Legal Notice, "DigiCert" refers to:
@@ -88,6 +88,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 # Helper Functions
 # ============================================================================
 
+# Function to log messages with timestamp
 function Log-Message {
     param([string]$Message)
     $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -102,6 +103,7 @@ function Log-Message {
     Add-Content -Path $LOGFILE -Value $LogEntry
 }
 
+# Function to obfuscate sensitive values in logs
 function Obfuscate-Value {
     param([string]$Value)
     $Length = $Value.Length
@@ -113,6 +115,220 @@ function Obfuscate-Value {
     }
 }
 
+# ============================================================================
+# Start Logging
+# ============================================================================
+Log-Message "=========================================="
+Log-Message "Starting DC1_POST_SCRIPT_DATA extraction script"
+Log-Message "=========================================="
+
+# Check legal notice acceptance
+Log-Message "Checking legal notice acceptance..."
+if ($LEGAL_NOTICE_ACCEPT -ne "true") {
+    Log-Message "ERROR: Legal notice not accepted. Set LEGAL_NOTICE_ACCEPT=`"true`" to proceed."
+    Log-Message "Script execution terminated due to legal notice non-acceptance."
+    Log-Message "=========================================="
+    exit 1
+} else {
+    Log-Message "Legal notice accepted, proceeding with script execution."
+}
+
+# Log initial configuration
+Log-Message "Configuration:"
+Log-Message "  LEGAL_NOTICE_ACCEPT: $LEGAL_NOTICE_ACCEPT"
+Log-Message "  LOGFILE: $LOGFILE"
+
+# ============================================================================
+# Extract DC1_POST_SCRIPT_DATA
+# ============================================================================
+Log-Message "Checking DC1_POST_SCRIPT_DATA environment variable..."
+$DC1_POST_SCRIPT_DATA = $env:DC1_POST_SCRIPT_DATA
+
+if ([string]::IsNullOrEmpty($DC1_POST_SCRIPT_DATA)) {
+    Log-Message "ERROR: DC1_POST_SCRIPT_DATA environment variable is not set"
+    exit 1
+} else {
+    Log-Message "DC1_POST_SCRIPT_DATA is set (length: $($DC1_POST_SCRIPT_DATA.Length) characters)"
+}
+
+# Read the Base64-encoded JSON string from the environment variable
+$CERT_INFO = $DC1_POST_SCRIPT_DATA
+Log-Message "CERT_INFO length: $($CERT_INFO.Length) characters"
+
+# Decode JSON string
+$JSON_STRING = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($CERT_INFO))
+Log-Message "JSON_STRING decoded successfully"
+
+# Log the raw JSON for debugging
+Log-Message "=========================================="
+Log-Message "Raw JSON content:"
+Log-Message $JSON_STRING
+Log-Message "=========================================="
+
+# Parse JSON
+$JSON_OBJECT = $JSON_STRING | ConvertFrom-Json
+
+# Extract arguments from JSON
+Log-Message "Extracting arguments from JSON..."
+
+# First, let's log the args array
+$ARGS_ARRAY = $JSON_OBJECT.args
+Log-Message "Raw args array: $($ARGS_ARRAY -join ', ')"
+
+# Extract Argument_1 - first argument
+$ARGUMENT_1 = if ($ARGS_ARRAY.Count -ge 1) { ($ARGS_ARRAY[0]).Trim() } else { "" }
+Log-Message "ARGUMENT_1 extracted: '$ARGUMENT_1'"
+Log-Message "ARGUMENT_1 length: $($ARGUMENT_1.Length)"
+
+# Extract Argument_2 - second argument
+$ARGUMENT_2 = if ($ARGS_ARRAY.Count -ge 2) { ($ARGS_ARRAY[1]).Trim() } else { "" }
+Log-Message "ARGUMENT_2 extracted: '$ARGUMENT_2'"
+Log-Message "ARGUMENT_2 length: $($ARGUMENT_2.Length)"
+
+# Extract Argument_3 - third argument
+$ARGUMENT_3 = if ($ARGS_ARRAY.Count -ge 3) { ($ARGS_ARRAY[2]).Trim() } else { "" }
+Log-Message "ARGUMENT_3 extracted: '$(Obfuscate-Value $ARGUMENT_3)'"
+Log-Message "ARGUMENT_3 length: $($ARGUMENT_3.Length)"
+
+# Extract Argument_4 - fourth argument
+$ARGUMENT_4 = if ($ARGS_ARRAY.Count -ge 4) { ($ARGS_ARRAY[3]).Trim() } else { "" }
+Log-Message "ARGUMENT_4 extracted: '$ARGUMENT_4'"
+Log-Message "ARGUMENT_4 length: $($ARGUMENT_4.Length)"
+
+# Extract Argument_5 - fifth argument
+$ARGUMENT_5 = if ($ARGS_ARRAY.Count -ge 5) { ($ARGS_ARRAY[4]).Trim() } else { "" }
+Log-Message "ARGUMENT_5 extracted: '$ARGUMENT_5'"
+Log-Message "ARGUMENT_5 length: $($ARGUMENT_5.Length)"
+
+# Extract cert folder
+$CERT_FOLDER = $JSON_OBJECT.certfolder
+Log-Message "Extracted CERT_FOLDER: $CERT_FOLDER"
+
+# Extract file names from the files array
+$FILES_ARRAY = $JSON_OBJECT.files
+
+$CRT_FILE = $FILES_ARRAY | Where-Object { $_ -match '\.crt$' } | Select-Object -First 1
+Log-Message "Extracted CRT_FILE: $CRT_FILE"
+
+$KEY_FILE = $FILES_ARRAY | Where-Object { $_ -match '\.key$' } | Select-Object -First 1
+Log-Message "Extracted KEY_FILE: $KEY_FILE"
+
+# Construct file paths
+$CRT_FILE_PATH = Join-Path $CERT_FOLDER $CRT_FILE
+$KEY_FILE_PATH = Join-Path $CERT_FOLDER $KEY_FILE
+
+Log-Message "Files array content: $($FILES_ARRAY -join ', ')"
+
+# Log summary
+Log-Message "=========================================="
+Log-Message "EXTRACTION SUMMARY:"
+Log-Message "=========================================="
+Log-Message "Arguments extracted:"
+Log-Message "  Argument 1: $ARGUMENT_1"
+Log-Message "  Argument 2: $ARGUMENT_2"
+Log-Message "  Argument 3: $(Obfuscate-Value $ARGUMENT_3)"
+Log-Message "  Argument 4: $ARGUMENT_4"
+Log-Message "  Argument 5: $ARGUMENT_5"
+Log-Message ""
+Log-Message "Certificate information:"
+Log-Message "  Certificate folder: $CERT_FOLDER"
+Log-Message "  Certificate file:   $CRT_FILE"
+Log-Message "  Private key file:   $KEY_FILE"
+Log-Message "  Certificate path:   $CRT_FILE_PATH"
+Log-Message "  Private key path:   $KEY_FILE_PATH"
+Log-Message ""
+Log-Message "All files in array: $($FILES_ARRAY -join ', ')"
+Log-Message "=========================================="
+
+# Check if files exist
+if (Test-Path $CRT_FILE_PATH) {
+    $CrtFileInfo = Get-Item $CRT_FILE_PATH
+    Log-Message "Certificate file exists: $CRT_FILE_PATH"
+    Log-Message "Certificate file size: $($CrtFileInfo.Length) bytes"
+
+    # Count certificates in the file
+    $CrtContent = Get-Content $CRT_FILE_PATH -Raw
+    $CERT_COUNT = ([regex]::Matches($CrtContent, "BEGIN CERTIFICATE")).Count
+    Log-Message "Total certificates in file: $CERT_COUNT"
+} else {
+    Log-Message "ERROR: Certificate file not found: $CRT_FILE_PATH"
+    exit 1
+}
+
+if (Test-Path $KEY_FILE_PATH) {
+    $KeyFileInfo = Get-Item $KEY_FILE_PATH
+    Log-Message "Private key file exists: $KEY_FILE_PATH"
+    Log-Message "Private key file size: $($KeyFileInfo.Length) bytes"
+
+    # Determine key type
+    $KEY_FILE_CONTENT = Get-Content $KEY_FILE_PATH -Raw
+    if ($KEY_FILE_CONTENT -match "BEGIN RSA PRIVATE KEY") {
+        $KEY_TYPE = "RSA"
+        Log-Message "Key type: RSA (BEGIN RSA PRIVATE KEY found)"
+    } elseif ($KEY_FILE_CONTENT -match "BEGIN EC PRIVATE KEY") {
+        $KEY_TYPE = "ECC"
+        Log-Message "Key type: ECC (BEGIN EC PRIVATE KEY found)"
+    } elseif ($KEY_FILE_CONTENT -match "BEGIN PRIVATE KEY") {
+        $KEY_TYPE = "PKCS#8 format (generic)"
+        Log-Message "Key type: PKCS#8 format (BEGIN PRIVATE KEY found)"
+    } else {
+        $KEY_TYPE = "Unknown"
+        Log-Message "Key type: Unknown"
+    }
+} else {
+    Log-Message "ERROR: Private key file not found: $KEY_FILE_PATH"
+    exit 1
+}
+
+# ============================================================================
+# CUSTOM SCRIPT SECTION - ADD YOUR CUSTOM LOGIC HERE
+# ============================================================================
+#
+# Available variables for your custom logic:
+#
+# Certificate-related variables:
+#   $CERT_FOLDER      - The folder path where certificates are stored
+#   $CRT_FILE         - The certificate filename (.crt)
+#   $KEY_FILE         - The private key filename (.key)
+#   $CRT_FILE_PATH    - Full path to the certificate file
+#   $KEY_FILE_PATH    - Full path to the private key file
+#   $FILES_ARRAY      - All files listed in the JSON files array
+#
+# Certificate inspection variables (if files exist):
+#   $CERT_COUNT       - Number of certificates in the CRT file
+#   $KEY_TYPE         - Type of key (RSA, ECC, PKCS#8 format, or Unknown)
+#   $KEY_FILE_CONTENT - The full content of the private key file
+#
+# Argument variables (from JSON args array):
+#   $ARGUMENT_1       - First argument from args array (NetScaler hostname/IP)
+#   $ARGUMENT_2       - Second argument from args array (Nitro API username)
+#   $ARGUMENT_3       - Third argument from args array (Nitro API password)
+#   $ARGUMENT_4       - Fourth argument from args array (SSL cert-key pair name)
+#   $ARGUMENT_5       - Fifth argument from args array (reserved)
+#
+# JSON-related variables:
+#   $JSON_STRING      - The complete decoded JSON string
+#   $JSON_OBJECT      - The parsed JSON object (PSCustomObject)
+#   $ARGS_ARRAY       - The args array from JSON
+#
+# Environment variables:
+#   $SkipCertCheck    - Boolean flag for PowerShell 7+ certificate validation skip
+#
+# Utility functions:
+#   Log-Message "text"          - Function to write timestamped messages to log file
+#   Obfuscate-Value "value"     - Function to mask sensitive values for logging
+#
+# ============================================================================
+
+Log-Message "=========================================="
+Log-Message "Starting custom script section..."
+Log-Message "=========================================="
+
+
+# ADD CUSTOM LOGIC HERE:
+# ----------------------------------------
+
+# ---- NetScaler-specific helper for Nitro API calls ----
 function Invoke-NitroApi {
     param(
         [string]$Uri,
@@ -171,177 +387,19 @@ function Invoke-NitroApi {
     }
 }
 
-# ============================================================================
-# Start Logging
-# ============================================================================
-Log-Message "=========================================="
-Log-Message "Starting DigiCert TLM AWR Post-Script"
-Log-Message "Target Platform: Citrix NetScaler ADC (Nitro API)"
-Log-Message "=========================================="
-
-# Check legal notice acceptance
-Log-Message "Checking legal notice acceptance..."
-if ($LEGAL_NOTICE_ACCEPT -ne "true") {
-    Log-Message "ERROR: Legal notice not accepted. Set LEGAL_NOTICE_ACCEPT=`"true`" to proceed."
-    Log-Message "Script execution terminated due to legal notice non-acceptance."
-    Log-Message "=========================================="
-    exit 1
-} else {
-    Log-Message "Legal notice accepted, proceeding with script execution."
-}
-
-# Log initial configuration
-Log-Message "Configuration:"
-Log-Message "  LEGAL_NOTICE_ACCEPT: $LEGAL_NOTICE_ACCEPT"
-Log-Message "  LOGFILE: $LOGFILE"
-
-# ============================================================================
-# Extract DC1_POST_SCRIPT_DATA
-# ============================================================================
-Log-Message "Checking DC1_POST_SCRIPT_DATA environment variable..."
-$DC1_POST_SCRIPT_DATA = $env:DC1_POST_SCRIPT_DATA
-
-if ([string]::IsNullOrEmpty($DC1_POST_SCRIPT_DATA)) {
-    Log-Message "ERROR: DC1_POST_SCRIPT_DATA environment variable is not set"
-    exit 1
-} else {
-    Log-Message "DC1_POST_SCRIPT_DATA is set (length: $($DC1_POST_SCRIPT_DATA.Length) characters)"
-}
-
-# Read the Base64-encoded JSON string from the environment variable
-$CERT_INFO = $DC1_POST_SCRIPT_DATA
-Log-Message "CERT_INFO length: $($CERT_INFO.Length) characters"
-
-# Decode JSON string
-$JSON_STRING = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($CERT_INFO))
-Log-Message "JSON_STRING decoded successfully"
-
-# Parse JSON
-$JSON_OBJECT = $JSON_STRING | ConvertFrom-Json
-
-# Extract arguments from JSON
-Log-Message "Extracting arguments from JSON..."
-
-$ARGS_ARRAY = $JSON_OBJECT.args
-
-# Extract Argument_1 - NetScaler hostname/IP
-$ARGUMENT_1 = if ($ARGS_ARRAY.Count -ge 1) { ($ARGS_ARRAY[0]).Trim() } else { "" }
-Log-Message "ARGUMENT_1 (NetScaler Host) extracted: '$ARGUMENT_1'"
-Log-Message "ARGUMENT_1 length: $($ARGUMENT_1.Length)"
-
-# Extract Argument_2 - Nitro API username
-$ARGUMENT_2 = if ($ARGS_ARRAY.Count -ge 2) { ($ARGS_ARRAY[1]).Trim() } else { "" }
-Log-Message "ARGUMENT_2 (Username) extracted: '$ARGUMENT_2'"
-Log-Message "ARGUMENT_2 length: $($ARGUMENT_2.Length)"
-
-# Extract Argument_3 - Nitro API password
-$ARGUMENT_3 = if ($ARGS_ARRAY.Count -ge 3) { ($ARGS_ARRAY[2]).Trim() } else { "" }
-Log-Message "ARGUMENT_3 (Password) extracted: '$(Obfuscate-Value $ARGUMENT_3)'"
-Log-Message "ARGUMENT_3 length: $($ARGUMENT_3.Length)"
-
-# Extract Argument_4 - SSL cert-key pair name
-$ARGUMENT_4 = if ($ARGS_ARRAY.Count -ge 4) { ($ARGS_ARRAY[3]).Trim() } else { "" }
-Log-Message "ARGUMENT_4 (CertKey Name) extracted: '$ARGUMENT_4'"
-Log-Message "ARGUMENT_4 length: $($ARGUMENT_4.Length)"
-
-# Extract Argument_5 - reserved for future use
-$ARGUMENT_5 = if ($ARGS_ARRAY.Count -ge 5) { ($ARGS_ARRAY[4]).Trim() } else { "" }
-Log-Message "ARGUMENT_5 (Reserved) extracted: '$ARGUMENT_5'"
-Log-Message "ARGUMENT_5 length: $($ARGUMENT_5.Length)"
-
-# Assign meaningful variable names
+# Assign meaningful variable names for NetScaler integration
 $NETSCALER_HOST = $ARGUMENT_1
 $NITRO_USER     = $ARGUMENT_2
 $NITRO_PASS     = $ARGUMENT_3
 $CERTKEY_NAME   = $ARGUMENT_4
 $NITRO_BASE_URL = "https://${NETSCALER_HOST}/nitro/v1/config"
 
-# Extract cert folder
-$CERT_FOLDER = $JSON_OBJECT.certfolder
-Log-Message "Extracted CERT_FOLDER: $CERT_FOLDER"
-
-# Extract file names from the files array
-$FILES_ARRAY = $JSON_OBJECT.files
-Log-Message "Files array content: $($FILES_ARRAY -join ', ')"
-
-$CRT_FILE = $FILES_ARRAY | Where-Object { $_ -match '\.crt$' } | Select-Object -First 1
-Log-Message "Extracted CRT_FILE: $CRT_FILE"
-
-$KEY_FILE = $FILES_ARRAY | Where-Object { $_ -match '\.key$' } | Select-Object -First 1
-Log-Message "Extracted KEY_FILE: $KEY_FILE"
-
-# Construct file paths
-$CRT_FILE_PATH = Join-Path $CERT_FOLDER $CRT_FILE
-$KEY_FILE_PATH = Join-Path $CERT_FOLDER $KEY_FILE
-
-# Log summary
-Log-Message "=========================================="
-Log-Message "EXTRACTION SUMMARY:"
-Log-Message "=========================================="
-Log-Message "Arguments extracted:"
+Log-Message "NetScaler integration parameters:"
 Log-Message "  NetScaler Host:  $NETSCALER_HOST"
 Log-Message "  Nitro Username:  $NITRO_USER"
 Log-Message "  Nitro Password:  $(Obfuscate-Value $NITRO_PASS)"
 Log-Message "  CertKey Name:    $CERTKEY_NAME"
 Log-Message "  Nitro Base URL:  $NITRO_BASE_URL"
-Log-Message ""
-Log-Message "Certificate information:"
-Log-Message "  Certificate folder: $CERT_FOLDER"
-Log-Message "  Certificate file:   $CRT_FILE"
-Log-Message "  Private key file:   $KEY_FILE"
-Log-Message "  Certificate path:   $CRT_FILE_PATH"
-Log-Message "  Private key path:   $KEY_FILE_PATH"
-Log-Message ""
-Log-Message "All files in array: $($FILES_ARRAY -join ', ')"
-Log-Message "=========================================="
-
-# Check if files exist
-if (Test-Path $CRT_FILE_PATH) {
-    $CrtFileInfo = Get-Item $CRT_FILE_PATH
-    Log-Message "Certificate file exists: $CRT_FILE_PATH"
-    Log-Message "Certificate file size: $($CrtFileInfo.Length) bytes"
-
-    # Count certificates in the file
-    $CrtContent = Get-Content $CRT_FILE_PATH -Raw
-    $CERT_COUNT = ([regex]::Matches($CrtContent, "BEGIN CERTIFICATE")).Count
-    Log-Message "Total certificates in file: $CERT_COUNT"
-} else {
-    Log-Message "ERROR: Certificate file not found: $CRT_FILE_PATH"
-    exit 1
-}
-
-if (Test-Path $KEY_FILE_PATH) {
-    $KeyFileInfo = Get-Item $KEY_FILE_PATH
-    Log-Message "Private key file exists: $KEY_FILE_PATH"
-    Log-Message "Private key file size: $($KeyFileInfo.Length) bytes"
-
-    # Determine key type
-    $KEY_FILE_CONTENT = Get-Content $KEY_FILE_PATH -Raw
-    if ($KEY_FILE_CONTENT -match "BEGIN RSA PRIVATE KEY") {
-        $KEY_TYPE = "RSA"
-        Log-Message "Key type: RSA (BEGIN RSA PRIVATE KEY found)"
-    } elseif ($KEY_FILE_CONTENT -match "BEGIN EC PRIVATE KEY") {
-        $KEY_TYPE = "ECC"
-        Log-Message "Key type: ECC (BEGIN EC PRIVATE KEY found)"
-    } elseif ($KEY_FILE_CONTENT -match "BEGIN PRIVATE KEY") {
-        $KEY_TYPE = "PKCS#8 format (generic)"
-        Log-Message "Key type: PKCS#8 format (BEGIN PRIVATE KEY found)"
-    } else {
-        $KEY_TYPE = "Unknown"
-        Log-Message "Key type: Unknown"
-    }
-} else {
-    Log-Message "ERROR: Private key file not found: $KEY_FILE_PATH"
-    exit 1
-}
-
-# ============================================================================
-# NETSCALER ADC INTEGRATION - NITRO REST API
-# ============================================================================
-
-Log-Message "=========================================="
-Log-Message "Starting NetScaler ADC integration via Nitro API..."
-Log-Message "=========================================="
 
 # ---- Validate required arguments ----
 Log-Message "Validating required arguments..."
@@ -614,7 +672,7 @@ if ($SaveResult.ErrorCode -ne 0) {
     Log-Message "NetScaler configuration saved successfully"
 }
 
-# ---- Final Summary ----
+# ---- Final NetScaler integration summary ----
 $OperationPerformed = if ($CERTKEY_EXISTS) { "UPDATE (existing)" } else { "CREATE (new)" }
 $ConfigSaved = if ($SaveResult.ErrorCode -eq 0) { "YES" } else { "NO (warning)" }
 
@@ -629,12 +687,18 @@ Log-Message "  Uploaded Key File:     ${ADC_SSL_LOCATION}/${UPLOAD_KEY_FILENAME}
 Log-Message "  Config Saved:          $ConfigSaved"
 Log-Message "=========================================="
 
+# ----------------------------------------
+# END OF CUSTOM LOGIC
+
+Log-Message "Custom script section completed"
+Log-Message "=========================================="
+
 # ============================================================================
-# END OF NETSCALER ADC INTEGRATION
+# END OF CUSTOM SCRIPT SECTION
 # ============================================================================
 
 Log-Message "=========================================="
-Log-Message "Script execution completed successfully"
+Log-Message "Script execution completed"
 Log-Message "=========================================="
 
 exit 0
