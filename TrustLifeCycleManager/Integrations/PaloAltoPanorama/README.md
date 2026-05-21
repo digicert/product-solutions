@@ -80,7 +80,7 @@ Uploads the certificate directly to **Panorama's own certificate store**. Use th
 
 Uploads the certificate into a **Panorama device template**, commits to Panorama, then pushes the template stack to all managed firewalls. Use this when the certificate is consumed by firewalls — for example GlobalProtect portals/gateways, SSL Forward Decryption, LDAP, Captive Portal, or IPSec.
 
-- Requires **Argument 4** (Template Name) and **Argument 5** (Template Stack Name).
+- Requires **Argument 3** (Template Name) and **Argument 4** (Template Stack Name).
 - The push targets all devices assigned to the specified template stack.
 
 ---
@@ -220,9 +220,9 @@ In the TLM Admin console, configure the AWR profile for the enrollment profile a
 |---|---|---|
 | **Argument 1** | ✅ Yes | Panorama IP address or FQDN (e.g. `panorama.example.com` or `10.0.0.1`) |
 | **Argument 2** | ✅ Yes | Panorama credentials in `username:password` format. Passwords containing colons are handled correctly — only the first colon is used as the delimiter. |
-| **Argument 3** | ⬜ Optional | Certificate name override. If set, the script uses this exact name for the Panorama certificate entry and skips CN-based discovery entirely. If left blank, CN discovery is used (see [Certificate Name Resolution](#-certificate-name-resolution)). |
-| **Argument 4** | ✅ `template` mode | Panorama **Template Name** — the name of the device template the certificate should be imported into. |
-| **Argument 5** | ✅ `template` mode | Panorama **Template Stack Name** — the stack pushed to managed firewalls after the commit. |
+| **Argument 3** | ✅ `template` mode | Panorama **Template Name** — the name of the device template the certificate should be imported into. |
+| **Argument 4** | ✅ `template` mode | Panorama **Template Stack Name** — the stack pushed to managed firewalls after the commit. |
+| **Argument 5** | ⬜ Optional | Certificate name override. If set, the script uses this exact name for the Panorama certificate entry and skips CN-based discovery entirely. If left blank, CN discovery is used (see [Certificate Name Resolution](#-certificate-name-resolution)). |
 
 > **Panorama account permissions:** The credentials supplied in Argument 2 must have sufficient privileges to import certificates, perform a full commit, and (in `template` mode) push a template stack. A role with `Commit`, `Import`, and `Panorama Push` permissions on the relevant templates is sufficient. Device admin or superuser roles also work.
 
@@ -244,7 +244,7 @@ The following variables are set at the top of each script and should be reviewed
 
 ## 🔍 Certificate Name Resolution
 
-When **Argument 3 is not set**, the scripts automatically resolve the Panorama certificate entry name from the certificate's Common Name (CN) using the following logic:
+When **Argument 5 is not set**, the scripts automatically resolve the Panorama certificate entry name from the certificate's Common Name (CN) using the following logic:
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -266,10 +266,10 @@ When **Argument 3 is not set**, the scripts automatically resolve the Panorama c
          │
     2+ matches ──► ❌ ERROR — ambiguous
     Script exits and lists all conflicting
-    entry names. Set Argument 3 to resolve.
+    entry names. Set Argument 5 to resolve.
 ```
 
-If your environment has multiple certificates sharing the same CN (for example, a wildcard renewed multiple times under different names), always set **Argument 3** to the exact Panorama certificate entry name you want to update.
+If your environment has multiple certificates sharing the same CN (for example, a wildcard renewed multiple times under different names), always set **Argument 5** to the exact Panorama certificate entry name you want to update.
 
 ---
 
@@ -342,7 +342,7 @@ Both scripts write a structured timestamped log to the path configured in `LOGFI
 **Symptom:** `ERROR: CN-based discovery found N certificates sharing CN='...'`
 
 - The log lists all conflicting certificate entry names.
-- Set **Argument 3** to the exact Panorama entry name you want to update, then re-trigger the AWR.
+- Set **Argument 5** to the exact Panorama entry name you want to update, then re-trigger the AWR.
 
 ---
 
@@ -351,7 +351,7 @@ Both scripts write a structured timestamped log to the path configured in `LOGFI
 **Symptom:** `No commit job created (may be nothing to commit or already committed).`
 
 - This is a warning, not an error. It typically means there were no pending changes in the candidate configuration at commit time.
-- If the push in Step 6 also fails or produces no job, verify the template and stack names in Arguments 4 and 5 exactly match the names in Panorama (case-sensitive).
+- If the push in Step 6 also fails or produces no job, verify the template and stack names in Arguments 3 and 4 exactly match the names in Panorama (case-sensitive).
 
 ---
 
