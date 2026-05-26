@@ -6,8 +6,8 @@ Two implementations are provided, both functionally equivalent:
 
 | Script | Platform | TLM Agent host |
 | --- | --- | --- |
-| [`radware_alteon.sh`](./radware_alteon.sh) | Linux / macOS | bash 4+ |
-| [`radware_alteon.ps1`](./radware_alteon.ps1) | Windows | PowerShell 5.1+ |
+| [`radware-awr.sh`](./Linux/radware-awr.sh) | Linux / macOS | bash 4+ |
+| [`radware-awr.ps1`](./Windows/radware-awr.ps1) | Windows | PowerShell 5.1+ |
 
 ---
 
