@@ -1,294 +1,291 @@
-# DigiCert TLM Agent — Fortinet AWR Post-Enrollment Scripts
+# DigiCert TLM — Fortinet Certificate Automation Scripts
 
-Automated certificate deployment to Fortinet appliances using DigiCert Trust Lifecycle Manager (TLM) Agent Admin Web Request (AWR) post-enrollment scripts.
+Automated post-enrollment scripts for deploying certificates issued by **DigiCert Trust Lifecycle Manager (TLM)** directly to Fortinet appliances via their REST APIs.
 
-These bash scripts run automatically after the TLM Agent enrolls or renews a certificate, pushing the resulting certificate and private key directly to Fortinet appliances via their REST APIs. Each script handles initial imports, renewals (delete-then-reimport), comprehensive error handling, and detailed logging.
+These scripts are designed to run as **automation scripts** within the DigiCert TLM Agent after a certificate is issued or renewed. They receive certificate data via the `DC1_POST_SCRIPT_DATA` environment variable and handle the full deployment lifecycle for each Fortinet product.
 
 ---
 
 ## Contents
 
-- [Overview](#overview)
-- [Prerequisites](#prerequisites)
-- [How AWR Post-Enrollment Scripts Work](#how-awr-post-enrollment-scripts-work)
-- [FortiGate](#fortigate)
-- [FortiWeb](#fortiweb)
-- [FortiNAC](#fortinac)
-- [Common Configuration](#common-configuration)
-- [Troubleshooting](#troubleshooting)
-- [License](#license)
-
----
-
-## Overview
-
-| Script | Target Appliance | API Used | Auth Method | Key Use Cases |
-|---|---|---|---|---|
-| `fortigate-awr.sh` | FortiGate NGFW | REST API v2 | Bearer Token | VPN certificates, HTTPS admin, SSL inspection |
-| `fortiweb-awr.sh` | FortiWeb WAF | REST API v2.0 | Authorization Token | WAF server certificates, reverse proxy SSL |
-| `fortinac-awr.sh` | FortiNAC | REST API v2 | Bearer Token | RADIUS (EAP), RadSec, Portal, Agent, Admin UI |
-
-All three scripts follow the same general pattern:
-
-1. Decode the `DC1_POST_SCRIPT_DATA` environment variable (base64-encoded JSON) provided by the TLM Agent
-2. Extract certificate files, private key, and user-defined arguments
-3. Check if a certificate with the same name already exists on the target (renewal detection)
-4. Delete the existing certificate if found, then import the new one
-5. Log every step to a configurable log file
+| Script | Target Product | Purpose |
+|--------|---------------|---------|
+| [FortiGATE/fortigate-awr.sh](FortiGATE/fortigate-awr.sh) | Fortinet FortiGate | Import cert + reassign SSL-VPN / Admin / IPsec references |
+| [FortiWEB/fortiweb-awr.sh](FortiWEB/fortiweb-awr.sh) | Fortinet FortiWeb | Upload cert (delete/replace on renewal) |
+| [FortiNAC/fortinac-awr.sh](FortiNAC/fortinac-awr.sh) | Fortinet FortiNAC | Upload cert to RADIUS/RadSec/Portal/Agent/Admin UI + restart service |
 
 ---
 
 ## Prerequisites
 
-- **DigiCert TLM Agent** (v3.1.9+) installed on a Linux host
-- **bash**, **curl**, **base64**, **grep** with PCRE (`-P`) support
-- **openssl** (required by the FortiWeb script for CN extraction)
-- Network connectivity from the TLM Agent host to the target Fortinet appliance
-- An API token / bearer token with appropriate permissions on each appliance
-- A TLM certificate template configured with AWR post-enrollment script and the required arguments
+All scripts require:
+
+- **DigiCert TLM Agent** installed and configured with post-enrollment script execution enabled
+- **Bash** 4.0 or later
+- **curl** installed and accessible in `PATH`
+- **python3** installed (FortiGate and FortiNAC scripts use it for JSON parsing and Base64 encoding)
+- **openssl** CLI (FortiWeb only — used to extract the certificate Common Name)
+- Network access from the TLM Agent host to the Fortinet appliance management interface
+- A valid API token or Bearer token with sufficient permissions on the target appliance
 
 ---
 
-## How AWR Post-Enrollment Scripts Work
+## How It Works — Common Flow
 
-When a TLM certificate template is configured with an AWR post-enrollment script, the TLM Agent executes the script after each successful enrollment or renewal. The agent passes certificate metadata via the `DC1_POST_SCRIPT_DATA` environment variable as a base64-encoded JSON payload containing:
+All three scripts share the same entry point pattern driven by the TLM Agent:
 
-- **`certfolder`** — Path to the directory containing the certificate files
-- **`files`** — Array of filenames (`.crt` and `.key`)
-- **`args`** — Array of user-defined arguments configured in the certificate template (appliance URL, certificate name, API token, etc.)
-
-Each script decodes this payload, extracts the relevant fields, and uses them to drive the API calls.
-
----
-
-## FortiGate
-
-**Script:** `fortigate-awr.sh`
-
-Imports certificates to a FortiGate firewall via the REST API. Supports both initial import and renewal (automatic delete-and-reimport). Imported certificates can be used for HTTPS admin access, SSL VPN, IPsec VPN, SSL/TLS inspection, and any other FortiGate feature that references local certificates.
-
-### FortiGate API Endpoints
-
-| Operation | Method | Endpoint |
-|---|---|---|
-| Check existing cert | `GET` | `/api/v2/cmdb/vpn.certificate/local/{certname}` |
-| Delete existing cert | `DELETE` | `/api/v2/cmdb/vpn.certificate/local/{certname}` |
-| Import certificate | `POST` | `/api/v2/monitor/vpn-certificate/local/import` |
-
-### FortiGate Template Arguments
-
-Configure these in the TLM certificate template AWR arguments:
-
-| Argument | Description | Example |
-|---|---|---|
-| Argument 1 | FortiGate hostname or IP (without `https://`) | `fortigate.example.com` |
-| Argument 2 | Certificate name on FortiGate | `web-server-cert` |
-| Argument 3 | API Bearer Token | `your-api-token` |
-
-### FortiGate Configuration
-
-Edit the script header:
-
-```bash
-LEGAL_NOTICE_ACCEPT="true"   # Must be set to "true" to run
-LOGFILE="/opt/digicert/tlm_agent_3.1.9_linux64/log/fortigate.log"
+```
+DigiCert TLM issues/renews certificate
+        │
+        ▼
+TLM Agent writes cert + key files to disk
+        │
+        ▼
+TLM Agent sets DC1_POST_SCRIPT_DATA (base64-encoded JSON payload)
+        │
+        ▼
+TLM Agent executes the AWR script
+        │
+        ▼
+Script decodes DC1_POST_SCRIPT_DATA → extracts file paths, args
+        │
+        ▼
+Script calls Fortinet REST API to deploy certificate
+        │
+        ▼
+Script logs result to LOGFILE
 ```
 
-### FortiGate — Generating an API Token
+The `DC1_POST_SCRIPT_DATA` variable contains a Base64-encoded JSON object with the following structure:
 
-1. Navigate to **System → Administrators** and create a new REST API Admin
-2. Assign an admin profile with read/write access to **VPN → Certificate**
-3. Optionally restrict trusted hosts to the TLM Agent IP
-4. Copy the generated API token — this is your **Argument 3**
+```json
+{
+  "certfolder": "/path/to/cert/directory",
+  "files": ["certificate.crt", "private.key"],
+  "args": ["arg1", "arg2", "arg3", "..."]
+}
+```
 
-### FortiGate — Renewal Behaviour
-
-On renewal, the script checks whether a certificate with the configured name already exists:
-
-- **Exists (HTTP 200):** Deletes the existing certificate, waits 2 seconds, then imports the new one
-- **Does not exist (HTTP 404):** Proceeds directly with import
-- **In use (HTTP 424 on delete):** Exits with an error — the certificate is bound to a FortiGate object (e.g., HTTPS admin, VPN) and cannot be replaced via delete. Unbind it first or use a different certificate name
+**All scripts must have `LEGAL_NOTICE_ACCEPT` set to `"true"` inside the script before they will execute.**
 
 ---
 
-## FortiWeb
+## FortiGate (`fortigate-awr.sh`)
 
-**Script:** `fortiweb-awr.sh`
+### Overview
 
-Imports certificates to a FortiWeb Web Application Firewall via the REST API on port 8443. Automatically detects renewals by extracting the Common Name (CN) from the certificate using `openssl` and checking the existing certificate list on the appliance. Uploaded certificates can be bound to server policies for WAF-protected web applications.
+Imports a certificate into FortiGate and optionally reassigns all existing references to the old certificate (SSL-VPN, Admin HTTPS, IPsec Phase1) to the newly imported one. Supports automatic cleanup of old certificates after reassignment.
 
-### FortiWeb API Endpoints
+### Script Configuration
 
-| Operation | Method | Endpoint |
-|---|---|---|
-| List certificates | `GET` | `/api/v2.0/system/certificate.local` |
-| Delete existing cert | `DELETE` | `/api/v2.0/cmdb/system/certificate.local?mkey={cn}` |
-| Import certificate | `POST` | `/api/v2.0/system/certificate.local.import_certificate` |
+Edit these variables at the top of the script before deploying:
 
-### FortiWeb Template Arguments
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LEGAL_NOTICE_ACCEPT` | `"false"` | Must be set to `"true"` to allow execution |
+| `LOGFILE` | `/opt/digicert/fortigate.log` | Path to the script log file |
 
-| Argument | Description | Example |
-|---|---|---|
-| Argument 1 | FortiWeb hostname or IP (without `https://`) | `fortiweb.example.com` |
-| Argument 2 | Authorization Token | `your-auth-token` |
+### Arguments (passed via `DC1_POST_SCRIPT_DATA` `args` array)
 
-### FortiWeb Configuration
+| Position | Variable | Required | Description |
+|----------|----------|----------|-------------|
+| 1 | `FORTIGATE_URL` | Yes | FortiGate hostname or IP (no `https://` prefix) |
+| 2 | `CERT_BASE_NAME` | Yes | Base name used to identify the certificate. New certs are named `<base>-YYYYMMDD-HHmmss` |
+| 3 | `BEARER_TOKEN` | Yes | FortiGate API Bearer token |
+| 4 | `DELETE_MODE` | No | `delete_old` — delete previously matched certs after reassignment. `keep_old` (default) — leave old certs in place |
+| 5 | `ASSIGN_MODE` | No | `assign_refs` (default) — reassign all references to the new cert. `import_only` — only import, skip reassignment |
 
-```bash
-LEGAL_NOTICE_ACCEPT="true"
-LOGFILE="/opt/digicert/tlm_agent_3.1.9_linux64/log/fortiweb.log"
+### Flow
+
+```
+1. Validate legal notice acceptance and DC1_POST_SCRIPT_DATA
+2. Decode JSON, extract file paths and arguments
+3. Base64-encode cert + key → POST to /api/v2/monitor/vpn-certificate/local/import
+4. If ASSIGN_MODE = assign_refs:
+   a. GET SSL-VPN settings → if referencing old cert, PUT new cert name
+   b. GET system/global (admin-server-cert) → if referencing old cert, PUT new cert name
+   c. GET system/global (admin-server-certname) → if referencing old cert, PUT new cert name
+   d. GET vpn.ipsec/phase1-interface → for each entry referencing old cert, PUT new cert name
+   e. GET vpn.ipsec/phase1 → for each entry referencing old cert, PUT new cert name
+5. If DELETE_MODE = delete_old: DELETE all previously matched old cert names
+6. Log summary and exit
 ```
 
-### FortiWeb — Renewal Behaviour
+### FortiGate API Permissions Required
 
-FortiWeb names imported certificates based on the CN in the certificate. The script:
+The API token must have read/write access to:
+- `vpn.certificate/local` (import, delete)
+- `vpn.ssl/settings` (read, write)
+- `system/global` (read, write)
+- `vpn.ipsec/phase1-interface` (read, write)
+- `vpn.ipsec/phase1` (read, write)
 
-1. Extracts the CN from the new certificate using `openssl x509 -noout -subject`
-2. Lists all certificates on the FortiWeb and searches for a matching name
-3. If found, deletes the existing certificate via the CMDB endpoint, waits 2 seconds, then uploads the new one
-4. If not found, proceeds directly with import
+### Log File
 
-### FortiWeb — Important Notes
-
-- FortiWeb uses port **8443** for API access (not the standard 443)
-- Certificate names on FortiWeb are derived from the CN — dots in the CN (e.g., `tls.guru`) can cause issues with direct GET-by-name, which is why the script lists all certificates and searches the response
-- Certificates bound to an active server policy may fail to delete — unbind them first if you encounter errors
+`/opt/digicert/fortigate.log`
 
 ---
 
-## FortiNAC
+## FortiWeb (`fortiweb-awr.sh`)
 
-**Script:** `fortinac-awr.sh`
+### Overview
 
-The most feature-rich of the three scripts. Manages certificates for FortiNAC's multiple service types via the REST API on port 8443. Supports uploading to existing certificate targets or creating new RADIUS targets via CSR generation, with optional automatic service restart after upload.
+Uploads a certificate and private key to FortiWeb using its REST API. On renewal, it detects an existing certificate by Common Name, deletes it, then uploads the new one. After a successful upload, it performs a verification GET to confirm the certificate appears in the FortiWeb certificate list.
 
-### FortiNAC Supported Certificate Types
+### Script Configuration
 
-| `CERT_TYPE` | Service | Default Alias | Description |
-|---|---|---|---|
-| `RADIUS` | Local RADIUS Server (EAP) | `radius` | 802.1X EAP authentication |
-| `RADSEC` | Local RADIUS Server (RadSec) | `radsec` | TLS-secured RADIUS transport |
-| `PORTAL` | Portal | `portal` | Captive portal / guest access |
-| `AGENT` | Persistent Agent | `agent` | Endpoint agent communication |
-| `TOMCAT` | Admin UI | `tomcat` | FortiNAC management web interface |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LEGAL_NOTICE_ACCEPT` | `"false"` | Must be set to `"true"` to allow execution |
+| `LOGFILE` | `/opt/digicert/tlm_agent_3.1.9_linux64/log/fortiweb.log` | Path to the script log file |
 
-### FortiNAC API Endpoints
+### Arguments (passed via `DC1_POST_SCRIPT_DATA` `args` array)
 
-| Operation | Method | Endpoint |
-|---|---|---|
-| Generate CSR / create target | `POST` | `/api/v2/settings/security/certificate-server/csr/generate` |
-| Upload cert + key | `POST` | `/api/v2/settings/security/certificate-server/{target}` |
-| Restart service | `POST` | `/api/v2/settings/security/certificate-server/restart` |
+| Position | Variable | Required | Description |
+|----------|----------|----------|-------------|
+| 1 | `FORTIWEB_URL` | Yes | FortiWeb hostname or IP (no `https://` prefix; port 8443 is appended automatically) |
+| 2 | `AUTH_TOKEN` | Yes | FortiWeb authorization token |
 
-### FortiNAC Template Arguments
+### Flow
 
-| Argument | Description | Example |
-|---|---|---|
-| Argument 1 | FortiNAC hostname or IP (without `https://`) | `fortinac.example.com` |
-| Argument 2 | API Bearer Token | `your-bearer-token` |
-
-### FortiNAC Configuration
-
-The script has a detailed configuration section at the top:
-
-```bash
-LEGAL_NOTICE_ACCEPT="true"
-LOGFILE="/home/ubuntu/fortinac.log"
-
-# Certificate type: RADIUS | RADSEC | PORTAL | AGENT | TOMCAT
-CERT_TYPE="RADIUS"
-
-# Target configuration
-USE_EXISTING_TARGET="true"       # "true" to use existing, "false" to create new (RADIUS only)
-EXISTING_TARGET_ALIAS="default"  # Used when USE_EXISTING_TARGET="true"
-NEW_TARGET_ALIAS="custom_alias"  # Used when USE_EXISTING_TARGET="false"
-
-# Restart the relevant service after upload
-RESTART_SERVICE="true"
-
-# CSR parameters (only used when creating a new target)
-CSR_KEY_LENGTH="2048"
-CSR_COUNTRY="US"
-CSR_STATE="Utah"
-CSR_CITY="Lehi"
-CSR_ORG="DigiCert"
-CSR_OU="Product"
-CSR_CN="fortinac-temporary-csr"
+```
+1. Validate legal notice acceptance and DC1_POST_SCRIPT_DATA
+2. Decode JSON, extract file paths and arguments
+3. Extract the certificate Common Name using openssl
+4. GET /api/v2.0/system/certificate.local → check if CN already exists (renewal detection)
+5. If cert exists:
+   a. DELETE /api/v2.0/cmdb/system/certificate.local?mkey=<CN>
+   b. Wait 2 seconds for FortiWeb to process deletion
+6. POST /api/v2.0/system/certificate.local.import_certificate (multipart/form-data)
+   - certificateFile = .crt file
+   - keyFile = .key file
+   - type = certificate
+7. GET /api/v2.0/system/certificate.local → verify certificate appears in list
+8. Log result and exit
 ```
 
-### FortiNAC — Target Modes
+### FortiWeb API Permissions Required
 
-**Using an existing target** (`USE_EXISTING_TARGET="true"`):
+The API token must have read/write access to the certificate management endpoints on port **8443**:
+- `GET /api/v2.0/system/certificate.local`
+- `POST /api/v2.0/system/certificate.local.import_certificate`
+- `DELETE /api/v2.0/cmdb/system/certificate.local`
 
-- Set `EXISTING_TARGET_ALIAS` to `"default"` to use the factory-default target for the chosen `CERT_TYPE`
-- Set it to a custom alias name (e.g., `"my_radius"`) for custom RADIUS targets previously created via CSR
+### Notes
 
-**Creating a new RADIUS target** (`USE_EXISTING_TARGET="false"`):
+- FortiWeb names certificates based on the certificate **Common Name (CN)**. The script extracts this automatically using `openssl x509`.
+- If the CN cannot be extracted, the deletion-before-reimport step is skipped and the upload proceeds directly (may fail if the certificate already exists).
+- If an existing certificate is in use by a FortiWeb server policy, deletion will fail with HTTP 200 error body. The certificate must be unassigned before renewal can proceed.
 
-- Only supported when `CERT_TYPE="RADIUS"` — the FortiNAC CSR API exclusively creates Local RADIUS Server (EAP) targets
-- The script generates a CSR on FortiNAC (creating the target), then immediately uploads the TLM-issued certificate and key to replace the CSR-generated placeholder
-- `NEW_TARGET_ALIAS` must contain only alphanumeric characters and underscores
+### Log File
 
-### FortiNAC — Workflow
-
-1. **Target creation** (optional) — If `USE_EXISTING_TARGET="false"`, generates a CSR on FortiNAC to create a new RADIUS target
-2. **Certificate upload** — Uploads the certificate and private key to the target via multipart form POST
-3. **Service restart** (optional) — If `RESTART_SERVICE="true"`, restarts the relevant service to apply the new certificate
+`/opt/digicert/tlm_agent_3.1.9_linux64/log/fortiweb.log`
 
 ---
 
-## Common Configuration
+## FortiNAC (`fortinac-awr.sh`)
 
-### Legal Notice Acceptance
+### Overview
 
-All scripts contain a DigiCert legal notice. You must explicitly accept it by setting the following in each script before first use:
+Manages certificate deployment to FortiNAC services including RADIUS (EAP), RadSec, Portal, Persistent Agent, and Admin UI. Supports using pre-existing certificate targets or creating a new RADIUS target via CSR generation. Optionally restarts the target service after upload.
 
-```bash
-LEGAL_NOTICE_ACCEPT="true"
+### Script Configuration
+
+This script has an extended configuration section. Edit these variables before deploying:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LEGAL_NOTICE_ACCEPT` | `"false"` | Must be set to `"true"` to allow execution |
+| `LOGFILE` | `/home/ubuntu/fortinac.log` | Path to the script log file |
+| `CERT_TYPE` | `"RADSEC"` | The FortiNAC service to update. Valid: `RADIUS`, `RADSEC`, `PORTAL`, `AGENT`, `TOMCAT` |
+| `USE_EXISTING_TARGET` | `"true"` | `"true"` to upload to a pre-existing target. `"false"` to create a new RADIUS target via CSR (only valid for `CERT_TYPE=RADIUS`) |
+| `EXISTING_TARGET_ALIAS` | `"default"` | Alias of the existing target. Use `"default"` for the factory-default service target, or a custom alias name |
+| `NEW_TARGET_ALIAS` | `"custom_alias"` | Alias for a new RADIUS target (only used when `USE_EXISTING_TARGET="false"`, must be alphanumeric + underscores only) |
+| `RESTART_SERVICE` | `"true"` | `"true"` to restart the FortiNAC service after certificate upload |
+
+#### CSR Generation Parameters (only when creating a new target)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CSR_KEY_LENGTH` | `2048` | RSA key length for CSR |
+| `CSR_COUNTRY` | `"US"` | Country code |
+| `CSR_STATE` | `"Utah"` | State |
+| `CSR_CITY` | `"Lehi"` | City |
+| `CSR_ORG` | `"DigiCert"` | Organization |
+| `CSR_OU` | `"Product"` | Organizational Unit |
+| `CSR_CN` | `"fortinac-temporary-csr"` | Common Name (temporary, will be replaced by the TLM-issued cert) |
+
+### Arguments (passed via `DC1_POST_SCRIPT_DATA` `args` array)
+
+| Position | Variable | Required | Description |
+|----------|----------|----------|-------------|
+| 1 | `FORTINAC_HOST` | Yes | FortiNAC hostname or IP (port 8443 is appended automatically) |
+| 2 | `BEARER_TOKEN` | Yes | FortiNAC API Bearer token |
+
+### CERT_TYPE to FortiNAC Service Mapping
+
+| `CERT_TYPE` | FortiNAC Service Name | Default Alias |
+|-------------|----------------------|---------------|
+| `RADIUS` | Local RADIUS Server (EAP) | `radius` |
+| `RADSEC` | Local RADIUS Server (RadSec) | `radsec` |
+| `PORTAL` | Portal | `portal` |
+| `AGENT` | Persistent Agent | `agent` |
+| `TOMCAT` | Admin UI | `tomcat` |
+
+### Flow
+
+```
+1. Validate legal notice, CERT_TYPE, alias format, and DC1_POST_SCRIPT_DATA
+2. Decode JSON, extract file paths and arguments
+3. Step 1 — Target preparation:
+   a. If USE_EXISTING_TARGET="false" (RADIUS only):
+      POST /api/v2/settings/security/certificate-server/csr/generate
+      (creates a new RADIUS EAP target with the given alias)
+   b. If USE_EXISTING_TARGET="true": skip CSR generation
+4. Step 2 — Certificate upload:
+   POST /api/v2/settings/security/certificate-server/<target-path>
+   Multipart form fields: targetType, privateKeyType, certOwnerType, appliedTo, certs, privateKey
+5. Step 3 — Service restart (if RESTART_SERVICE="true"):
+   POST /api/v2/settings/security/certificate-server/restart
+   with target=<target-path>
+6. Log summary and exit
 ```
 
-The scripts will exit immediately if this is not set.
+### FortiNAC API Permissions Required
 
-### Log File Location
+The API token must have access on port **8443** to:
+- `POST /api/v2/settings/security/certificate-server/csr/generate` (only if creating new targets)
+- `POST /api/v2/settings/security/certificate-server/<target>` (certificate upload)
+- `POST /api/v2/settings/security/certificate-server/restart` (service restart)
 
-Each script writes detailed timestamped logs. Configure the path via the `LOGFILE` variable. Ensure the TLM Agent user has write permissions to the log directory.
+### Important Constraints
 
-### TLS Verification
+- Creating new targets (`USE_EXISTING_TARGET="false"`) is **only supported for `CERT_TYPE=RADIUS`**. All other service types (RADSEC, PORTAL, AGENT, TOMCAT) must use existing targets.
+- Target aliases may only contain **alphanumeric characters and underscores** (`_`). No hyphens, spaces, or dots are allowed.
+- Using alias `"default"` maps to the known factory-default target name for the selected service type.
 
-All scripts use `curl -k` to skip TLS certificate verification when connecting to the Fortinet appliances. This is typical in environments where the appliances use self-signed certificates. If your appliances have trusted certificates, you can remove the `-k` flag and optionally specify a CA bundle with `--cacert`.
+### Log File
 
-### Key Type Support
-
-All scripts support RSA, ECC, and PKCS#8 private keys. The key type is auto-detected from the PEM header and logged for debugging purposes.
+`/home/ubuntu/fortinac.log`
 
 ---
 
-## Troubleshooting
+## Common Troubleshooting
 
-| Symptom | Likely Cause | Resolution |
-|---|---|---|
-| Script exits with "Legal notice not accepted" | `LEGAL_NOTICE_ACCEPT` is not `"true"` | Set `LEGAL_NOTICE_ACCEPT="true"` in the script |
-| `DC1_POST_SCRIPT_DATA` not set | Script not being executed by TLM Agent | Verify the script is configured as an AWR post-enrollment script in the certificate template |
-| HTTP 401 Unauthorized | Invalid or expired API token | Regenerate the API token on the appliance |
-| HTTP 403 Forbidden | Token lacks required permissions | Check the admin profile / API permissions |
-| HTTP 424 (FortiGate) | Certificate is bound to a configuration object | Unbind the certificate before renewal, or use a different name |
-| Delete fails on FortiWeb | Certificate bound to a server policy | Unbind from the server policy before renewal |
-| FortiNAC target creation fails | Using `USE_EXISTING_TARGET="false"` with non-RADIUS type | Only `CERT_TYPE="RADIUS"` supports new target creation |
-| Connection refused | Wrong hostname, port, or network issue | Verify connectivity from the TLM Agent host to the appliance |
-| Alias validation error (FortiNAC) | Special characters in alias | Use only alphanumeric characters and underscores |
-
-### Reading the Logs
-
-All scripts produce detailed logs. To follow a script execution in real time:
-
-```bash
-tail -f /opt/digicert/tlm_agent_3.1.9_linux64/log/fortigate.log
-tail -f /opt/digicert/tlm_agent_3.1.9_linux64/log/fortiweb.log
-tail -f /home/ubuntu/fortinac.log
-```
+| Symptom | Likely Cause |
+|---------|-------------|
+| Script exits immediately with "Legal notice not accepted" | `LEGAL_NOTICE_ACCEPT` is still `"false"` in the script |
+| `DC1_POST_SCRIPT_DATA environment variable is not set` | Script was not triggered via the TLM Agent post-enrollment hook |
+| HTTP 401 | API token is incorrect or expired |
+| HTTP 403 | API token lacks required permissions |
+| HTTP 404 | Appliance URL is wrong or API path has changed |
+| Certificate file not found | TLM Agent did not write the cert files before the script ran, or `certfolder` path is incorrect |
+| FortiWeb delete fails with error body | The certificate is currently assigned to a server policy — unassign it first |
+| FortiNAC: alias validation error | Alias contains disallowed characters (use only `[a-zA-Z0-9_]`) |
+| FortiNAC: "only supported for CERT_TYPE=RADIUS" | Attempted to create new target for a non-RADIUS service type |
 
 ---
 
 ## License
 
-Copyright © 2026 DigiCert, Inc. All rights reserved. These scripts are provided under the terms of the DigiCert software license. See the legal notice within each script for full details.
+Copyright © 2026 DigiCert, Inc. All rights reserved. See the legal notice embedded in each script for full terms.
