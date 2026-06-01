@@ -182,8 +182,7 @@ Write-Log "DC1_POST_SCRIPT_DATA is set (length: $($EnvData.Length) characters)"
 $JsonBytes  = [System.Convert]::FromBase64String($EnvData)
 $JsonString = [System.Text.Encoding]::UTF8.GetString($JsonBytes)
 Write-Log 'JSON decoded successfully.'
-Write-Log 'Raw JSON content:'
-Write-Log $JsonString
+Write-Log 'Raw JSON content not logged because it contains credentials.'
 
 $JsonObj = $JsonString | ConvertFrom-Json
 Write-Log 'JSON parsed successfully.'

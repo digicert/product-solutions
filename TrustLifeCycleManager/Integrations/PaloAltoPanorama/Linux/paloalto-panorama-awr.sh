@@ -167,14 +167,13 @@ fi
 CERT_INFO="${DC1_POST_SCRIPT_DATA}"
 JSON_STRING=$(echo "$CERT_INFO" | base64 -d)
 log_message "JSON decoded successfully."
-log_message "Raw JSON content:"
-log_message "$JSON_STRING"
+log_message "Raw JSON content not logged because it contains credentials."
 
 # --- Extract arguments from JSON ---------------------------------------------
 log_message "Extracting arguments from JSON..."
 
 ARGS_ARRAY=$(echo "$JSON_STRING" | grep -oP '"args":\[\K[^]]*')
-log_message "Raw args array: $ARGS_ARRAY"
+log_message "Raw args array not logged because Argument 2 contains credentials."
 
 # Argument 1 — Panorama IP / FQDN
 PANORAMA_IP=$(echo "$ARGS_ARRAY" | awk -F',' '{print $1}' | tr -d '"' | tr -d '[:space:]')
@@ -357,8 +356,15 @@ wait_for_job() {
 }
 
 # --- Step 1: Authenticate to Panorama (get API key) --------------------------
+# Credentials go in the POST body, not the query string, so the password
+# doesn't leak into Panorama's web access logs.
 log_message "[1] Authenticating to Panorama ($PANORAMA_IP)..."
-API_KEY_RESPONSE=$(curl -sk "https://${PANORAMA_IP}/api/?type=keygen&user=${PANORAMA_USER}&password=${PANORAMA_PASS}")
+API_KEY_RESPONSE=$(curl -sk \
+    --request POST \
+    --data-urlencode "type=keygen" \
+    --data-urlencode "user=${PANORAMA_USER}" \
+    --data-urlencode "password=${PANORAMA_PASS}" \
+    "https://${PANORAMA_IP}/api/")
 
 API_KEY=$(echo "$API_KEY_RESPONSE" | grep -oP '(?<=<key>)[^<]*') || true
 
