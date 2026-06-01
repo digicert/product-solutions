@@ -369,6 +369,18 @@ $headers = @{
     'Authorization' = "Basic $authToken"
 }
 
+# Set TLS protocol for outbound HTTPS to the Alteon.
+# Prefer TLS 1.2 + TLS 1.3; fall back to TLS 1.2 only if the TLS 1.3 enum
+# is not available on this host (older Windows / .NET Framework).
+try {
+    [System.Net.ServicePointManager]::SecurityProtocol = `
+        [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls13
+    Write-LogMessage "TLS protocol set to TLS 1.2 + TLS 1.3"
+} catch {
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+    Write-LogMessage "TLS 1.3 unavailable on this host; falling back to TLS 1.2 only"
+}
+
 # Scoped SSL validation bypass — restore original callback after use
 $originalCallback = [System.Net.ServicePointManager]::ServerCertificateValidationCallback
 
