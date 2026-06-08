@@ -48,7 +48,9 @@ $LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\f5_data.log"
 
 # BIG-IP SSL Profile Update Configuration
 $UPDATE_SERVER_SSL_PROFILE = "true"  # Set to "true" to enable Server SSL profile update
+$SERVER_SSL_PROFILE_NAME = "serverssl"  # SSL Server Profile name - only used if UPDATE_SERVER_SSL_PROFILE="true"
 $UPDATE_CLIENT_SSL_PROFILE = "true"  # Set to "true" to enable Client SSL profile update
+$CLIENT_SSL_PROFILE_NAME = "clientssl"  # SSL Client Profile name - only used if UPDATE_CLIENT_SSL_PROFILE="true"
 
 # ============================================================================
 # CUSTOM SCRIPT SECTION - BIG-IP F5 API INTEGRATION
@@ -58,8 +60,6 @@ $UPDATE_CLIENT_SSL_PROFILE = "true"  # Set to "true" to enable Client SSL profil
 # $ARGUMENT_1 - Username:Password (e.g., admin:Tra1ning123!)
 # $ARGUMENT_2 - BIG-IP IP address or hostname (e.g., ec2-18-117-237-17.us-east-2.compute.amazonaws.com:8443)
 # $ARGUMENT_3 - Certificate Name (e.g., ssl-server.com)
-# $ARGUMENT_4 - SSL Server Profile name (e.g., serverssl) - only used if UPDATE_SERVER_SSL_PROFILE="true"
-# $ARGUMENT_5 - SSL Client Profile name (e.g., clientssl) - only used if UPDATE_CLIENT_SSL_PROFILE="true"
 #
 # ============================================================================
 
@@ -165,8 +165,6 @@ Write-LogMessage "Args array count: $($ARGS_ARRAY.Count)"
 $ARGUMENT_1 = ""
 $ARGUMENT_2 = ""
 $ARGUMENT_3 = ""
-$ARGUMENT_4 = ""
-$ARGUMENT_5 = ""
 
 # Initialize parsed credentials
 $BIGIP_USER = ""
@@ -206,19 +204,6 @@ if ($ARGS_ARRAY -and $ARGS_ARRAY.Count -gt 0) {
         Write-LogMessage "ARGUMENT_3 length: $($ARGUMENT_3.Length)"
     }
     
-    # Extract Argument_4 - fourth argument (Server SSL Profile)
-    if ($ARGS_ARRAY.Count -ge 4) {
-        $ARGUMENT_4 = $ARGS_ARRAY[3].Trim()
-        Write-LogMessage "ARGUMENT_4 extracted: '$ARGUMENT_4'"
-        Write-LogMessage "ARGUMENT_4 length: $($ARGUMENT_4.Length)"
-    }
-    
-    # Extract Argument_5 - fifth argument (Client SSL Profile)
-    if ($ARGS_ARRAY.Count -ge 5) {
-        $ARGUMENT_5 = $ARGS_ARRAY[4].Trim()
-        Write-LogMessage "ARGUMENT_5 extracted: '$ARGUMENT_5'"
-        Write-LogMessage "ARGUMENT_5 length: $($ARGUMENT_5.Length)"
-    }
 }
 
 # Extract cert folder
@@ -249,8 +234,6 @@ Write-LogMessage "Arguments extracted:"
 Write-LogMessage "  Argument 1 (User:Pass): ********:********"
 Write-LogMessage "  Argument 2 (BIG-IP Host): $ARGUMENT_2"
 Write-LogMessage "  Argument 3 (Cert Name): $ARGUMENT_3"
-Write-LogMessage "  Argument 4 (Server SSL Profile): $ARGUMENT_4"
-Write-LogMessage "  Argument 5 (Client SSL Profile): $ARGUMENT_5"
 Write-LogMessage ""
 Write-LogMessage "Parsed credentials:"
 Write-LogMessage "  Username: $BIGIP_USER"
@@ -316,8 +299,8 @@ Write-LogMessage "=========================================="
 # Set variables from arguments
 $BIGIP_HOST = $ARGUMENT_2
 $CERT_NAME = $ARGUMENT_3
-$SERVER_SSL_PROFILE = $ARGUMENT_4
-$CLIENT_SSL_PROFILE = $ARGUMENT_5
+$SERVER_SSL_PROFILE = $SERVER_SSL_PROFILE_NAME
+$CLIENT_SSL_PROFILE = $CLIENT_SSL_PROFILE_NAME
 
 # Validate required arguments
 if ([string]::IsNullOrEmpty($BIGIP_USER) -or [string]::IsNullOrEmpty($BIGIP_PASS) -or 
@@ -468,7 +451,7 @@ else {
         # Step 5: Update Server SSL Profile (if enabled)
         if ($UPDATE_SERVER_SSL_PROFILE -eq "true") {
             if ([string]::IsNullOrEmpty($SERVER_SSL_PROFILE)) {
-                Write-LogMessage "WARNING: UPDATE_SERVER_SSL_PROFILE is true but SERVER_SSL_PROFILE (Argument 4) is not set"
+                Write-LogMessage "WARNING: UPDATE_SERVER_SSL_PROFILE is true but SERVER_SSL_PROFILE_NAME is not set in configuration"
                 Write-LogMessage "Skipping Server SSL profile update"
             }
             else {
@@ -500,7 +483,7 @@ else {
         # Step 6: Update Client SSL Profile (if enabled)
         if ($UPDATE_CLIENT_SSL_PROFILE -eq "true") {
             if ([string]::IsNullOrEmpty($CLIENT_SSL_PROFILE)) {
-                Write-LogMessage "WARNING: UPDATE_CLIENT_SSL_PROFILE is true but CLIENT_SSL_PROFILE (Argument 5) is not set"
+                Write-LogMessage "WARNING: UPDATE_CLIENT_SSL_PROFILE is true but CLIENT_SSL_PROFILE_NAME is not set in configuration"
                 Write-LogMessage "Skipping Client SSL profile update"
             }
             else {

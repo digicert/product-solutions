@@ -43,22 +43,26 @@ LEGAL_NOTICE_ACCEPT="true"
 # Log file location
 LOGFILE="/path/to/tlm_agent/log/f5_data.log"
 
-# Enable/disable profile updates
+# Enable/disable profile updates and set the profile names
 UPDATE_SERVER_SSL_PROFILE="true"
+SERVER_SSL_PROFILE_NAME="serverssl"   # Name of the Server SSL profile to update
 UPDATE_CLIENT_SSL_PROFILE="true"
+CLIENT_SSL_PROFILE_NAME="clientssl"   # Name of the Client SSL profile to update
 ```
+
+`SERVER_SSL_PROFILE_NAME` is only used when `UPDATE_SERVER_SSL_PROFILE="true"`, and `CLIENT_SSL_PROFILE_NAME` is only used when `UPDATE_CLIENT_SSL_PROFILE="true"`. Set each profile name to match the exact profile name configured on your BIG-IP appliance.
 
 ### AWR Arguments
 
-The scripts receive five arguments via the TLM Agent AWR configuration, passed through the `DC1_POST_SCRIPT_DATA` environment variable as a Base64-encoded JSON payload:
+The scripts receive three arguments via the TLM Agent AWR configuration, passed through the `DC1_POST_SCRIPT_DATA` environment variable as a Base64-encoded JSON payload:
 
 | Argument | Description | Example | Required |
 |----------|-------------|---------|----------|
 | `Argument 1` | BIG-IP credentials (`user:pass`) | `admin:P@ssw0rd` | Yes |
 | `Argument 2` | BIG-IP hostname or IP (with optional port) | `bigip.example.com:8443` | Yes |
 | `Argument 3` | Certificate object name on BIG-IP | `www.example.com` | Yes |
-| `Argument 4` | Server SSL profile name | `my_serverssl` | If Server SSL enabled |
-| `Argument 5` | Client SSL profile name | `my_clientssl` | If Client SSL enabled |
+
+> **Note:** SSL profile names are no longer passed as AWR arguments. Configure `SERVER_SSL_PROFILE_NAME` and `CLIENT_SSL_PROFILE_NAME` directly in the script instead.
 
 ## How It Works
 
@@ -165,6 +169,7 @@ The scripts detect and log the private key type:
 | `DC1_POST_SCRIPT_DATA` not set | Script not invoked by TLM Agent AWR | Verify the post-enrollment script path in TLM Agent config |
 | Upload succeeds but install fails | Certificate name conflict on BIG-IP | Check if a cert with that name already exists on the appliance |
 | Client SSL update fails | No existing `cert-key-chain` entry | Ensure the Client SSL profile has at least one cert-key-chain entry configured |
+| Server/Client SSL update skipped with warning | Profile name not configured | Set `SERVER_SSL_PROFILE_NAME` / `CLIENT_SSL_PROFILE_NAME` in the script |
 | HTTP 401 on API calls | Invalid credentials | Verify `Argument 1` format is `username:password` |
 | Connection refused | Wrong host/port | Confirm `Argument 2` includes the correct management port |
 
