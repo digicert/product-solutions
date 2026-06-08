@@ -314,6 +314,22 @@ VS_IP="$ARGUMENT_2"
 VS_PORT="$ARGUMENT_3"
 CERT_NAME="$ARGUMENT_4"
 
+# Parse credentials and clean base URL from ARGUMENT_1.
+# Using -u user:pass instead of embedding credentials in the URL avoids two
+# failure modes: (1) curl stripping credentials on redirects even without
+# --location-trusted, and (2) special characters in the password breaking
+# URL parsing before curl ever sees the request.
+if echo "$BASE_URL" | grep -q '://[^@]*:[^@]*@'; then
+    CREDS=$(echo "$BASE_URL" | sed 's|[^:]*://\([^@]*\)@.*|\1|')
+    HOST_AND_PATH=$(echo "$BASE_URL" | sed 's|[^:]*://[^@]*@\(.*\)|\1|')
+    SCHEME=$(echo "$BASE_URL" | sed 's|\([^:]*\)://.*|\1|')
+    BASE_URL_CLEAN="${SCHEME}://${HOST_AND_PATH}"
+else
+    log_message "WARNING: No credentials found in ARGUMENT_1; attempting unauthenticated requests."
+    CREDS=""
+    BASE_URL_CLEAN="$BASE_URL"
+fi
+
 log_message "Kemp target:"
 log_message "  Base URL: $(obfuscate_url "$BASE_URL")"
 log_message "  VS: $VS_IP:$VS_PORT (tcp)"
@@ -339,10 +355,13 @@ fi
 # trap 'rm -f "$COMBINED_PEM_PATH"' EXIT
 
 # Step 2: Check if certificate already exists on LoadMaster
-LISTCERT_URL="${BASE_URL}/access/listcert"
-log_message "Checking certificate existence via: $(obfuscate_url "$LISTCERT_URL")"
+LISTCERT_URL="${BASE_URL_CLEAN}/access/listcert"
+log_message "Checking certificate existence via: $(obfuscate_url "${BASE_URL}/access/listcert")"
 
-LIST_RESPONSE=$(curl -k --location --silent --show-error "$LISTCERT_URL" --write-out "\nHTTP_STATUS:%{http_code}" 2>&1 || true)
+LIST_RESPONSE=$(curl -k --location --silent --show-error \
+    ${CREDS:+-u "$CREDS"} \
+    "$LISTCERT_URL" \
+    --write-out "\nHTTP_STATUS:%{http_code}" 2>&1 || true)
 LIST_STATUS=$(echo "$LIST_RESPONSE" | sed -n 's/^HTTP_STATUS://p')
 LIST_BODY=$(echo "$LIST_RESPONSE" | sed '/HTTP_STATUS:/d')
 
@@ -363,7 +382,7 @@ fi
 log_message "Certificate '$CERT_NAME' exists on LoadMaster? $CERT_EXISTS"
 
 # Step 3: Upload or overwrite the certificate
-UPLOAD_URL="${BASE_URL}/access/addcert?cert=${CERT_NAME}"
+UPLOAD_URL="${BASE_URL_CLEAN}/access/addcert?cert=${CERT_NAME}"
 if [ "$CERT_EXISTS" = "true" ]; then
     UPLOAD_URL="${UPLOAD_URL}&replace=1"
     log_message "Certificate exists; will POST with replace=1"
@@ -371,8 +390,9 @@ else
     log_message "Certificate not found; will POST without replace=1"
 fi
 
-log_message "Uploading PEM to: $(obfuscate_url "$UPLOAD_URL")"
+log_message "Uploading PEM to: $(obfuscate_url "${BASE_URL}/access/addcert?cert=${CERT_NAME}")"
 UPLOAD_RESPONSE=$(curl -k --location --silent --show-error \
+    ${CREDS:+-u "$CREDS"} \
     --header 'Content-Type: application/x-x509-ca-cert' \
     --data-binary "@${COMBINED_PEM_PATH}" \
     "$UPLOAD_URL" \
@@ -398,10 +418,11 @@ if [ "$UPLOAD_STATUS" != "200" ] && [ "$UPLOAD_STATUS" != "201" ]; then
 fi
 
 # Step 4: Assign the certificate to the Virtual Service
-ASSIGN_URL="${BASE_URL}/access/modvs?vs=${VS_IP}&port=${VS_PORT}&prot=tcp&CertFile=${CERT_NAME}"
-log_message "Assigning certificate to VS via: $(obfuscate_url "$ASSIGN_URL")"
+ASSIGN_URL="${BASE_URL_CLEAN}/access/modvs?vs=${VS_IP}&port=${VS_PORT}&prot=tcp&CertFile=${CERT_NAME}"
+log_message "Assigning certificate to VS via: $(obfuscate_url "${BASE_URL}/access/modvs?vs=${VS_IP}&port=${VS_PORT}&prot=tcp&CertFile=${CERT_NAME}")"
 
 ASSIGN_RESPONSE=$(curl -k --location --silent --show-error \
+    ${CREDS:+-u "$CREDS"} \
     "$ASSIGN_URL" \
     --write-out "\nHTTP_STATUS:%{http_code}" 2>&1 || true)
 
