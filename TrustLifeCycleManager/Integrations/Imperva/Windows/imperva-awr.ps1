@@ -595,4 +595,14 @@ Write-LogMessage "=========================================="
 Write-LogMessage "All operations completed"
 Write-LogMessage "=========================================="
 
-exit 0
+# Exit with a code that reflects the actual API result. A non-2xx status
+# (e.g. 401 Unauthorized, 403, 404, 500) is caught by the inner catch block
+# and logged, but does NOT throw to the outer catch - so we must fail here
+# explicitly, otherwise the caller would treat a failed upload as success.
+if ($statusCode -eq 200 -or $statusCode -eq 201) {
+    exit 0
+}
+else {
+    Write-LogMessage "ERROR: Exiting with failure - API returned status $statusCode"
+    exit 1
+}

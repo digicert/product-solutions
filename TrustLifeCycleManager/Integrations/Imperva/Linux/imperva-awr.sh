@@ -391,4 +391,12 @@ else
 fi
 log_message "=========================================="
 
-exit 0
+# Exit with a code that reflects the actual API result. A non-2xx status
+# (e.g. 401 Unauthorized, 403, 404, 500) is logged above but must fail here
+# explicitly, otherwise the caller would treat a failed upload as success.
+if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
+    exit 0
+else
+    log_message "ERROR: Exiting with failure - API returned status $HTTP_STATUS"
+    exit 1
+fi
