@@ -57,6 +57,16 @@ The TLM Agent base64-encodes a JSON object and passes it to the script via the `
     "admin@example.com",
     "",
     "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
     ""
   ]
 }
@@ -66,7 +76,7 @@ For PFX output, the `files` array contains a single `.pfx` or `.p12` filename, a
 
 ### Argument Mapping
 
-Up to five custom arguments can be configured in the AWR profile in the TLM console. These are passed in the `args` array and extracted as `ARGUMENT_1` through `ARGUMENT_5` (Bash) or `$ARGUMENT_1` through `$ARGUMENT_5` (PowerShell). Use them to pass target hostnames, service names, notification email addresses, or any other deployment-specific values.
+Up to fifteen custom arguments can be configured in the AWR profile in the TLM console. These are passed in the `args` array and extracted as `ARGUMENT_1` through `ARGUMENT_15` (Bash) or `$ARGUMENT_1` through `$ARGUMENT_15` (PowerShell). Each argument is logged with its value and length as it is extracted. Use them to pass target hostnames, service names, notification email addresses, or any other deployment-specific values.
 
 ### Execution Flow
 
@@ -122,17 +132,17 @@ Update the `LOGFILE` path to a location writable by the TLM Agent process:
 
 **Bash (CRT template default):**
 ```bash
-LOGFILE="/home/ubuntu/tls-guru.log"
+LOGFILE="/home/ubuntu/awr-template-logfile.log"
 ```
 
 **Bash (PFX template default):**
 ```bash
-LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/template.log"
+LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/awr-template-logfile.log"
 ```
 
 **PowerShell (both templates default):**
 ```powershell
-$LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\dc1_data.log"
+$LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\awr-template-logfile.log"
 ```
 
 Adjust these to match your TLM Agent installation path and permissions.
@@ -195,6 +205,16 @@ All of the following are populated before the custom section is reached.
 | `ARGUMENT_3` / `$ARGUMENT_3` | AWR Parameter 3 |
 | `ARGUMENT_4` / `$ARGUMENT_4` | AWR Parameter 4 |
 | `ARGUMENT_5` / `$ARGUMENT_5` | AWR Parameter 5 |
+| `ARGUMENT_6` / `$ARGUMENT_6` | AWR Parameter 6 |
+| `ARGUMENT_7` / `$ARGUMENT_7` | AWR Parameter 7 |
+| `ARGUMENT_8` / `$ARGUMENT_8` | AWR Parameter 8 |
+| `ARGUMENT_9` / `$ARGUMENT_9` | AWR Parameter 9 |
+| `ARGUMENT_10` / `$ARGUMENT_10` | AWR Parameter 10 |
+| `ARGUMENT_11` / `$ARGUMENT_11` | AWR Parameter 11 |
+| `ARGUMENT_12` / `$ARGUMENT_12` | AWR Parameter 12 |
+| `ARGUMENT_13` / `$ARGUMENT_13` | AWR Parameter 13 |
+| `ARGUMENT_14` / `$ARGUMENT_14` | AWR Parameter 14 |
+| `ARGUMENT_15` / `$ARGUMENT_15` | AWR Parameter 15 |
 
 ### JSON payload (all templates)
 

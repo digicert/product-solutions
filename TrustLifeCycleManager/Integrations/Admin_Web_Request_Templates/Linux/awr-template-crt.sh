@@ -32,7 +32,7 @@ LEGAL_NOTICE
 
 # Configuration
 LEGAL_NOTICE_ACCEPT="false"
-LOGFILE="/home/ubuntu/tls-guru.log"
+LOGFILE="/home/ubuntu/awr-template-logfile.log"
 
 # Function to log messages with timestamp
 log_message() {
@@ -115,12 +115,72 @@ ARGUMENT_5=$(echo "$ARGS_ARRAY" | awk -F',' '{print $5}' | tr -d '"' | tr -d ' '
 log_message "ARGUMENT_5 extracted: '$ARGUMENT_5'"
 log_message "ARGUMENT_5 length: ${#ARGUMENT_5}"
 
+# Extract Argument_6 - sixth argument
+ARGUMENT_6=$(echo "$ARGS_ARRAY" | awk -F',' '{print $6}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+log_message "ARGUMENT_6 extracted: '$ARGUMENT_6'"
+log_message "ARGUMENT_6 length: ${#ARGUMENT_6}"
+
+# Extract Argument_7 - seventh argument
+ARGUMENT_7=$(echo "$ARGS_ARRAY" | awk -F',' '{print $7}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+log_message "ARGUMENT_7 extracted: '$ARGUMENT_7'"
+log_message "ARGUMENT_7 length: ${#ARGUMENT_7}"
+
+# Extract Argument_8 - eighth argument
+ARGUMENT_8=$(echo "$ARGS_ARRAY" | awk -F',' '{print $8}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+log_message "ARGUMENT_8 extracted: '$ARGUMENT_8'"
+log_message "ARGUMENT_8 length: ${#ARGUMENT_8}"
+
+# Extract Argument_9 - ninth argument
+ARGUMENT_9=$(echo "$ARGS_ARRAY" | awk -F',' '{print $9}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+log_message "ARGUMENT_9 extracted: '$ARGUMENT_9'"
+log_message "ARGUMENT_9 length: ${#ARGUMENT_9}"
+
+# Extract Argument_10 - tenth argument
+ARGUMENT_10=$(echo "$ARGS_ARRAY" | awk -F',' '{print $10}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+log_message "ARGUMENT_10 extracted: '$ARGUMENT_10'"
+log_message "ARGUMENT_10 length: ${#ARGUMENT_10}"
+
+# Extract Argument_11 - eleventh argument
+ARGUMENT_11=$(echo "$ARGS_ARRAY" | awk -F',' '{print $11}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+log_message "ARGUMENT_11 extracted: '$ARGUMENT_11'"
+log_message "ARGUMENT_11 length: ${#ARGUMENT_11}"
+
+# Extract Argument_12 - twelfth argument
+ARGUMENT_12=$(echo "$ARGS_ARRAY" | awk -F',' '{print $12}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+log_message "ARGUMENT_12 extracted: '$ARGUMENT_12'"
+log_message "ARGUMENT_12 length: ${#ARGUMENT_12}"
+
+# Extract Argument_13 - thirteenth argument
+ARGUMENT_13=$(echo "$ARGS_ARRAY" | awk -F',' '{print $13}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+log_message "ARGUMENT_13 extracted: '$ARGUMENT_13'"
+log_message "ARGUMENT_13 length: ${#ARGUMENT_13}"
+
+# Extract Argument_14 - fourteenth argument
+ARGUMENT_14=$(echo "$ARGS_ARRAY" | awk -F',' '{print $14}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+log_message "ARGUMENT_14 extracted: '$ARGUMENT_14'"
+log_message "ARGUMENT_14 length: ${#ARGUMENT_14}"
+
+# Extract Argument_15 - fifteenth argument
+ARGUMENT_15=$(echo "$ARGS_ARRAY" | awk -F',' '{print $15}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+log_message "ARGUMENT_15 extracted: '$ARGUMENT_15'"
+log_message "ARGUMENT_15 length: ${#ARGUMENT_15}"
+
 # Clean arguments (remove whitespace, newlines, carriage returns)
 ARGUMENT_1=$(echo "$ARGUMENT_1" | tr -d '[:space:]')
 ARGUMENT_2=$(echo "$ARGUMENT_2" | tr -d '[:space:]')
 ARGUMENT_3=$(echo "$ARGUMENT_3" | tr -d '[:space:]')
 ARGUMENT_4=$(echo "$ARGUMENT_4" | tr -d '[:space:]')
 ARGUMENT_5=$(echo "$ARGUMENT_5" | tr -d '[:space:]')
+ARGUMENT_6=$(echo "$ARGUMENT_6" | tr -d '[:space:]')
+ARGUMENT_7=$(echo "$ARGUMENT_7" | tr -d '[:space:]')
+ARGUMENT_8=$(echo "$ARGUMENT_8" | tr -d '[:space:]')
+ARGUMENT_9=$(echo "$ARGUMENT_9" | tr -d '[:space:]')
+ARGUMENT_10=$(echo "$ARGUMENT_10" | tr -d '[:space:]')
+ARGUMENT_11=$(echo "$ARGUMENT_11" | tr -d '[:space:]')
+ARGUMENT_12=$(echo "$ARGUMENT_12" | tr -d '[:space:]')
+ARGUMENT_13=$(echo "$ARGUMENT_13" | tr -d '[:space:]')
+ARGUMENT_14=$(echo "$ARGUMENT_14" | tr -d '[:space:]')
+ARGUMENT_15=$(echo "$ARGUMENT_15" | tr -d '[:space:]')
 
 # Extract cert folder
 CERT_FOLDER=$(echo "$JSON_STRING" | grep -oP '"certfolder":"\K[^"]+')
@@ -152,6 +212,16 @@ log_message "  Argument 2: $ARGUMENT_2"
 log_message "  Argument 3: $ARGUMENT_3"
 log_message "  Argument 4: $ARGUMENT_4"
 log_message "  Argument 5: $ARGUMENT_5"
+log_message "  Argument 6: $ARGUMENT_6"
+log_message "  Argument 7: $ARGUMENT_7"
+log_message "  Argument 8: $ARGUMENT_8"
+log_message "  Argument 9: $ARGUMENT_9"
+log_message "  Argument 10: $ARGUMENT_10"
+log_message "  Argument 11: $ARGUMENT_11"
+log_message "  Argument 12: $ARGUMENT_12"
+log_message "  Argument 13: $ARGUMENT_13"
+log_message "  Argument 14: $ARGUMENT_14"
+log_message "  Argument 15: $ARGUMENT_15"
 log_message ""
 log_message "Certificate information:"
 log_message "  Certificate folder: $CERT_FOLDER"
@@ -217,12 +287,22 @@ fi
 #   $KEY_TYPE         - Type of key (RSA, ECC, PKCS#8 format, or Unknown)
 #   $KEY_FILE_CONTENT - The full content of the private key file
 #
-# Argument variables (from JSON args array):
+# Argument variables (from JSON args array, up to 15):
 #   $ARGUMENT_1       - First argument from args array
 #   $ARGUMENT_2       - Second argument from args array
 #   $ARGUMENT_3       - Third argument from args array
 #   $ARGUMENT_4       - Fourth argument from args array
 #   $ARGUMENT_5       - Fifth argument from args array
+#   $ARGUMENT_6       - Sixth argument from args array
+#   $ARGUMENT_7       - Seventh argument from args array
+#   $ARGUMENT_8       - Eighth argument from args array
+#   $ARGUMENT_9       - Ninth argument from args array
+#   $ARGUMENT_10      - Tenth argument from args array
+#   $ARGUMENT_11      - Eleventh argument from args array
+#   $ARGUMENT_12      - Twelfth argument from args array
+#   $ARGUMENT_13      - Thirteenth argument from args array
+#   $ARGUMENT_14      - Fourteenth argument from args array
+#   $ARGUMENT_15      - Fifteenth argument from args array
 #
 # JSON-related variables:
 #   $JSON_STRING      - The complete decoded JSON string
