@@ -30,6 +30,7 @@ as applicable, and the Technical Data - Commercial Items clause at DFARS 252.227
 The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
+
 # Configuration
 LEGAL_NOTICE_ACCEPT="false"
 LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/awr-template-logfile.log"
