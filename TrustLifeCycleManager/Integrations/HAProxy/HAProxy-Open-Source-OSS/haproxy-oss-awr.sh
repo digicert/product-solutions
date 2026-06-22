@@ -829,8 +829,12 @@ log_message "Determining deployment target(s)..."
 log_message "=========================================="
 
 # Compute the renewed certificate's identities once for matching
-NEW_NAMES_FILE=$(mktemp)
-get_cert_dns_names "$CRT_FILE_PATH" > "$NEW_NAMES_FILE"
+NEW_NAMES_FILE=$(mktemp) || { log_message "ERROR: mktemp failed"; exit 1; }
+if ! get_cert_dns_names "$CRT_FILE_PATH" > "$NEW_NAMES_FILE"; then
+    log_message "ERROR: Failed to read renewed certificate identities from: $CRT_FILE_PATH"
+    rm -f "$NEW_NAMES_FILE"
+    exit 1
+fi
 RENEWED_NAMES=$(tr '\n' ' ' < "$NEW_NAMES_FILE")
 log_message "Renewed certificate covers name(s): ${RENEWED_NAMES:-'(none detected)'}"
 
