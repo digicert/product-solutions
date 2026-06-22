@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(bash -n Linux/awr-template-crt.sh)",
-      "Bash(bash -n Linux/awr-template-pfx.sh)"
-    ]
-  }
-}
