@@ -266,9 +266,8 @@ get_cert_dns_names() {
 
     {
         # CN from the Subject line
-        echo "$txt" | grep -oP 'Subject:.*?CN\s*=\s*\K[^,/]+' | head -1
-        # DNS SANs (values are on the line following the SAN header)
-        echo "$txt" | grep -A1 'Subject Alternative Name' | grep -oP 'DNS:\K[^,]+'
+        # DNS SANs (can span multiple continuation lines in openssl output)
+        echo "$txt" | awk '/Subject Alternative Name/ {in_san=1; next} in_san && /^[[:space:]]/ {print; next} in_san {exit}' | grep -oP 'DNS:\K[^,]+'
     } | sed 's/[[:space:]]//g' | tr 'A-Z' 'a-z' | grep -v '^$' | sort -u
 }
 
