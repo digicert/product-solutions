@@ -39,9 +39,10 @@
     The contractor/manufacturer is DIGICERT, INC.
 #>
 
+
 # Configuration
 $LEGAL_NOTICE_ACCEPT = "false"
-$LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\dc1_data.log"
+$LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\awr-template-logfile.log"
 
 # Function to log messages with timestamp
 function Write-LogMessage {
@@ -110,42 +111,102 @@ try {
 # Extract arguments from JSON
 Write-LogMessage "Extracting arguments from JSON..."
 
-# Initialize argument variables
+# Initialize argument variables (up to 15)
 $ARGUMENT_1 = ""
 $ARGUMENT_2 = ""
 $ARGUMENT_3 = ""
 $ARGUMENT_4 = ""
 $ARGUMENT_5 = ""
+$ARGUMENT_6 = ""
+$ARGUMENT_7 = ""
+$ARGUMENT_8 = ""
+$ARGUMENT_9 = ""
+$ARGUMENT_10 = ""
+$ARGUMENT_11 = ""
+$ARGUMENT_12 = ""
+$ARGUMENT_13 = ""
+$ARGUMENT_14 = ""
+$ARGUMENT_15 = ""
 
 # Extract arguments if they exist
 if ($JSON_OBJECT.args) {
     $ARGS_ARRAY = $JSON_OBJECT.args
     Write-LogMessage "Raw args array: $($ARGS_ARRAY -join ',')"
-    
-    if ($ARGS_ARRAY.Count -ge 1) { 
+
+    if ($ARGS_ARRAY.Count -ge 1) {
         $ARGUMENT_1 = ($ARGS_ARRAY[0] -replace '\s', '').Trim()
         Write-LogMessage "ARGUMENT_1 extracted: '$ARGUMENT_1'"
         Write-LogMessage "ARGUMENT_1 length: $($ARGUMENT_1.Length)"
     }
-    if ($ARGS_ARRAY.Count -ge 2) { 
+    if ($ARGS_ARRAY.Count -ge 2) {
         $ARGUMENT_2 = ($ARGS_ARRAY[1] -replace '\s', '').Trim()
         Write-LogMessage "ARGUMENT_2 extracted: '$ARGUMENT_2'"
         Write-LogMessage "ARGUMENT_2 length: $($ARGUMENT_2.Length)"
     }
-    if ($ARGS_ARRAY.Count -ge 3) { 
+    if ($ARGS_ARRAY.Count -ge 3) {
         $ARGUMENT_3 = ($ARGS_ARRAY[2] -replace '\s', '').Trim()
         Write-LogMessage "ARGUMENT_3 extracted: '$ARGUMENT_3'"
         Write-LogMessage "ARGUMENT_3 length: $($ARGUMENT_3.Length)"
     }
-    if ($ARGS_ARRAY.Count -ge 4) { 
+    if ($ARGS_ARRAY.Count -ge 4) {
         $ARGUMENT_4 = ($ARGS_ARRAY[3] -replace '\s', '').Trim()
         Write-LogMessage "ARGUMENT_4 extracted: '$ARGUMENT_4'"
         Write-LogMessage "ARGUMENT_4 length: $($ARGUMENT_4.Length)"
     }
-    if ($ARGS_ARRAY.Count -ge 5) { 
+    if ($ARGS_ARRAY.Count -ge 5) {
         $ARGUMENT_5 = ($ARGS_ARRAY[4] -replace '\s', '').Trim()
         Write-LogMessage "ARGUMENT_5 extracted: '$ARGUMENT_5'"
         Write-LogMessage "ARGUMENT_5 length: $($ARGUMENT_5.Length)"
+    }
+    if ($ARGS_ARRAY.Count -ge 6) {
+        $ARGUMENT_6 = ($ARGS_ARRAY[5] -replace '\s', '').Trim()
+        Write-LogMessage "ARGUMENT_6 extracted: '$ARGUMENT_6'"
+        Write-LogMessage "ARGUMENT_6 length: $($ARGUMENT_6.Length)"
+    }
+    if ($ARGS_ARRAY.Count -ge 7) {
+        $ARGUMENT_7 = ($ARGS_ARRAY[6] -replace '\s', '').Trim()
+        Write-LogMessage "ARGUMENT_7 extracted: '$ARGUMENT_7'"
+        Write-LogMessage "ARGUMENT_7 length: $($ARGUMENT_7.Length)"
+    }
+    if ($ARGS_ARRAY.Count -ge 8) {
+        $ARGUMENT_8 = ($ARGS_ARRAY[7] -replace '\s', '').Trim()
+        Write-LogMessage "ARGUMENT_8 extracted: '$ARGUMENT_8'"
+        Write-LogMessage "ARGUMENT_8 length: $($ARGUMENT_8.Length)"
+    }
+    if ($ARGS_ARRAY.Count -ge 9) {
+        $ARGUMENT_9 = ($ARGS_ARRAY[8] -replace '\s', '').Trim()
+        Write-LogMessage "ARGUMENT_9 extracted: '$ARGUMENT_9'"
+        Write-LogMessage "ARGUMENT_9 length: $($ARGUMENT_9.Length)"
+    }
+    if ($ARGS_ARRAY.Count -ge 10) {
+        $ARGUMENT_10 = ($ARGS_ARRAY[9] -replace '\s', '').Trim()
+        Write-LogMessage "ARGUMENT_10 extracted: '$ARGUMENT_10'"
+        Write-LogMessage "ARGUMENT_10 length: $($ARGUMENT_10.Length)"
+    }
+    if ($ARGS_ARRAY.Count -ge 11) {
+        $ARGUMENT_11 = ($ARGS_ARRAY[10] -replace '\s', '').Trim()
+        Write-LogMessage "ARGUMENT_11 extracted: '$ARGUMENT_11'"
+        Write-LogMessage "ARGUMENT_11 length: $($ARGUMENT_11.Length)"
+    }
+    if ($ARGS_ARRAY.Count -ge 12) {
+        $ARGUMENT_12 = ($ARGS_ARRAY[11] -replace '\s', '').Trim()
+        Write-LogMessage "ARGUMENT_12 extracted: '$ARGUMENT_12'"
+        Write-LogMessage "ARGUMENT_12 length: $($ARGUMENT_12.Length)"
+    }
+    if ($ARGS_ARRAY.Count -ge 13) {
+        $ARGUMENT_13 = ($ARGS_ARRAY[12] -replace '\s', '').Trim()
+        Write-LogMessage "ARGUMENT_13 extracted: '$ARGUMENT_13'"
+        Write-LogMessage "ARGUMENT_13 length: $($ARGUMENT_13.Length)"
+    }
+    if ($ARGS_ARRAY.Count -ge 14) {
+        $ARGUMENT_14 = ($ARGS_ARRAY[13] -replace '\s', '').Trim()
+        Write-LogMessage "ARGUMENT_14 extracted: '$ARGUMENT_14'"
+        Write-LogMessage "ARGUMENT_14 length: $($ARGUMENT_14.Length)"
+    }
+    if ($ARGS_ARRAY.Count -ge 15) {
+        $ARGUMENT_15 = ($ARGS_ARRAY[14] -replace '\s', '').Trim()
+        Write-LogMessage "ARGUMENT_15 extracted: '$ARGUMENT_15'"
+        Write-LogMessage "ARGUMENT_15 length: $($ARGUMENT_15.Length)"
     }
 }
 
@@ -205,6 +266,16 @@ Write-LogMessage "  Argument 2: $ARGUMENT_2"
 Write-LogMessage "  Argument 3: $ARGUMENT_3"
 Write-LogMessage "  Argument 4: $ARGUMENT_4"
 Write-LogMessage "  Argument 5: $ARGUMENT_5"
+Write-LogMessage "  Argument 6: $ARGUMENT_6"
+Write-LogMessage "  Argument 7: $ARGUMENT_7"
+Write-LogMessage "  Argument 8: $ARGUMENT_8"
+Write-LogMessage "  Argument 9: $ARGUMENT_9"
+Write-LogMessage "  Argument 10: $ARGUMENT_10"
+Write-LogMessage "  Argument 11: $ARGUMENT_11"
+Write-LogMessage "  Argument 12: $ARGUMENT_12"
+Write-LogMessage "  Argument 13: $ARGUMENT_13"
+Write-LogMessage "  Argument 14: $ARGUMENT_14"
+Write-LogMessage "  Argument 15: $ARGUMENT_15"
 Write-LogMessage ""
 Write-LogMessage "Certificate information:"
 Write-LogMessage "  Certificate folder: $CERT_FOLDER"
@@ -293,12 +364,22 @@ if (Test-Path $CERT_FOLDER) {
 #   $PFX_PASSWORD     - Password for the PFX/P12 file (if available)
 #   $FILES_ARRAY      - All files listed in the JSON files array
 #
-# Argument variables (from JSON args array):
+# Argument variables (from JSON args array, up to 15):
 #   $ARGUMENT_1       - First argument from args array (AWR Parameter 1)
 #   $ARGUMENT_2       - Second argument from args array (AWR Parameter 2)
 #   $ARGUMENT_3       - Third argument from args array (AWR Parameter 3)
 #   $ARGUMENT_4       - Fourth argument from args array (AWR Parameter 4)
 #   $ARGUMENT_5       - Fifth argument from args array (AWR Parameter 5)
+#   $ARGUMENT_6       - Sixth argument from args array (AWR Parameter 6)
+#   $ARGUMENT_7       - Seventh argument from args array (AWR Parameter 7)
+#   $ARGUMENT_8       - Eighth argument from args array (AWR Parameter 8)
+#   $ARGUMENT_9       - Ninth argument from args array (AWR Parameter 9)
+#   $ARGUMENT_10      - Tenth argument from args array (AWR Parameter 10)
+#   $ARGUMENT_11      - Eleventh argument from args array (AWR Parameter 11)
+#   $ARGUMENT_12      - Twelfth argument from args array (AWR Parameter 12)
+#   $ARGUMENT_13      - Thirteenth argument from args array (AWR Parameter 13)
+#   $ARGUMENT_14      - Fourteenth argument from args array (AWR Parameter 14)
+#   $ARGUMENT_15      - Fifteenth argument from args array (AWR Parameter 15)
 #
 # JSON-related variables:
 #   $JSON_STRING      - The complete decoded JSON string
