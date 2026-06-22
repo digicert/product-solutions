@@ -266,8 +266,9 @@ get_cert_dns_names() {
 
     {
         # CN from the Subject line
-        # DNS SANs (can span multiple continuation lines in openssl output)
-        echo "$txt" | awk '/Subject Alternative Name/ {in_san=1; next} in_san && /^[[:space:]]/ {print; next} in_san {exit}' | grep -oP 'DNS:\K[^,]+'
+        echo "$txt" | grep -oP 'Subject:.*?CN\s*=\s*\K[^,/]+' | head -1
+        # DNS SANs (values are on the line following the SAN header)
+        echo "$txt" | grep -A1 'Subject Alternative Name' | grep -oP 'DNS:\K[^,]+'
     } | sed 's/[[:space:]]//g' | tr 'A-Z' 'a-z' | grep -v '^$' | sort -u
 }
 
@@ -829,12 +830,8 @@ log_message "Determining deployment target(s)..."
 log_message "=========================================="
 
 # Compute the renewed certificate's identities once for matching
-NEW_NAMES_FILE=$(mktemp) || { log_message "ERROR: mktemp failed"; exit 1; }
-if ! get_cert_dns_names "$CRT_FILE_PATH" > "$NEW_NAMES_FILE"; then
-    log_message "ERROR: Failed to read renewed certificate identities from: $CRT_FILE_PATH"
-    rm -f "$NEW_NAMES_FILE"
-    exit 1
-fi
+NEW_NAMES_FILE=$(mktemp)
+get_cert_dns_names "$CRT_FILE_PATH" > "$NEW_NAMES_FILE"
 RENEWED_NAMES=$(tr '\n' ' ' < "$NEW_NAMES_FILE")
 log_message "Renewed certificate covers name(s): ${RENEWED_NAMES:-'(none detected)'}"
 
