@@ -39,6 +39,7 @@
     The contractor/manufacturer is DIGICERT, INC.
 #>
 
+
 # Configuration
 $LEGAL_NOTICE_ACCEPT = "false"
 $LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\awr-template-logfile.log"
