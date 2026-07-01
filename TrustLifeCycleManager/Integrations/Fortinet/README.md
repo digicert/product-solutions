@@ -11,7 +11,7 @@ These scripts are designed to run as **automation scripts** within the DigiCert 
 | Script | Target Product | Purpose |
 |--------|---------------|---------|
 | [FortiGATE/fortigate-awr.sh](FortiGATE/fortigate-awr.sh) | Fortinet FortiGate | Import cert + reassign SSL-VPN / Admin / IPsec references |
-| [FortiWEB/fortiweb-awr.sh](FortiWEB/fortiweb-awr.sh) | Fortinet FortiWeb | Upload cert (delete/replace on renewal) |
+| [FortiWEB/fortiweb-awr.sh](FortiWEB/fortiweb-awr.sh) | Fortinet FortiWeb | Upload cert under a unique name + rotate all references (policy / SNI / multi-cert), then delete the old cert |
 | [FortiNAC/fortinac-awr.sh](FortiNAC/fortinac-awr.sh) | Fortinet FortiNAC | Upload cert to RADIUS/RadSec/Portal/Agent/Admin UI + restart service |
 
 ---
@@ -23,8 +23,8 @@ All scripts require:
 - **DigiCert TLM Agent** installed and configured with post-enrollment script execution enabled
 - **Bash** 4.0 or later
 - **curl** installed and accessible in `PATH`
-- **python3** installed (FortiGate and FortiNAC scripts use it for JSON parsing and Base64 encoding)
-- **openssl** CLI (FortiWeb only — used to extract the certificate Common Name)
+- **python3** installed (FortiGate and FortiNAC use it for JSON parsing and Base64 encoding; FortiWeb uses it for subject-CN / key-algorithm matching and reference discovery — it degrades gracefully to a name-convention fallback if python3 is absent)
+- **openssl** CLI (FortiWeb only — used to extract the certificate Common Name, serial and key algorithm)
 - Network access from the TLM Agent host to the Fortinet appliance management interface
 - A valid API token or Bearer token with sufficient permissions on the target appliance
 
@@ -130,7 +130,31 @@ The API token must have read/write access to:
 
 ### Overview
 
-Uploads a certificate and private key to FortiWeb using its REST API. On renewal, it detects an existing certificate by Common Name, deletes it, then uploads the new one. After a successful upload, it performs a verification GET to confirm the certificate appears in the FortiWeb certificate list.
+Uploads a certificate and private key to FortiWeb using its REST API and safely handles renewal by **rotating**, not overwriting.
+
+FortiWeb has two hard limitations that a naive "delete then re-import under the same name" approach cannot satisfy:
+
+1. Importing a certificate under a name that already exists fails with a **duplicate** error.
+2. A certificate that is **bound to any object cannot be deleted** while it is in use.
+
+To work around both, the script:
+
+1. **Uploads the new certificate under a unique name** — `<sanitised-CN>_<serial-suffix>` (FortiWeb derives the stored name from the uploaded file name, so the file is staged under this name). A duplicate error can therefore never occur.
+2. **Identifies the previous certificate(s) for this domain** by reading each existing cert's real **subject CN from the API** (not by trusting the stored name), constrained to the **same key algorithm** (`pkey_type`). This means an RSA renewal never touches an ECC certificate of the same CN, and vice versa.
+3. **Repoints every reference** from the old cert to the new one across all three ways FortiWeb can reference a local certificate (see below).
+4. **Deletes the old certificate** only after every reference has been cleared **and** FortiWeb reports `can_delete: true` for it (a safety gate against reference types the script does not scan).
+
+The result is a zero-downtime rotation: the new certificate is in place and bound before the old one is removed, and nothing is deleted while still in use.
+
+### Reference types handled
+
+A FortiWeb local certificate can be referenced in three ways; the script scans and repoints all of them:
+
+| # | Where the reference lives | Field repointed |
+|---|---------------------------|-----------------|
+| 1 | Server policy (direct / SSL fallback) | `server-policy/policy` → `certificate` |
+| 2 | SNI configuration member (per-domain) | `system/certificate.sni` → member `local-cert` |
+| 3 | Multi-certificate group (dual RSA/ECC/DSA on one hostname) | `system/certificate.multi-local` → `rsa-cert` / `ecc-cert` / `dsa-cert` |
 
 ### Script Configuration
 
@@ -146,36 +170,49 @@ Uploads a certificate and private key to FortiWeb using its REST API. On renewal
 | 1 | `FORTIWEB_URL` | Yes | FortiWeb hostname or IP (no `https://` prefix; port 8443 is appended automatically) |
 | 2 | `AUTH_TOKEN` | Yes | FortiWeb authorization token |
 
+No further arguments are required — the script auto-discovers every policy, SNI object and multi-cert group referencing the old certificate.
+
 ### Flow
 
 ```
 1. Validate legal notice acceptance and DC1_POST_SCRIPT_DATA
 2. Decode JSON, extract file paths and arguments
-3. Extract the certificate Common Name using openssl
-4. GET /api/v2.0/system/certificate.local → check if CN already exists (renewal detection)
-5. If cert exists:
-   a. DELETE /api/v2.0/cmdb/system/certificate.local?mkey=<CN>
-   b. Wait 2 seconds for FortiWeb to process deletion
+   (the auth token is identified here and redacted from all subsequent logging)
+3. Extract the new cert's CN, serial and key algorithm using openssl
+4. Stage the cert/key under a unique name (<sanitised-CN>_<serial>) in a temp dir
+5. Snapshot the existing certificate list
 6. POST /api/v2.0/system/certificate.local.import_certificate (multipart/form-data)
-   - certificateFile = .crt file
-   - keyFile = .key file
-   - type = certificate
-7. GET /api/v2.0/system/certificate.local → verify certificate appears in list
-8. Log result and exit
+   - certificateFile = .crt, keyFile = .key, type = certificate
+   - the staged private key is securely removed immediately after upload
+7. Confirm the name FortiWeb assigned (list diff), then select previous certs
+   for this domain by subject CN AND matching pkey_type
+8. For each previous cert:
+   a. Repoint any SNI member local-cert -> new name
+   b. Repoint any multi-cert group rsa/ecc/dsa-cert -> new name
+   c. Repoint any server policy certificate -> new name
+   d. Re-check can_delete; if true, DELETE the old cert, else skip for manual review
+9. Log result and exit
 ```
 
 ### FortiWeb API Permissions Required
 
-The API token must have read/write access to the certificate management endpoints on port **8443**:
-- `GET /api/v2.0/system/certificate.local`
+The API token must have read/write access to these endpoints on port **8443**:
+- `GET  /api/v2.0/system/certificate.local`
 - `POST /api/v2.0/system/certificate.local.import_certificate`
 - `DELETE /api/v2.0/cmdb/system/certificate.local`
+- `GET/PUT /api/v2.0/cmdb/server-policy/policy`
+- `GET/PUT /api/v2.0/cmdb/system/certificate.sni` (and its `members` child table)
+- `GET/PUT /api/v2.0/cmdb/system/certificate.multi-local`
 
 ### Notes
 
-- FortiWeb names certificates based on the certificate **Common Name (CN)**. The script extracts this automatically using `openssl x509`.
-- If the CN cannot be extracted, the deletion-before-reimport step is skipped and the upload proceeds directly (may fail if the certificate already exists).
-- If an existing certificate is in use by a FortiWeb server policy, deletion will fail with HTTP 200 error body. The certificate must be unassigned before renewal can proceed.
+- **Version:** validated end-to-end against **FortiWeb 8.0.5**. The API it uses has existed since ~6.3, so 7.x is expected to work and possibly 6.4+, but only 8.0.5 is verified. It fails safe on version differences (failed repoints are logged; nothing in use is deleted). See [FortiWEB/README.md](FortiWEB/README.md#version-compatibility) for details and how to pre-flight another version.
+- **Unique naming:** the new cert is stored as `<sanitised-CN>_<serial>` (non-alphanumerics in the CN become `_`). The old certificate keeps whatever name it had — matching is by subject CN, so off-convention names (e.g. a cert manually stored as `tls`) are still found and rotated.
+- **Algorithm scoping:** RSA (`pkey_type 1`) and ECDSA (`pkey_type 3`) certs sharing a CN are treated independently. The value is read from the freshly-uploaded cert's own list entry, so no algorithm codes are hardcoded.
+- **Safety gate:** if a previous cert is still referenced by something the script does not scan, its `can_delete` stays `false`; the script logs the skip and leaves the cert in place for manual review rather than firing a delete that would fail.
+- **Token redaction:** the `AUTH_TOKEN` (which base64-decodes to admin credentials) is masked as `***REDACTED***` in every log line, including the raw JSON dump.
+- **Graceful degradation:** if `python3` is unavailable, CN/algorithm matching falls back to a cert-name convention and SNI/multi-cert members are detected but not auto-repointed (the safety gate still prevents unsafe deletion).
+- For inspecting a FortiWeb appliance's certificate/policy/SNI/multi-cert configuration during setup or debugging, see [FortiWEB/README.md](FortiWEB/README.md) and the `fortiweb-discovery.sh` helper (local/manual use only — never run by TLM).
 
 ### Log File
 
@@ -280,7 +317,8 @@ The API token must have access on port **8443** to:
 | HTTP 403 | API token lacks required permissions |
 | HTTP 404 | Appliance URL is wrong or API path has changed |
 | Certificate file not found | TLM Agent did not write the cert files before the script ran, or `certfolder` path is incorrect |
-| FortiWeb delete fails with error body | The certificate is currently assigned to a server policy — unassign it first |
+| FortiWeb: old cert skipped with `can_delete=false` | The old cert is still referenced by an object the script does not scan — repoint/unassign it manually, then it can be removed |
+| FortiWeb: "new cert uploaded but not bound" | On an initial import the cert is stored but not attached to any policy/SNI/group — bind it in FortiWeb; renewals then rotate it automatically |
 | FortiNAC: alias validation error | Alias contains disallowed characters (use only `[a-zA-Z0-9_]`) |
 | FortiNAC: "only supported for CERT_TYPE=RADIUS" | Attempted to create new target for a non-RADIUS service type |
 
