@@ -321,7 +321,7 @@ except Exception:
     sys.exit(0)
 res = d.get("results", []) if isinstance(d, dict) else d
 for c in (res if isinstance(res, list) else [res]):
-    if isinstance(c, dict) and (c.get("name") or c.get("_id")) == name:
+    if isinstance(c, dict) and name in (c.get("name"), c.get("_id"), c.get("mkey")):
         pt = c.get("pkey_type")
         if pt is not None:
             print(pt)
@@ -351,7 +351,7 @@ res = d.get("results", []) if isinstance(d, dict) else d
 for c in (res if isinstance(res, list) else [res]):
     if not isinstance(c, dict):
         continue
-    name = c.get("name") or c.get("_id")
+    name = c.get("name") or c.get("_id") or c.get("mkey")
     m = re.search(r"CN\s*=\s*([^,/]+)", c.get("subject") or "")
     cn = m.group(1).strip().lower() if m else ""
     if not name or name == exclude or not cn or cn != target:
@@ -413,8 +413,8 @@ for c in (res if isinstance(res, list) else [res]):
                 --show-error \
                 2>&1)
 
-# Remove the staged private key material
-rm -rf "$STAGE_DIR"
+            # Securely remove the staged private key material
+            rm -rf "$STAGE_DIR"
 
             # Extract HTTP status code and response body
             HTTP_STATUS=$(echo "$CURL_RESPONSE" | grep "HTTP_STATUS:" | cut -d':' -f2)
@@ -668,7 +668,7 @@ except Exception:
     print("unknown"); sys.exit(0)
 res = d.get("results", []) if isinstance(d, dict) else d
 for c in (res if isinstance(res, list) else [res]):
-    if isinstance(c, dict) and c.get("name") == target:
+    if isinstance(c, dict) and target in (c.get("name"), c.get("_id"), c.get("mkey")):
         print("yes" if c.get("can_delete") else "no"); sys.exit(0)
 print("absent")
 ' "$OLD_CERT" 2>/dev/null)
