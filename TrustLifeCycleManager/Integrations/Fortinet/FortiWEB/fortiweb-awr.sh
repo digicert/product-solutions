@@ -413,8 +413,8 @@ for c in (res if isinstance(res, list) else [res]):
                 --show-error \
                 2>&1)
 
-# Remove the staged private key material
-rm -rf "$STAGE_DIR"
+            # Securely remove the staged private key material
+            rm -rf "$STAGE_DIR"
 
             # Extract HTTP status code and response body
             HTTP_STATUS=$(echo "$CURL_RESPONSE" | grep "HTTP_STATUS:" | cut -d':' -f2)
