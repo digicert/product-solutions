@@ -179,7 +179,14 @@ try {
 
     $jsonObject = $jsonString | ConvertFrom-Json
 
-    # Extract fields
+    # Log JSON with passwords masked
+    Write-Log "--- DC1_POST_SCRIPT_DATA payload (passwords masked) ---"
+    $jsonForLog = $jsonObject | ConvertTo-Json -Depth 10
+    $jsonForLog = $jsonForLog -replace '("password"\s*:\s*")[^"]*(")', '$1***$2'
+    $jsonForLog = $jsonForLog -replace '("keystorepassword"\s*:\s*")[^"]*(")', '$1***$2'
+    $jsonForLog = $jsonForLog -replace '("truststorepassword"\s*:\s*")[^"]*(")', '$1***$2'
+    Write-Log $jsonForLog
+    Write-Log "-------------------------------------------------------"
     $certFolder = $jsonObject.certfolder
     $filesArray = @($jsonObject.files)
 
@@ -468,6 +475,83 @@ try {
     # FIX: Atomically replace destination with temp file.
     # This avoids any window where the JKS is absent or corrupt.
     Move-Item -Path $tempJks -Destination $JKS_PATH -Force
+    Write-Log "Leaf certificate imported to: $JKS_PATH"
+
+    # =====================================================
+    # Step 6b: Import CA chain certificates as trusted entries
+    #
+    # WebLogic uses the SAME keystore as both identity store
+    # (private key + leaf cert) AND trust store (CA certs).
+    # Without the CA chain in the keystore WebLogic logs:
+    #   "No trusted certificates have been loaded"
+    # and SSL on port 7002 fails to start.
+    #
+    # We extract each CA cert from the PFX using the .NET
+    # X509Certificate2Collection class (no OpenSSL needed
+    # on Windows) and import them as trustedCertEntry entries.
+    # =====================================================
+    Write-Log "=========================================="
+    Write-Log "Step 6b: Importing CA chain as trusted entries"
+    Write-Log "=========================================="
+
+    try {
+        # Load the PFX into a .NET cert collection - gives us all certs in the chain
+        $pfxBytes    = [System.IO.File]::ReadAllBytes($pfxFilePath)
+        $certColl    = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2Collection
+        $certColl.Import($pfxBytes, $pfxPassword,
+            [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::EphemeralKeySet)
+
+        Write-Log "PFX contains $($certColl.Count) certificate(s) in chain"
+
+        $caIndex = 0
+        foreach ($cert in $certColl) {
+            # Skip the leaf cert (it has a private key) - only import CA certs
+            if ($cert.HasPrivateKey) {
+                Write-Log "Skipping leaf cert (has private key): $($cert.Subject)"
+                continue
+            }
+
+            $caIndex++
+            # Build a clean alias from the CN
+            $caCN    = if ($cert.Subject -match 'CN=([^,]+)') { $Matches[1].Trim() } else { "ca-$caIndex" }
+            $caAlias = "ca-$caIndex-" + ($caCN -replace '[^a-zA-Z0-9]', '-').ToLower().Substring(0, [Math]::Min(40, $caCN.Length))
+
+            Write-Log "Importing CA cert $caIndex as '$caAlias': $($cert.Subject)"
+
+            # Export cert to a temp DER file then import with keytool -importcert
+            $tempCert = [System.IO.Path]::GetTempFileName() + ".cer"
+            [System.IO.File]::WriteAllBytes($tempCert, $cert.Export(
+                [System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+
+            $caResult = Invoke-Keytool @(
+                "-importcert",
+                "-noprompt",
+                "-keystore",  $JKS_PATH,
+                "-storepass", $JKS_PASSWORD,
+                "-alias",     $caAlias,
+                "-file",      $tempCert
+            )
+            Remove-Item $tempCert -Force -ErrorAction SilentlyContinue
+
+            if ($caResult.ExitCode -eq 0) {
+                Write-Log "  CA cert $caIndex imported successfully as '$caAlias'"
+            } else {
+                Write-Log "  WARNING: Failed to import CA cert $caIndex - $($caResult.StdErr)"
+            }
+        }
+
+        if ($caIndex -eq 0) {
+            Write-Log "WARNING: No CA certificates found in PFX - trust store will be empty"
+            Write-Log "WebLogic may log 'No trusted certificates have been loaded' on next start"
+        } else {
+            Write-Log "CA chain import complete: $caIndex certificate(s) added as trusted entries"
+        }
+    }
+    catch {
+        Write-Log "WARNING: CA chain import failed: $($_.Exception.Message)"
+        Write-Log "Leaf cert was imported successfully but trust store may be incomplete"
+    }
+
     Write-Log "SUCCESS: JKS updated at $JKS_PATH"
 
     # =====================================================
