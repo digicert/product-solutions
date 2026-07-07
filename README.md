@@ -356,7 +356,7 @@ Streamline your certificate management with our production-ready integration scr
       <sub>Centralised Panorama management platform certificate deployment for multi-firewall PAN-OS environments.</sub>
     </td>
     <td align="center" width="33%">
-      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/postfix">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Postfix">
         <img src="https://img.shields.io/badge/Postfix-Mail_Server-CC0000?style=for-the-badge&logo=mail.ru&logoColor=white" alt="Postfix">
         <br><br>
         <strong>Postfix</strong>
