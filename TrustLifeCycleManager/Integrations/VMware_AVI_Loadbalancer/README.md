@@ -60,6 +60,32 @@ TLM Agent ──enroll/renew──▶ DigiCert
 
 ---
 
+## Required Packages
+
+The AWR script depends on three command-line tools. `curl` and `openssl` ship with most Linux distributions, but **`jq` is frequently not installed by default** and must be added. The control script additionally relies on the `openssl` CLI being present on the Avi Controller.
+
+| Tool | Used by | Typically pre-installed? |
+|------|---------|--------------------------|
+| `curl` | AWR script | Usually yes |
+| `openssl` | AWR script, control script | Usually yes |
+| `jq` | AWR script | **Often no — install it** |
+
+The AWR script verifies all three are present at startup and exits with an error if any are missing.
+
+### Installing `jq`
+
+| Distribution | Command |
+|--------------|---------|
+| Debian / Ubuntu | `sudo apt-get update && sudo apt-get install -y jq` |
+| RHEL / CentOS / Rocky / Alma | `sudo yum install -y jq` (or `sudo dnf install -y jq`) |
+| SUSE / SLES | `sudo zypper install -y jq` |
+| Alpine | `sudo apk add jq` |
+| macOS (Homebrew) | `brew install jq` |
+
+> If your host has no internet access, download the standalone `jq` binary from the [official releases](https://github.com/jqlang/jq/releases), place it on the `PATH` (e.g. `/usr/local/bin/jq`), and mark it executable with `chmod +x`.
+
+---
+
 ## Setup — Certificate Management Profile (Control Script)
 
 ### 1. Import the Script
@@ -125,10 +151,10 @@ Edit `vmware_avi_loadbalancer_awr.sh` and set the following:
 # Accept the legal notice to enable script execution
 LEGAL_NOTICE_ACCEPT="true"
 
-# Set the log file path (adjust to match your TLM Agent installation)
-LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/avi-upload.log"
+# Set the log file path (the parent directory is created automatically if missing)
+LOGFILE="/AWR/logs/avi-upload.log"
 
-# Set the Avi API version to match your controller
+# Set the Avi API version to match your controller (e.g. 22.1.3) — no default is set
 AVI_API_VERSION="22.1.3"
 ```
 

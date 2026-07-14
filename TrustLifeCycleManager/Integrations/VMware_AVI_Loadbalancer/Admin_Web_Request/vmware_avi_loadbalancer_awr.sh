@@ -38,11 +38,20 @@ LEGAL_NOTICE
 LEGAL_NOTICE_ACCEPT="false"
 
 # Logging
-LOGFILE="/home/ubuntu/tlm_agent_3.1.2_linux64/log/avi-upload.log"
+LOGFILE="/AWR/logs/avi-upload.log"
+
+# Create the log directory if it does not already exist
+LOG_DIR=$(dirname "$LOGFILE")
+if [ ! -d "$LOG_DIR" ]; then
+    mkdir -p "$LOG_DIR" || {
+        echo "ERROR: Failed to create log directory: $LOG_DIR" >&2
+        exit 1
+    }
+fi
 
 # Avi Controller Configuration
 # Set via arguments: ARGUMENT_1=controller, ARGUMENT_2=username, ARGUMENT_3=password
-AVI_API_VERSION="22.1.3"
+AVI_API_VERSION=""
 
 # Temporary files
 WORK_DIR=$(mktemp -d)
@@ -67,11 +76,18 @@ trap cleanup EXIT
 # Authenticate to Avi Controller
 authenticate_avi() {
     log_message "Authenticating to Avi Controller: ${AVI_CONTROLLER}..."
-    
+
+    # Build the login payload with jq so special characters in the
+    # username/password are correctly JSON-escaped.
+    LOGIN_PAYLOAD=$(jq -n \
+        --arg username "${AVI_USER}" \
+        --arg password "${AVI_PASSWORD}" \
+        '{"username": $username, "password": $password}')
+
     HTTP_CODE=$(curl -s -k -o /dev/null -w "%{http_code}" \
         -c "${COOKIE_FILE}" \
         -H "Content-Type: application/json" \
-        -d "{\"username\":\"${AVI_USER}\",\"password\":\"${AVI_PASSWORD}\"}" \
+        -d "${LOGIN_PAYLOAD}" \
         "https://${AVI_CONTROLLER}/login")
 
     if [ "${HTTP_CODE}" != "200" ]; then
@@ -247,31 +263,32 @@ CERT_INFO=${DC1_POST_SCRIPT_DATA}
 JSON_STRING=$(echo "$CERT_INFO" | base64 -d)
 log_message "JSON_STRING decoded successfully"
 
-# Log raw JSON for debugging
+# Log raw JSON for debugging (password argument redacted to avoid leaking credentials)
+REDACTED_JSON=$(echo "$JSON_STRING" | jq -c 'if (.args | type) == "array" then .args[2] = "[REDACTED]" else . end' 2>/dev/null)
+if [ -z "$REDACTED_JSON" ]; then
+    REDACTED_JSON="[unable to redact JSON - not logging to avoid credential leak]"
+fi
 log_message "=========================================="
-log_message "Raw JSON content:"
-log_message "$JSON_STRING"
+log_message "Raw JSON content (redacted):"
+log_message "$REDACTED_JSON"
 log_message "=========================================="
 
-# Extract arguments from JSON
+# Extract arguments from JSON using jq (robust against commas, spaces and
+# special characters that would break a grep/awk-based parse).
 log_message "Extracting arguments from JSON..."
-ARGS_ARRAY=$(echo "$JSON_STRING" | grep -oP '"args":\[\K[^]]*')
-log_message "Raw args array: $ARGS_ARRAY"
-
-# Extract arguments (cleaned)
-ARGUMENT_1=$(echo "$ARGS_ARRAY" | awk -F',' '{print $1}' | tr -d '"' | tr -d '[:space:]')
-ARGUMENT_2=$(echo "$ARGS_ARRAY" | awk -F',' '{print $2}' | tr -d '"' | tr -d '[:space:]')
-ARGUMENT_3=$(echo "$ARGS_ARRAY" | awk -F',' '{print $3}' | tr -d '"' | tr -d '[:space:]')
+ARGUMENT_1=$(echo "$JSON_STRING" | jq -r '.args[0] // empty')
+ARGUMENT_2=$(echo "$JSON_STRING" | jq -r '.args[1] // empty')
+ARGUMENT_3=$(echo "$JSON_STRING" | jq -r '.args[2] // empty')
 
 log_message "Arguments extracted:"
 log_message "  ARGUMENT_1 (AVI Controller): $ARGUMENT_1"
 log_message "  ARGUMENT_2 (AVI Username): $ARGUMENT_2"
 log_message "  ARGUMENT_3 (AVI Password): [REDACTED]"
 
-# Extract certificate folder and files
-CERT_FOLDER=$(echo "$JSON_STRING" | grep -oP '"certfolder":"\K[^"]+')
-CRT_FILE=$(echo "$JSON_STRING" | grep -oP '"files":\[\K[^]]*' | grep -oP '[^,"]+\.crt')
-KEY_FILE=$(echo "$JSON_STRING" | grep -oP '"files":\[\K[^]]*' | grep -oP '[^,"]+\.key')
+# Extract certificate folder and files using jq
+CERT_FOLDER=$(echo "$JSON_STRING" | jq -r '.certfolder // empty')
+CRT_FILE=$(echo "$JSON_STRING" | jq -r '.files[]? | select(endswith(".crt"))' | head -n1)
+KEY_FILE=$(echo "$JSON_STRING" | jq -r '.files[]? | select(endswith(".key"))' | head -n1)
 
 # Construct file paths
 CRT_FILE_PATH="${CERT_FOLDER}/${CRT_FILE}"
