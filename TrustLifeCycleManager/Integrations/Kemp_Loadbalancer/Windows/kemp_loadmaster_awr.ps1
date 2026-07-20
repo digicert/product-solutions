@@ -1,4 +1,4 @@
-<# 
+﻿<# 
 LEGAL_NOTICE
 Legal Notice (version January 1, 2026)
 Copyright © 2026 DigiCert. All rights reserved.
@@ -143,7 +143,7 @@ function Set-FilePrivate {
         if ($env:OS -like "*Windows*") {
             $file = Get-Item -LiteralPath $Path -ErrorAction Stop
             $acl = New-Object System.Security.AccessControl.FileSecurity
-            $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+            $user = "$env:USERDOMAIN\$env:USERNAME"
             $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($user, "FullControl", "Allow")
             $acl.SetOwner((New-Object System.Security.Principal.NTAccount($user)))
             $acl.SetAccessRuleProtection($true,$false)
