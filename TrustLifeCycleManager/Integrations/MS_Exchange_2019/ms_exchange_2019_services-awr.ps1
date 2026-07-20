@@ -1,4 +1,4 @@
-<#
+﻿<#
 Legal Notice (version January 1, 2026)
 Copyright © 2026 DigiCert. All rights reserved.
 DigiCert and its logo are registered trademarks of DigiCert, Inc.

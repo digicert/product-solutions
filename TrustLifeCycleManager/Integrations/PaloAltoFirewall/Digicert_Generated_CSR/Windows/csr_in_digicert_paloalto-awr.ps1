@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     DigiCert TLM Agent Palo Alto Certificate Upload Script (CRT/KEY Format) - PowerShell Version
 .DESCRIPTION

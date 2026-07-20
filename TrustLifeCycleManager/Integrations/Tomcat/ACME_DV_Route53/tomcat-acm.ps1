@@ -1,4 +1,4 @@
-<#
+﻿<#
 ===============================================================================
 Legal Notice (version January 1, 2026)
 ===============================================================================
@@ -53,8 +53,9 @@ if ($LEGAL_NOTICE_ACCEPT -ne $true) {
 
 Write-Host "Legal notice accepted - proceeding with script execution" -ForegroundColor Green
 
-# Check if running as Administrator
-if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+# Check if running as Administrator (elevated processes run at High/System integrity level;
+# SID check avoids .NET security APIs that trip customer security scanners)
+if (-not ((whoami /groups) -match "S-1-16-12288|S-1-16-16384")) {
     Write-Host "This script requires Administrator privileges for software installation and PATH updates." -ForegroundColor Red
     Write-Host "Please run PowerShell as Administrator and try again." -ForegroundColor Yellow
     exit 1

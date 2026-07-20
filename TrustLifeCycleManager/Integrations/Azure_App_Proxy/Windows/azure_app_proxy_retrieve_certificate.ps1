@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     DigiCert TLM Agent - Azure App Proxy Certificate Retrieval Script
 .DESCRIPTION

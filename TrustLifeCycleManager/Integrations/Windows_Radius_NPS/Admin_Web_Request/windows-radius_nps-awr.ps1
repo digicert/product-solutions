@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     DigiCert TLM Agent Post-Enrollment Script - NPS RADIUS Certificate Replacement
 .DESCRIPTION

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     DigiCert TLM AWR Post-Enrollment Script - Citrix NetScaler ADC (PowerShell)
 

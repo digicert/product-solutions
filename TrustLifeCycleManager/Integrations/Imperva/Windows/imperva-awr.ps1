@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     DigiCert TLM Agent Certificate Processing Script with Imperva API Integration - PowerShell Version
 .DESCRIPTION

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     DigiCert TLM Agent Certificate Processing Script (PFX Format) - PowerShell Version
 .DESCRIPTION
