@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     DigiCert TLM Agent Certificate Processing Script - Radware Alteon Deployment (PowerShell Version)
 .DESCRIPTION

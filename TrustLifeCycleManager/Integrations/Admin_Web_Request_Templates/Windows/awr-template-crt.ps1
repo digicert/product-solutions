@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     DigiCert TLM Agent Certificate Processing Script (CRT/KEY Format) - PowerShell Version
 .DESCRIPTION
