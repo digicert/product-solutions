@@ -4,8 +4,10 @@
 .DESCRIPTION
     Admin Web Request (AWR) template that decodes the DC1_POST_SCRIPT_DATA payload, imports the
     delivered PFX, and applies it to the RDP-Tcp listener and the RDS roles (Publishing, Web Access,
-    SSO/Redirector). Any enabled step that fails is recorded and the script exits non-zero so Trust
-    Lifecycle Manager reflects the true outcome instead of a false "success".
+    SSO/Redirector). The deployment-level roles are only attempted when an actual RDS deployment is
+    detected on the target Connection Broker; otherwise they are skipped with a note rather than
+    recorded as failures. Any enabled step that genuinely fails is recorded and the script exits
+    non-zero so Trust Lifecycle Manager reflects the true outcome instead of a false "success".
 .NOTES
     Legal Notice (version January 1, 2026)
     Copyright © 2026 DigiCert. All rights reserved.
@@ -375,6 +377,11 @@ $Install_RDS_SSO_Certificate        = $true    # RD SSO / Redirector certificate
 # Optional RD Connection Broker FQDN. Leave empty to operate against the local deployment.
 # Can also be supplied via AWR Parameter 1 ($ARGUMENT_1). When set, it is passed as
 # -ConnectionBroker to the RDS cmdlets; the certificate must be resolvable by that broker.
+#
+# NOTE: on a standalone RD Session Host, ARGUMENT_1 is often the host's own FQDN. That host is
+# NOT a Connection Broker and has no deployment, so passing it as -ConnectionBroker will point the
+# role cmdlets at a non-existent deployment. The deployment probe below handles that case by
+# skipping the deployment-level roles. Only set this to a REAL Connection Broker FQDN.
 $RDS_Connection_Broker_FQDN = if (-not [string]::IsNullOrWhiteSpace($ARGUMENT_1)) { $ARGUMENT_1 } else { "" }
 
 # ---- Failure tracking (report the TRUE outcome, not a false success) --------------
@@ -394,8 +401,24 @@ function Get-RDCommonParams {
     return $p
 }
 
-# Sets and verifies an RDS role certificate. Records a failure (does not throw) so the
-# remaining roles are still attempted, but the overall run is marked failed.
+# Detects whether an actual RDS deployment exists on the (local or specified) Connection Broker.
+# Get-RDCertificate uses the same deployment/broker code path as Set-RDCertificate, so it is a
+# faithful predictor: if it throws "a deployment does not exist", the role cmdlets will too.
+# Returns $true only when a configurable deployment is present.
+function Test-RDSDeployment {
+    param([hashtable]$Common)
+    try {
+        Get-RDCertificate @Common -ErrorAction Stop | Out-Null
+        return $true
+    } catch {
+        Write-LogMessage "RDS deployment probe: no configurable deployment found ($($_.Exception.Message))"
+        return $false
+    }
+}
+
+# Sets and verifies an RDS role certificate. A missing role server or missing deployment is treated
+# as a skip-with-note (a configuration reality, not a delivery failure). Any other error is recorded
+# as a failure so the overall run is marked failed, while remaining roles are still attempted.
 function Set-RDSRoleCertificate {
     param([string]$Role, [string]$Thumbprint)
 
@@ -409,7 +432,15 @@ function Set-RDSRoleCertificate {
         Set-RDCertificate -Role $Role -Thumbprint $Thumbprint -Force -ErrorAction Stop @common
         Write-LogMessage "Set-RDCertificate succeeded for role $Role"
     } catch {
-        Add-RdsFailure "$Role : Set-RDCertificate failed. $_"
+        $msg = $_.Exception.Message
+        if ($msg -match 'does not contain|does not exist') {
+            # Deployment lacks this specific role server, or there is no deployment at all.
+            # Not a certificate-delivery failure - note and skip so a standalone/partial
+            # deployment does not report a false failure to TLM.
+            Write-LogMessage "NOTE: $Role is not part of this deployment - skipping. ($msg)"
+        } else {
+            Add-RdsFailure "$Role : Set-RDCertificate failed. $msg"
+        }
         return
     }
 
@@ -425,7 +456,7 @@ function Set-RDSRoleCertificate {
     }
 }
 
-# ---- Only proceed on an RDS server ------------------------------------------------
+# ---- Only proceed on a host with the RDS role bits present ------------------------
 $isRdsServer = $false
 try { if (Get-RDServer -ErrorAction Stop) { $isRdsServer = $true } } catch { $isRdsServer = $false }
 
@@ -471,6 +502,8 @@ else {
         }
 
         # ---- RDP listener certificate (local, via WMI) ----------------------------
+        # This is the applicable configuration for a standalone RD Session Host and does
+        # NOT require an RDS deployment.
         if ($Install_RDP_Listener_Certificate) {
             Write-LogMessage "Configuring RDP listener certificate"
             try {
@@ -495,37 +528,57 @@ else {
             Write-LogMessage "Install_RDP_Listener_Certificate is false - skipping RDP listener configuration"
         }
 
-        # ---- RDS role certificates -------------------------------------------------
-        $needRdsModule = $Install_RDS_Publishing_Certificate -or $Install_RDS_WebAccess_Certificate -or $Install_RDS_SSO_Certificate
-        if ($needRdsModule) {
+        # ---- RDS deployment-level role certificates -------------------------------
+        # Publishing / Web Access / SSO(Redirector) exist ONLY inside a Connection
+        # Broker-based deployment (New-RDSessionDeployment / Server Manager wizard).
+        # Detect the deployment first and skip these steps gracefully if none exists,
+        # so a standalone RDSH does not report a false failure to TLM.
+        $needRdsRoles = $Install_RDS_Publishing_Certificate -or $Install_RDS_WebAccess_Certificate -or $Install_RDS_SSO_Certificate
+
+        if ($needRdsRoles) {
             try {
                 Import-Module RemoteDesktop -ErrorAction Stop
                 Write-LogMessage "Successfully imported RemoteDesktop module"
             } catch {
                 Add-RdsFailure "RemoteDesktop module could not be imported - RDS roles cannot be configured. $_"
+                $needRdsRoles = $false
             }
         }
 
-        if ($Install_RDS_Publishing_Certificate) {
-            Write-LogMessage "Configuring RD Publishing certificate"
-            Set-RDSRoleCertificate -Role "RDPublishing" -Thumbprint $thumbprint
-        } else {
-            Write-LogMessage "Install_RDS_Publishing_Certificate is false - skipping"
+        $deploymentExists = $false
+        if ($needRdsRoles) {
+            $commonProbe = Get-RDCommonParams
+            $deploymentExists = Test-RDSDeployment -Common $commonProbe
+            if ($deploymentExists) {
+                Write-LogMessage "RDS deployment detected - proceeding with deployment-level role certificates"
+            } else {
+                Write-LogMessage "NOTE: No RDS deployment present on the target Connection Broker. Publishing / Web Access / SSO roles require a deployment created via New-RDSessionDeployment or the Server Manager wizard. Skipping these role steps."
+                Write-LogMessage "NOTE: On a standalone RD Session Host the RDP listener certificate above is the applicable configuration; this is a successful outcome."
+            }
         }
 
-        if ($Install_RDS_WebAccess_Certificate) {
-            Write-LogMessage "Configuring RD Web Access certificate"
-            Set-RDSRoleCertificate -Role "RDWebAccess" -Thumbprint $thumbprint
-            Write-LogMessage "Note: you may also need to update the IIS HTTPS binding for the RD Web Access site"
-        } else {
-            Write-LogMessage "Install_RDS_WebAccess_Certificate is false - skipping"
-        }
+        if ($deploymentExists) {
+            if ($Install_RDS_Publishing_Certificate) {
+                Write-LogMessage "Configuring RD Publishing certificate"
+                Set-RDSRoleCertificate -Role "RDPublishing" -Thumbprint $thumbprint
+            } else {
+                Write-LogMessage "Install_RDS_Publishing_Certificate is false - skipping"
+            }
 
-        if ($Install_RDS_SSO_Certificate) {
-            Write-LogMessage "Configuring RD SSO (Redirector) certificate"
-            Set-RDSRoleCertificate -Role "RDRedirector" -Thumbprint $thumbprint
-        } else {
-            Write-LogMessage "Install_RDS_SSO_Certificate is false - skipping"
+            if ($Install_RDS_WebAccess_Certificate) {
+                Write-LogMessage "Configuring RD Web Access certificate"
+                Set-RDSRoleCertificate -Role "RDWebAccess" -Thumbprint $thumbprint
+                Write-LogMessage "Note: you may also need to update the IIS HTTPS binding for the RD Web Access site"
+            } else {
+                Write-LogMessage "Install_RDS_WebAccess_Certificate is false - skipping"
+            }
+
+            if ($Install_RDS_SSO_Certificate) {
+                Write-LogMessage "Configuring RD SSO (Redirector) certificate"
+                Set-RDSRoleCertificate -Role "RDRedirector" -Thumbprint $thumbprint
+            } else {
+                Write-LogMessage "Install_RDS_SSO_Certificate is false - skipping"
+            }
         }
     }
 }
