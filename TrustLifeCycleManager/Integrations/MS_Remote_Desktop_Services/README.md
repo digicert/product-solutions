@@ -2,10 +2,10 @@
 
 A PowerShell post-enrollment script for **DigiCert Trust Lifecycle Manager (TLM) Agent** that automates certificate deployment across the **RDP-Tcp listener**, **RD Connection Broker Publishing**, **RD Web Access**, and **RD SSO / Redirector** roles. Triggered via the TLM Agent's Admin Web Request (AWR) workflow, the script decodes the `DC1_POST_SCRIPT_DATA` payload, imports the delivered PFX, and applies it to whichever Remote Desktop Services roles are enabled.
 
-In a **high-availability (HA) deployment** it is intended to run on the RD Connection Broker that currently holds the **RD Management Server** role. The work splits into two scopes:
+In a **high-availability (HA) deployment** the script can run on **both Connection Brokers in a single Agent Job** or on each broker via separate jobs. The work splits into two scopes:
 
-- **Local, per-server** (always run): import the PFX into `LocalMachine\My`, repair private-key permissions, and — optionally — set this server's RDP-Tcp listener certificate.
-- **Deployment-wide** (run once via the broker): the Publishing / Web Access / SSO(Redirector) role certificates are applied with `Set-RDCertificate`, which imports the PFX into the deployment and **distributes it to the role servers** — so no per-server remoting (PsExec/WinRM) is required.
+- **Local, per-server** (always run): import the PFX into `LocalMachine\My`, repair private-key permissions, and — optionally — set this server's RDP-Tcp listener certificate. This runs on every host the job targets.
+- **Deployment-wide** (run once, by the active broker only): the Publishing / Web Access / SSO(Redirector) role certificates are applied with `Set-RDCertificate`, which imports the PFX into the deployment and **distributes it to the role servers** — so no per-server remoting (PsExec/WinRM) is required. When a single job targets both brokers, the script detects which host is the active RD Management Server and only that host calls `Set-RDCertificate`; the passive broker skips those calls to prevent a duplicate certificate import.
 
 Any enabled step that genuinely fails is recorded and the script exits non-zero, so TLM reflects the true outcome instead of a false "success". A missing deployment (or a role that isn't part of it) is treated as a graceful skip, not a failure.
 
@@ -30,9 +30,12 @@ Post-enrollment script
     ├── Probe for an RDS deployment (Get-RDCertificate)
     │     └── none found → skip the role steps with a note (not a failure)
     └── If a deployment exists:
-          ├── (Optional) Set RD Publishing   via Set-RDCertificate -ImportPath
-          ├── (Optional) Set RD Web Access    via Set-RDCertificate -ImportPath
-          └── (Optional) Set RD SSO/Redirector via Set-RDCertificate -ImportPath
+          ├── Check if this host is the active RD Management Server (Get-RDServer local probe)
+          │     └── not active + no explicit broker FQDN configured
+          │           → skip Publishing / Web Access / SSO with a note (passive broker in single-job HA)
+          ├── (Optional) Set RD Publishing    via Set-RDCertificate -ImportPath  ─┐
+          ├── (Optional) Set RD Web Access    via Set-RDCertificate -ImportPath   │ active broker only
+          └── (Optional) Set RD SSO/Redirector via Set-RDCertificate -ImportPath ─┘
 ```
 
 ## Prerequisites
@@ -143,7 +146,8 @@ The script extracts:
 ### Deployment-Wide Steps (Run When a Deployment Is Detected)
 
 9. **Resolve the active broker** — determines which broker currently holds the RD Management Server role (configured FQDN → local host → discovered candidates) so the role cmdlets are targeted at the node that answers, even after an HA management-role failover. See [Active-Broker Resolution](#active-broker-resolution-ha-failover).
-10. **Load module & probe** — imports the `RemoteDesktop` module and runs a deployment probe (`Get-RDCertificate`) against the resolved broker. If no broker/deployment is reachable, the role steps below are **skipped with a note** (not recorded as failures).
+10. **Load module & probe** — imports the `RemoteDesktop` module, runs `Get-RDServer` against the **local host** to record whether this host is the active RD Management Server, and runs a deployment probe (`Get-RDCertificate`) against the resolved broker. If no broker/deployment is reachable, the role steps below are **skipped with a note** (not recorded as failures).
+10a. **Passive-broker guard** — if the local host is **not** the active RD Management Server and no explicit Connection Broker FQDN has been configured, the deployment-level role steps are **skipped with a note**. This prevents a duplicate certificate import when a single Agent Job targets both HA brokers at the same time: `Set-RDCertificate -ImportPath` always imports the PFX into the target broker's `LocalMachine\My` store, so the passive broker's call (routed to the active broker via `-ConnectionBroker`) would add a second copy on top of the active broker's own import. The active broker handles the deployment-level roles via its own job execution. *(Exception: if `$RDS_Connection_Broker_FQDN` / AWR Parameter 1 is set, the operator has explicitly delegated to a remote broker from this host, so the guard is bypassed.)*
 11. For each enabled role — **RD Publishing / RD Web Access / RD SSO(Redirector)**:
     - Runs `Set-RDCertificate -Role <role> -ImportPath <pfx> -Password <secure> -Force` (adding `-ConnectionBroker <FQDN>` when configured). This imports the PFX into the deployment and distributes it to the role servers.
     - Verifies the result by reading it back with `Get-RDCertificate` and comparing thumbprints.
@@ -197,6 +201,7 @@ Any of the following are recorded and cause a **non-zero exit at the end of the 
 - No RDS deployment detected — the deployment-wide role steps are skipped with a note; the local steps still count as a success
 - No active management broker could be reached (and none configured) — the deployment-wide roles are skipped with a warning. Configure `$RDS_Broker_Candidates` / `$RDS_HA_Broker_DNS` to have failover handled automatically instead
 - An enabled role isn't part of the deployment (`does not contain` / `does not exist`) — that role is skipped with a note
+- This host is **not the active RD Management Server** and no explicit Connection Broker FQDN is configured — the deployment-wide role steps (Publishing / Web Access / SSO) are skipped with a note. This is the expected behaviour for the passive broker in a single Agent Job that targets both HA Connection Brokers. The active broker applies these roles via its own execution.
 
 ### Clean Exit (Exit Code 0)
 
@@ -212,6 +217,20 @@ $Install_RDS_Publishing_Certificate  = $true
 $Install_RDS_WebAccess_Certificate   = $true
 $Install_RDS_SSO_Certificate         = $true
 $RDS_Connection_Broker_FQDN          = ""       # empty = local (this) broker is the active management node
+```
+
+### HA Deployment — Single Agent Job Targeting Both Connection Brokers
+
+No special configuration is required. Deploy the TLM Agent on both brokers and point the job at both hosts. The script automatically detects which broker is the active RD Management Server:
+
+- **Active broker**: runs the full sequence (local import → RDP listener → `Set-RDCertificate` for Publishing / Web Access / SSO)
+- **Passive broker**: runs the local steps only (local import → RDP listener); skips `Set-RDCertificate` to prevent a duplicate certificate import on the active broker
+
+For HA management-role failover resilience, populate the broker candidates so the script can find the active node after a failover:
+
+```powershell
+$RDS_Broker_Candidates = @("rdsktcnb001.example.com", "rdsktcnb002.example.com")
+# Or: $RDS_HA_Broker_DNS = "rds-cb.example.com"
 ```
 
 ### Deployment Roles Only (leave the broker's own RDP listener alone)
@@ -235,6 +254,7 @@ $Install_RDS_SSO_Certificate         = $false
 ## Important Notes
 
 - **HA management role**: The deployment-wide roles only succeed against the broker that currently holds the RD Management Server role. The script resolves this automatically (local host, then the configured candidates), so an HA management-role failover is handled without manual intervention **provided** `$RDS_Broker_Candidates` or `$RDS_HA_Broker_DNS` is populated. See [Active-Broker Resolution](#active-broker-resolution-ha-failover).
+- **Single Agent Job targeting both HA brokers**: when one TLM job runs on both Connection Brokers simultaneously, the passive broker **automatically skips** the `Set-RDCertificate` deployment-level calls. Without this guard, `Set-RDCertificate -ImportPath` (run from the passive broker, routed to the active broker via `-ConnectionBroker`) would import the same certificate a second time into the active broker's `LocalMachine\My` store. The local PFX import, private-key repair, and RDP listener steps still run on both brokers. If you instead use **separate jobs per broker**, the guard still applies correctly and the behaviour is unchanged.
 - **One call, whole deployment**: `Set-RDCertificate` distributes the certificate to the role servers, so the role steps only need to run once against the active broker — no PsExec/WinRM fan-out.
 - **Session disruption**: Enabling `$Install_RDP_Listener_Certificate` restarts `TermService`, terminating active RDP sessions on this server. On a broker-only run this affects the broker itself and does not touch session hosts.
 - **IIS binding for Web Access**: `Set-RDCertificate -Role RDWebAccess` configures the RDS role but may not update the IIS HTTPS binding. You may need a separate IIS binding update or combine this with the IIS certificate binding script.
