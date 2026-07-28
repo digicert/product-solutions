@@ -394,9 +394,9 @@ $RDS_Connection_Broker_FQDN = if (-not [string]::IsNullOrWhiteSpace($ARGUMENT_1)
 # whichever broker currently answers - so certificate deployment keeps working after a failover.
 #
 #   $RDS_Broker_Candidates : explicit broker FQDNs to probe (most reliable). For this
-#                            deployment, e.g. @("svt-rdsktcnb001.hegele.de","svt-rdsktcnb002.hegele.de")
+#                            deployment, e.g. @("broker1.domain.com","broker2.domain.com")
 #   $RDS_HA_Broker_DNS     : RD Connection Broker cluster (HA) DNS name; resolved and reverse
-#                            looked-up as a best-effort source of candidates, e.g. "rdskt-test-cb.hegele.de"
+#                            looked-up as a best-effort source of candidates, e.g. "ha-dns.domain.com"
 $RDS_Broker_Candidates = @()
 $RDS_HA_Broker_DNS     = ""
 
@@ -640,10 +640,18 @@ else {
         # so a standalone RDSH does not report a false failure to TLM.
         $needRdsRoles = $Install_RDS_Publishing_Certificate -or $Install_RDS_WebAccess_Certificate -or $Install_RDS_SSO_Certificate
 
+        # Tracks whether the local host is the active RD Management Server; populated after
+        # importing the RemoteDesktop module so Get-RDServer is available.
+        $localHostIsActiveMgmtServer = $false
+
         if ($needRdsRoles) {
             try {
                 Import-Module RemoteDesktop -ErrorAction Stop
                 Write-LogMessage "Successfully imported RemoteDesktop module"
+                # Probe the local host BEFORE Resolve-ActiveBroker so we know whether this host
+                # owns the RD Management Server role independently of any configured FQDN.
+                $localHostIsActiveMgmtServer = Test-BrokerReachable
+                Write-LogMessage "Local host is active RD Management Server: $localHostIsActiveMgmtServer"
             } catch {
                 Add-RdsFailure "RemoteDesktop module could not be imported - RDS roles cannot be configured. $_"
                 $needRdsRoles = $false
@@ -670,26 +678,47 @@ else {
         }
 
         if ($deploymentExists) {
-            if ($Install_RDS_Publishing_Certificate) {
-                Write-LogMessage "Configuring RD Publishing certificate"
-                Set-RDSRoleCertificate -Role "RDPublishing" -Thumbprint $thumbprint
-            } else {
-                Write-LogMessage "Install_RDS_Publishing_Certificate is false - skipping"
-            }
+            # In an HA deployment with a single Agent Job covering both Connection Brokers, both
+            # hosts run Set-RDCertificate -ImportPath.  Set-RDCertificate always imports the PFX
+            # into the target broker's LocalMachine\My store, so the passive broker's call (routed
+            # to the active broker via -ConnectionBroker) causes a second copy of the same cert to
+            # land in the active broker's store on top of the one already imported by
+            # Import-PfxCertificate and the active broker's own Set-RDCertificate call.
+            #
+            # Guard: only the host that currently holds the RD Management Server role calls
+            # Set-RDCertificate.  The passive broker skips these steps; the active broker applies
+            # all deployment-level role certificates through its own job execution.
+            #
+            # Exception: if the operator explicitly configured $RDS_Connection_Broker_FQDN /
+            # AWR Parameter 1 (intentional remote-delegation from a non-broker host such as an
+            # RD Session Host or RD Web Access server), honour that intent and run Set-RDCertificate
+            # even though the local host is not the active management server.
+            $passiveBrokerSkip = (-not $localHostIsActiveMgmtServer) -and [string]::IsNullOrWhiteSpace($RDS_Connection_Broker_FQDN)
 
-            if ($Install_RDS_WebAccess_Certificate) {
-                Write-LogMessage "Configuring RD Web Access certificate"
-                Set-RDSRoleCertificate -Role "RDWebAccess" -Thumbprint $thumbprint
-                Write-LogMessage "Note: you may also need to update the IIS HTTPS binding for the RD Web Access site"
+            if ($passiveBrokerSkip) {
+                Write-LogMessage "NOTE: This host is not the active RD Management Server and no explicit Connection Broker FQDN is configured. Skipping Set-RDCertificate for deployment-level roles (Publishing / Web Access / SSO) on this passive broker to prevent duplicate certificate imports into the active broker's LocalMachine\My store. The active broker applies these roles via its own execution of this script."
             } else {
-                Write-LogMessage "Install_RDS_WebAccess_Certificate is false - skipping"
-            }
+                if ($Install_RDS_Publishing_Certificate) {
+                    Write-LogMessage "Configuring RD Publishing certificate"
+                    Set-RDSRoleCertificate -Role "RDPublishing" -Thumbprint $thumbprint
+                } else {
+                    Write-LogMessage "Install_RDS_Publishing_Certificate is false - skipping"
+                }
 
-            if ($Install_RDS_SSO_Certificate) {
-                Write-LogMessage "Configuring RD SSO (Redirector) certificate"
-                Set-RDSRoleCertificate -Role "RDRedirector" -Thumbprint $thumbprint
-            } else {
-                Write-LogMessage "Install_RDS_SSO_Certificate is false - skipping"
+                if ($Install_RDS_WebAccess_Certificate) {
+                    Write-LogMessage "Configuring RD Web Access certificate"
+                    Set-RDSRoleCertificate -Role "RDWebAccess" -Thumbprint $thumbprint
+                    Write-LogMessage "Note: you may also need to update the IIS HTTPS binding for the RD Web Access site"
+                } else {
+                    Write-LogMessage "Install_RDS_WebAccess_Certificate is false - skipping"
+                }
+
+                if ($Install_RDS_SSO_Certificate) {
+                    Write-LogMessage "Configuring RD SSO (Redirector) certificate"
+                    Set-RDSRoleCertificate -Role "RDRedirector" -Thumbprint $thumbprint
+                } else {
+                    Write-LogMessage "Install_RDS_SSO_Certificate is false - skipping"
+                }
             }
         }
     }
