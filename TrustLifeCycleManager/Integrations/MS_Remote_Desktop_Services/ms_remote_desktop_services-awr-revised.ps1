@@ -686,17 +686,26 @@ else {
             # Import-PfxCertificate and the active broker's own Set-RDCertificate call.
             #
             # Guard: only the host that currently holds the RD Management Server role calls
-            # Set-RDCertificate.  The passive broker skips these steps; the active broker applies
-            # all deployment-level role certificates through its own job execution.
+            # Set-RDCertificate.  A passive Connection Broker must always skip regardless of
+            # whether an explicit $RDS_Connection_Broker_FQDN / AWR Parameter 1 is configured:
+            # the active broker applies all deployment-level role certificates through its own
+            # execution.  Running Set-RDCertificate from the passive broker concurrently causes
+            # the PFX to be imported a second time into the active broker's LocalMachine\My store
+            # (once by the active broker's own call, and once via the passive broker's
+            # -ConnectionBroker-routed call), producing a duplicate cert that causes the
+            # verification step to fail.
             #
-            # Exception: if the operator explicitly configured $RDS_Connection_Broker_FQDN /
-            # AWR Parameter 1 (intentional remote-delegation from a non-broker host such as an
-            # RD Session Host or RD Web Access server), honour that intent and run Set-RDCertificate
-            # even though the local host is not the active management server.
-            $passiveBrokerSkip = (-not $localHostIsActiveMgmtServer) -and [string]::IsNullOrWhiteSpace($RDS_Connection_Broker_FQDN)
+            # Exception: a non-broker host (RD Session Host, RD Web Access server) that explicitly
+            # set $RDS_Connection_Broker_FQDN / AWR Parameter 1 is intentionally delegating to the
+            # broker; honour that.  tssdis is the RD Connection Broker service — its presence
+            # reliably identifies whether this host carries the broker role.
+            $isConnectionBroker = ($null -ne (Get-Service -Name "tssdis" -ErrorAction SilentlyContinue))
+            Write-LogMessage "Local host has Connection Broker service (tssdis): $isConnectionBroker"
+
+            $passiveBrokerSkip = (-not $localHostIsActiveMgmtServer) -and ($isConnectionBroker -or [string]::IsNullOrWhiteSpace($RDS_Connection_Broker_FQDN))
 
             if ($passiveBrokerSkip) {
-                Write-LogMessage "NOTE: This host is not the active RD Management Server and no explicit Connection Broker FQDN is configured. Skipping Set-RDCertificate for deployment-level roles (Publishing / Web Access / SSO) on this passive broker to prevent duplicate certificate imports into the active broker's LocalMachine\My store. The active broker applies these roles via its own execution of this script."
+                Write-LogMessage "NOTE: This host is a passive Connection Broker (not the active RD Management Server). Skipping Set-RDCertificate for deployment-level roles (Publishing / Web Access / SSO) to prevent a duplicate PFX import into the active broker's certificate store. The active broker applies these roles via its own execution of this script."
             } else {
                 if ($Install_RDS_Publishing_Certificate) {
                     Write-LogMessage "Configuring RD Publishing certificate"

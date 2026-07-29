@@ -31,7 +31,7 @@ Post-enrollment script
     │     └── none found → skip the role steps with a note (not a failure)
     └── If a deployment exists:
           ├── Check if this host is the active RD Management Server (Get-RDServer local probe)
-          │     └── not active + no explicit broker FQDN configured
+          │     └── not active + local host has the Connection Broker role (tssdis service)
           │           → skip Publishing / Web Access / SSO with a note (passive broker in single-job HA)
           ├── (Optional) Set RD Publishing    via Set-RDCertificate -ImportPath  ─┐
           ├── (Optional) Set RD Web Access    via Set-RDCertificate -ImportPath   │ active broker only
@@ -147,7 +147,7 @@ The script extracts:
 
 9. **Resolve the active broker** — determines which broker currently holds the RD Management Server role (configured FQDN → local host → discovered candidates) so the role cmdlets are targeted at the node that answers, even after an HA management-role failover. See [Active-Broker Resolution](#active-broker-resolution-ha-failover).
 10. **Load module & probe** — imports the `RemoteDesktop` module, runs `Get-RDServer` against the **local host** to record whether this host is the active RD Management Server, and runs a deployment probe (`Get-RDCertificate`) against the resolved broker. If no broker/deployment is reachable, the role steps below are **skipped with a note** (not recorded as failures).
-10a. **Passive-broker guard** — if the local host is **not** the active RD Management Server and no explicit Connection Broker FQDN has been configured, the deployment-level role steps are **skipped with a note**. This prevents a duplicate certificate import when a single Agent Job targets both HA brokers at the same time: `Set-RDCertificate -ImportPath` always imports the PFX into the target broker's `LocalMachine\My` store, so the passive broker's call (routed to the active broker via `-ConnectionBroker`) would add a second copy on top of the active broker's own import. The active broker handles the deployment-level roles via its own job execution. *(Exception: if `$RDS_Connection_Broker_FQDN` / AWR Parameter 1 is set, the operator has explicitly delegated to a remote broker from this host, so the guard is bypassed.)*
+10a. **Passive-broker guard** — if the local host is **not** the active RD Management Server **and** it carries the Connection Broker role (detected by the presence of the `tssdis` service), the deployment-level role steps are **skipped with a note**. This prevents a duplicate certificate import when a single Agent Job targets both HA brokers at the same time: `Set-RDCertificate -ImportPath` always imports the PFX into the target broker's `LocalMachine\My` store, so the passive broker's call (routed to the active broker via `-ConnectionBroker`) would add a second copy on top of the active broker's own import, causing verification to fail. The active broker handles the deployment-level roles via its own job execution. *(Exception: a non-broker host — an RD Session Host or RD Web Access server — that has set `$RDS_Connection_Broker_FQDN` / AWR Parameter 1 is intentionally delegating to a remote broker; the `tssdis` service will not be present on those hosts, so the guard does not fire and `Set-RDCertificate` is called as configured.)*
 11. For each enabled role — **RD Publishing / RD Web Access / RD SSO(Redirector)**:
     - Runs `Set-RDCertificate -Role <role> -ImportPath <pfx> -Password <secure> -Force` (adding `-ConnectionBroker <FQDN>` when configured). This imports the PFX into the deployment and distributes it to the role servers.
     - Verifies the result by reading it back with `Get-RDCertificate` and comparing thumbprints.
@@ -201,7 +201,7 @@ Any of the following are recorded and cause a **non-zero exit at the end of the 
 - No RDS deployment detected — the deployment-wide role steps are skipped with a note; the local steps still count as a success
 - No active management broker could be reached (and none configured) — the deployment-wide roles are skipped with a warning. Configure `$RDS_Broker_Candidates` / `$RDS_HA_Broker_DNS` to have failover handled automatically instead
 - An enabled role isn't part of the deployment (`does not contain` / `does not exist`) — that role is skipped with a note
-- This host is **not the active RD Management Server** and no explicit Connection Broker FQDN is configured — the deployment-wide role steps (Publishing / Web Access / SSO) are skipped with a note. This is the expected behaviour for the passive broker in a single Agent Job that targets both HA Connection Brokers. The active broker applies these roles via its own execution.
+- This host is **not the active RD Management Server** and has the Connection Broker role installed (`tssdis` service present) — the deployment-wide role steps (Publishing / Web Access / SSO) are skipped with a note. This is the expected behaviour for the passive broker in a single Agent Job that targets both HA Connection Brokers, regardless of whether `$RDS_Connection_Broker_FQDN` / AWR Parameter 1 is set. The active broker applies these roles via its own execution.
 
 ### Clean Exit (Exit Code 0)
 

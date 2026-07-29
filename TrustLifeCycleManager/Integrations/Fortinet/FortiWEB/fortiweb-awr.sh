@@ -34,6 +34,12 @@ LEGAL_NOTICE
 LEGAL_NOTICE_ACCEPT="false"   # Set to "true" to accept the legal notice and enable script execution
 LOGFILE="/opt/digicert/tlm_agent_3.1.9_linux64/log/fortiweb.log"
 
+# Overall script result. Any real failure (missing args, missing files, a
+# failed upload, a failed reference repoint, or a failed delete) sets this to
+# 1 so the script exits non-zero and TLM records the AWR run as FAILED rather
+# than silently succeeding. Default 0 = success.
+SCRIPT_STATUS=0
+
 # Secret to redact from all log output. Set once the auth token is known
 # (see below); until then logging is unaffected.
 REDACT_TOKEN=""
@@ -87,9 +93,20 @@ log_message "CERT_INFO length: ${#CERT_INFO} characters"
 # Decode JSON string
 JSON_STRING=$(echo "$CERT_INFO" | base64 -d)
 
-# Identify the FortiWeb auth token (second arg) as early as possible so every
-# subsequent log line - including the raw JSON dump below - redacts it.
-REDACT_TOKEN=$(echo "$JSON_STRING" | grep -oP '"args":\[\K[^]]*' | awk -F',' '{print $2}' | tr -d '"' | tr -d '[:space:]')
+# Identify the FortiWeb auth token (third arg: FQDN, Port, Token) as early as
+# possible so every subsequent log line - including the raw JSON dump below -
+# redacts it.
+REDACT_TOKEN=$(echo "$JSON_STRING" | grep -oP '"args":\[\K[^]]*' | awk -F',' '{print $3}' | tr -d '"' | tr -d '[:space:]')
+# Defensive: if arg 3 is empty but arg 2 holds a non-numeric value, the caller
+# likely used the old 2-arg layout and put the token in the port slot. Redact
+# that too so a misplaced token never lands in the log (a legitimate numeric
+# port is left visible).
+if [ -z "$REDACT_TOKEN" ]; then
+    _ARG2_VAL=$(echo "$JSON_STRING" | grep -oP '"args":\[\K[^]]*' | awk -F',' '{print $2}' | tr -d '"' | tr -d '[:space:]')
+    if [ -n "$_ARG2_VAL" ] && ! echo "$_ARG2_VAL" | grep -qE '^[0-9]+$'; then
+        REDACT_TOKEN="$_ARG2_VAL"
+    fi
+fi
 
 log_message "JSON_STRING decoded successfully"
 
@@ -221,8 +238,10 @@ fi
 # This section uploads the certificate and key to FortiWeb using the API
 #
 # Arguments used:
-#   ARGUMENT_1: FortiWeb URL (e.g., ec2-18-218-166-16.us-east-2.compute.amazonaws.com)
-#   ARGUMENT_2: Authorization Token
+#   ARGUMENT_1: FortiWeb FQDN or IP, with or without a scheme
+#               (e.g. fortiweb.example.com  or  https://fortiweb.example.com)
+#   ARGUMENT_2: FortiWeb API port (optional; defaults to 443 if left blank)
+#   ARGUMENT_3: Authorization Token
 #
 # ============================================================================
 
@@ -231,30 +250,68 @@ log_message "Starting FortiWeb API certificate upload..."
 log_message "=========================================="
 
 # Validate required arguments
+#   Argument 1 = FortiWeb FQDN/IP (required)
+#   Argument 2 = API port         (optional; defaults to 443)
+#   Argument 3 = Authorization    (required)
 if [ -z "$ARGUMENT_1" ]; then
-    log_message "ERROR: Argument 1 (FortiWeb URL) is not provided"
-    log_message "Skipping FortiWeb upload - URL not specified"
+    log_message "ERROR: Argument 1 (FortiWeb FQDN) is not provided"
+    log_message "Skipping FortiWeb upload - FQDN not specified"
+    SCRIPT_STATUS=1
 else
-    if [ -z "$ARGUMENT_2" ]; then
-        log_message "ERROR: Argument 2 (Authorization Token) is not provided"
+    if [ -z "$ARGUMENT_3" ]; then
+        log_message "ERROR: Argument 3 (Authorization Token) is not provided"
         log_message "Skipping FortiWeb upload - Authorization token not specified"
+        SCRIPT_STATUS=1
     else
         # Check if certificate and key files exist
         if [ -f "$CRT_FILE_PATH" ] && [ -f "$KEY_FILE_PATH" ]; then
-            
+
             # Set FortiWeb API variables
             FORTIWEB_URL="$ARGUMENT_1"
-            AUTH_TOKEN="$ARGUMENT_2"
-            
-            # Remove any trailing/leading whitespace from URL and token
+            FORTIWEB_PORT="$ARGUMENT_2"
+            AUTH_TOKEN="$ARGUMENT_3"
+
+            # Remove any trailing/leading whitespace
             FORTIWEB_URL=$(echo "$FORTIWEB_URL" | xargs)
+            FORTIWEB_PORT=$(echo "$FORTIWEB_PORT" | xargs)
             AUTH_TOKEN=$(echo "$AUTH_TOKEN" | xargs)
-            
+
+            # Default the API port to 443 when Argument 2 is blank, and fall
+            # back to 443 (with a warning) if a non-numeric value was supplied.
+            if [ -z "$FORTIWEB_PORT" ]; then
+                FORTIWEB_PORT=443
+                log_message "Argument 2 (port) not provided - defaulting to 443"
+            elif ! echo "$FORTIWEB_PORT" | grep -qE '^[0-9]+$'; then
+                log_message "WARNING: Argument 2 (port) '$FORTIWEB_PORT' is not numeric - defaulting to 443"
+                FORTIWEB_PORT=443
+            fi
+
+            # Normalise the FortiWeb host from Argument 1 to a bare host. The
+            # customer may enter it with or without a scheme, with a trailing
+            # slash/path, or with a :port - the endpoints below always add
+            # https:// and the API port (Argument 2) themselves. Reducing it
+            # here means "host", "https://host", "http://host/", and "host:443"
+            # all work, and it avoids the double-scheme URL (https://https://host)
+            # that curl cannot resolve ("Could not resolve host: https").
+            FORTIWEB_URL_RAW="$FORTIWEB_URL"
+            # 1) strip any leading scheme(s), e.g. https:// or http://
+            while [ "$FORTIWEB_URL" != "${FORTIWEB_URL#*://}" ]; do
+                FORTIWEB_URL="${FORTIWEB_URL#*://}"
+            done
+            # 2) drop any path and trailing slash, keeping only host[:port]
+            FORTIWEB_URL="${FORTIWEB_URL%%/*}"
+            # 3) drop a trailing :port (the port is taken from Argument 2)
+            FORTIWEB_URL=$(echo "$FORTIWEB_URL" | sed -E 's/:[0-9]+$//')
+            if [ "$FORTIWEB_URL" != "$FORTIWEB_URL_RAW" ]; then
+                log_message "Normalised FortiWeb host from Argument 1: '$FORTIWEB_URL_RAW' -> '$FORTIWEB_URL'"
+            fi
+
             # Construct the API endpoint
-            API_ENDPOINT="https://${FORTIWEB_URL}:8443/api/v2.0/system/certificate.local.import_certificate"
+            API_ENDPOINT="https://${FORTIWEB_URL}:${FORTIWEB_PORT}/api/v2.0/system/certificate.local.import_certificate"
             
             log_message "FortiWeb Upload Configuration:"
-            log_message "  FortiWeb URL: $FORTIWEB_URL"
+            log_message "  FortiWeb host: $FORTIWEB_URL"
+            log_message "  FortiWeb port: $FORTIWEB_PORT"
             log_message "  API Endpoint: $API_ENDPOINT"
             log_message "  Certificate file: $CRT_FILE_PATH"
             log_message "  Key file: $KEY_FILE_PATH"
@@ -291,11 +348,11 @@ else
             # deleted once the new cert is confirmed present (and, when it was
             # bound, once the policy has been successfully repointed).
 
-            CMDB_CERT_BASE="https://${FORTIWEB_URL}:8443/api/v2.0/cmdb/system/certificate.local"
-            CMDB_POLICY_BASE="https://${FORTIWEB_URL}:8443/api/v2.0/cmdb/server-policy/policy"
-            CMDB_SNI_BASE="https://${FORTIWEB_URL}:8443/api/v2.0/cmdb/system/certificate.sni"
-            CMDB_MULTILOCAL_BASE="https://${FORTIWEB_URL}:8443/api/v2.0/cmdb/system/certificate.multi-local"
-            LIST_ENDPOINT="https://${FORTIWEB_URL}:8443/api/v2.0/system/certificate.local"
+            CMDB_CERT_BASE="https://${FORTIWEB_URL}:${FORTIWEB_PORT}/api/v2.0/cmdb/system/certificate.local"
+            CMDB_POLICY_BASE="https://${FORTIWEB_URL}:${FORTIWEB_PORT}/api/v2.0/cmdb/server-policy/policy"
+            CMDB_SNI_BASE="https://${FORTIWEB_URL}:${FORTIWEB_PORT}/api/v2.0/cmdb/system/certificate.sni"
+            CMDB_MULTILOCAL_BASE="https://${FORTIWEB_URL}:${FORTIWEB_PORT}/api/v2.0/cmdb/system/certificate.multi-local"
+            LIST_ENDPOINT="https://${FORTIWEB_URL}:${FORTIWEB_PORT}/api/v2.0/system/certificate.local"
 
             # Helper: raw JSON of the local certificate list
             get_cert_list_json() {
@@ -502,7 +559,9 @@ for c in (res if isinstance(res, list) else [res]):
                     HAVE_PY3=0
                     command -v python3 >/dev/null 2>&1 && HAVE_PY3=1
 
-                    echo "$OLD_CERTS" | while IFS= read -r OLD_CERT; do
+                    # Fed via here-string (not a pipe) so the loop runs in the
+                    # current shell and SCRIPT_STATUS set inside survives to exit.
+                    while IFS= read -r OLD_CERT; do
                         [ -z "$OLD_CERT" ] && continue
                         log_message "Processing previous certificate: $OLD_CERT"
 
@@ -651,6 +710,7 @@ for m in res:
                         # Only delete once every reference was cleared successfully
                         if [ "$REF_FAILED" == "1" ]; then
                             log_message "ERROR: One or more references to '$OLD_CERT' could not be repointed - leaving it in place for manual review"
+                            SCRIPT_STATUS=1
                             continue
                         fi
 
@@ -695,8 +755,9 @@ print("absent")
                             log_message "SUCCESS: Old certificate '$OLD_CERT' deleted"
                         else
                             log_message "WARNING: Could not delete old certificate '$OLD_CERT' (HTTP $DEL_STATUS): $(echo "$DEL_RESPONSE" | sed '/HTTP_STATUS:/d')"
+                            SCRIPT_STATUS=1
                         fi
-                    done
+                    done <<< "$OLD_CERTS"
                 fi
 
                 log_message "FortiWeb certificate rotation completed"
@@ -710,6 +771,7 @@ print("absent")
                 log_message "ERROR: Failed to upload certificate to FortiWeb"
                 log_message "HTTP Status: $HTTP_STATUS"
                 log_message "Error Response: $RESPONSE_BODY"
+                SCRIPT_STATUS=1
 
                 # Provide troubleshooting information
                 if [ "$HTTP_STATUS" == "401" ]; then
@@ -729,6 +791,7 @@ print("absent")
             log_message "  Certificate exists: $([ -f "$CRT_FILE_PATH" ] && echo "Yes" || echo "No")"
             log_message "  Key exists: $([ -f "$KEY_FILE_PATH" ] && echo "Yes" || echo "No")"
             log_message "Skipping FortiWeb upload - required files not available"
+            SCRIPT_STATUS=1
         fi
     fi
 fi
@@ -737,7 +800,7 @@ fi
 if [ ! -z "$FORTIWEB_URL" ] && [ ! -z "$AUTH_TOKEN" ] && [ "$HTTP_STATUS" == "200" -o "$HTTP_STATUS" == "201" ]; then
     log_message "Attempting to verify certificate import..."
     
-    VERIFY_ENDPOINT="https://${FORTIWEB_URL}:8443/api/v2.0/system/certificate.local"
+    VERIFY_ENDPOINT="https://${FORTIWEB_URL}:${FORTIWEB_PORT:-443}/api/v2.0/system/certificate.local"
     
     VERIFY_RESPONSE=$(curl -k --location -g --request GET "$VERIFY_ENDPOINT" \
         --header "Authorization: $AUTH_TOKEN" \
@@ -763,7 +826,11 @@ log_message "=========================================="
 # ============================================================================
 
 log_message "=========================================="
-log_message "Script execution completed"
+if [ "$SCRIPT_STATUS" -eq 0 ]; then
+    log_message "Script execution completed (SUCCESS)"
+else
+    log_message "Script execution completed (FAILED - exit code $SCRIPT_STATUS; see errors above)"
+fi
 log_message "=========================================="
 
-exit 0
+exit $SCRIPT_STATUS
