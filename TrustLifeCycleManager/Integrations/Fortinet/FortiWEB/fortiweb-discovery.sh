@@ -24,7 +24,8 @@
 #
 # Usage:
 #   export FWB="your-fortiweb-host"        # host only, no scheme
-#   export TOKEN="your-auth-token"         # same value TLM passes as Argument_2
+#   export PORT="443"                     # optional, defaults to 443
+#   export TOKEN="your-auth-token"         # same value TLM passes as Argument_3
 #   ./fortiweb-discovery.sh certs
 #   ./fortiweb-discovery.sh policies
 #   ./fortiweb-discovery.sh sni                       # list SNI objects
@@ -40,8 +41,9 @@ set -u
 
 : "${FWB:?Set FWB to the FortiWeb host (no scheme), e.g. export FWB=fw.example.com}"
 : "${TOKEN:?Set TOKEN to the FortiWeb API authorization token}"
+PORT="${PORT:-443}"   # FortiWeb REST API port; override with: export PORT=<port>
 
-BASE="https://${FWB}:8443/api/v2.0"
+BASE="https://${FWB}:${PORT}/api/v2.0"
 AUTH=(-H "Authorization: ${TOKEN}" -H 'Accept: application/json')
 
 # Pretty-print JSON if python3 is available, otherwise pass through raw

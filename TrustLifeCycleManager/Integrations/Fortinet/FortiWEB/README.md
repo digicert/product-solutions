@@ -64,11 +64,12 @@ It answers questions like:
 
 ```bash
 export FWB="your-fortiweb-host"     # hostname or IP, no scheme, no port
-export TOKEN="your-auth-token"      # same value TLM passes as Argument_2
+export PORT="443"                  # optional; defaults to 443
+export TOKEN="your-auth-token"      # same value TLM passes as Argument_3
 chmod +x fortiweb-discovery.sh
 ```
 
-All calls target `https://$FWB:8443/api/v2.0/...` and use `-k` (self-signed appliance certs are expected).
+All calls target `https://$FWB:$PORT/api/v2.0/...` (PORT defaults to 443) and use `-k` (self-signed appliance certs are expected).
 
 ### Commands
 

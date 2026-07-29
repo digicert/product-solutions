@@ -167,8 +167,9 @@ A FortiWeb local certificate can be referenced in three ways; the script scans a
 
 | Position | Variable | Required | Description |
 |----------|----------|----------|-------------|
-| 1 | `FORTIWEB_URL` | Yes | FortiWeb hostname or IP (no `https://` prefix; port 8443 is appended automatically) |
-| 2 | `AUTH_TOKEN` | Yes | FortiWeb authorization token |
+| 1 | `FORTIWEB_URL` | Yes | FortiWeb FQDN or IP. A bare host is preferred, but the script normalizes the input — a scheme (`https://`/`http://`), trailing slash/path, or `:port` are all stripped automatically. |
+| 2 | `FORTIWEB_PORT` | No | FortiWeb REST API port. Defaults to **443** if left blank (or if a non-numeric value is supplied). |
+| 3 | `AUTH_TOKEN` | Yes | FortiWeb authorization token |
 
 No further arguments are required — the script auto-discovers every policy, SNI object and multi-cert group referencing the old certificate.
 
@@ -196,7 +197,7 @@ No further arguments are required — the script auto-discovers every policy, SN
 
 ### FortiWeb API Permissions Required
 
-The API token must have read/write access to these endpoints on port **8443**:
+The API token must have read/write access to these endpoints on the configured API port (Argument 2, default **443**):
 - `GET  /api/v2.0/system/certificate.local`
 - `POST /api/v2.0/system/certificate.local.import_certificate`
 - `DELETE /api/v2.0/cmdb/system/certificate.local`
