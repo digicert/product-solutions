@@ -486,7 +486,7 @@ function Invoke-ReassignSingleton {
 
     $updateResponse = Invoke-FortiGateApi -Method "PUT" -Uri $url -BearerToken $State.BearerToken -Body $payload
     Write-Log -Message "$Label update HTTP: $($updateResponse.StatusCode)" -Level "INFO"
-    Write-Log -Message "$Label update Body: $($updateResponse.Body)" -Level "INFO"
+    Write-Log -Message "$Label update Body length: $(([string]$updateResponse.Body).Length)" -Level "INFO"
 
     if ($updateResponse.StatusCode -eq 200) {
         $State.ReferenceCount += 1
