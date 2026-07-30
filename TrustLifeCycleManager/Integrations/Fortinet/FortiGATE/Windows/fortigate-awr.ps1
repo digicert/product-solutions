@@ -752,8 +752,10 @@ function Main {
         if ([string]::IsNullOrWhiteSpace($fortiGateUrl)) { Stop-Script -Message "Argument 1 FortiGate URL is empty" }
         if ([string]::IsNullOrWhiteSpace($state.CertBaseName)) { Stop-Script -Message "Argument 2 certificate base name is empty" }
         if ([string]::IsNullOrWhiteSpace($state.BearerToken)) { Stop-Script -Message "Argument 3 bearer token is empty" }
-        if (-not (Test-Path -Path $crtPath)) { Stop-Script -Message "Certificate file does not exist: $crtPath" }
-        if (-not (Test-Path -Path $keyPath)) { Stop-Script -Message "Private key file does not exist: $keyPath" }
+        if ([string]::IsNullOrWhiteSpace($crtFile)) { Stop-Script -Message "No .crt file found in DC1_POST_SCRIPT_DATA files array" }
+        if ([string]::IsNullOrWhiteSpace($keyFile)) { Stop-Script -Message "No .key file found in DC1_POST_SCRIPT_DATA files array" }
+        if (-not (Test-Path -Path $crtPath -PathType Leaf)) { Stop-Script -Message "Certificate file does not exist: $crtPath" }
+        if (-not (Test-Path -Path $keyPath -PathType Leaf)) { Stop-Script -Message "Private key file does not exist: $keyPath" }
 
         Write-CertificateFileDetails -Path $crtPath
         Write-PrivateKeyFileDetails -Path $keyPath
