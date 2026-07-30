@@ -464,6 +464,18 @@ remember_old_cert() {
     [ -n "$1" ] && echo "$1" >> "$MATCHED_OLD_CERTS_FILE"
 }
 
+is_feature_enabled() {
+    FEATURE="$1"
+    if [ "$ASSIGN_MODE" = "assign_refs" ]; then
+        return 0
+    elif [ "$ASSIGN_MODE" = "import_only" ]; then
+        return 1
+    else
+        echo "$ASSIGN_MODE" | grep -q "$FEATURE"
+        return $?
+    fi
+}
+
 reassign_singleton() {
     LABEL="$1"
     ENDPOINT="$2"
@@ -581,12 +593,12 @@ reassign_table() {
     rm -f "$TMP_MATCHES"
 }
 
-reassign_singleton "SSL-VPN settings" "vpn.ssl/settings" "servercert"
-reassign_singleton "Admin HTTPS certificate" "system/global" "admin-server-cert"
-reassign_singleton "Admin HTTPS certificate fallback" "system/global" "admin-server-certname"
+is_feature_enabled "ssl_vpn" && reassign_singleton "SSL-VPN settings" "vpn.ssl/settings" "servercert"
+is_feature_enabled "admin_https" && reassign_singleton "Admin HTTPS certificate" "system/global" "admin-server-cert"
+is_feature_enabled "admin_https_fallback" && reassign_singleton "Admin HTTPS certificate fallback" "system/global" "admin-server-certname"
 
-reassign_table "IPsec phase1-interface" "vpn.ipsec/phase1-interface" "certificate"
-reassign_table "IPsec phase1" "vpn.ipsec/phase1" "certificate"
+is_feature_enabled "ipsec_phase1_interface" && reassign_table "IPsec phase1-interface" "vpn.ipsec/phase1-interface" "certificate"
+is_feature_enabled "ipsec_phase1" && reassign_table "IPsec phase1" "vpn.ipsec/phase1" "certificate"
 
 log_message "=========================================="
 log_message "References reassigned: $REFERENCE_COUNT"
