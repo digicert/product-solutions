@@ -300,7 +300,7 @@ function Get-MatchingSingletonFieldValue {
         return ""
     }
 
-    if ($value -eq $BaseName -or $value.StartsWith("$BaseName")) {
+    if ($value -eq $BaseName -or $value.StartsWith("$BaseName-")) {
         return $value
     }
 
