@@ -112,7 +112,7 @@ If log paths are not accessible, messages are still printed to the console. Logg
 
 ## Legal
 
-See the header comment block in [barracuda_waf_service_delivery.ps1](barracuda_waf_service_delivery.ps1) for the full DigiCert legal notice. `$LEGAL_NOTICE_ACCEPT` must be `"true"` for the script to run.
+See the header comment block in [Windows/barracuda_waf_service_delivery.ps1](Windows/barracuda_waf_service_delivery.ps1) for the full DigiCert legal notice. `$LEGAL_NOTICE_ACCEPT` must be `"true"` for the script to run.
 
 ## Version
 
