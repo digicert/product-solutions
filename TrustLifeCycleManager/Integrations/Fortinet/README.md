@@ -158,6 +158,23 @@ The API token must have read/write access to:
 - `vpn.ipsec/phase1-interface` (read, write)
 - `vpn.ipsec/phase1` (read, write)
 
+### ASSIGN_MODE Examples
+
+The following table shows practical examples of ASSIGN_MODE values and their effects:
+
+| ASSIGN_MODE Value | Effect |
+|-------------------|--------|
+| `assign_refs` or empty | Reassign all features: SSL-VPN, Admin HTTPS, Admin HTTPS fallback, IPsec phase1-interface, and IPsec phase1 |
+| `import_only` | Import certificate only; skip all reassignments |
+| `ssl_vpn` | Reassign SSL-VPN settings only |
+| `admin_https` | Reassign Admin HTTPS certificate only |
+| `ssl_vpn,admin_https` | Reassign SSL-VPN and Admin HTTPS; skip Admin fallback and IPsec |
+| `admin_https,admin_https_fallback` | Reassign both Admin HTTPS references |
+| `ipsec_phase1_interface,ipsec_phase1` | Reassign IPsec configurations only; skip VPN/Admin references |
+| `ssl_vpn,admin_https,ipsec_phase1` | Reassign SSL-VPN, Admin HTTPS, and IPsec phase1 (skip Admin fallback and phase1-interface) |
+
+---
+
 ### Log File
 
 | Platform | Path |
