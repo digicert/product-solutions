@@ -471,7 +471,8 @@ is_feature_enabled() {
     elif [ "$ASSIGN_MODE" = "import_only" ]; then
         return 1
     else
-        echo "$ASSIGN_MODE" | grep -q "$FEATURE"
+        # Anchor match to whole comma-delimited token to prevent substring false positives
+        echo "$ASSIGN_MODE" | grep -qE "(^|,)${FEATURE}(,|$)"
         return $?
     fi
 }
