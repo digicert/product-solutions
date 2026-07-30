@@ -421,6 +421,15 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Network Policy Server certificate automation for PEAP authentication and 802.1X network access control.</sub>
     </td>
+    <td align="center" width="33%">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Barracuda_WAF">
+        <img src="https://img.shields.io/badge/Barracuda-WAF-FF5A1F?style=for-the-badge&logo=shield&logoColor=white" alt="Barracuda WAF">
+        <br><br>
+        <strong>Barracuda WAF</strong>
+      </a>
+      <br><br>
+      <sub>Web Application Firewall certificate automation for secure certificate deployment and lifecycle management.</sub>
+    </td>
   </tr>
 </table>
 
