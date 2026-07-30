@@ -632,7 +632,8 @@ function Bind-CertificateToService {
 		[Parameter(Mandatory = $true)][string]$KeyType
 	)
 
-	$bindUri = "$($Config.BaseUrl)/restapi/v3.2/services/$VirtualServiceName/ssl-security"
+	$escapedServiceName = [System.Uri]::EscapeDataString($VirtualServiceName)
+	$bindUri = "$($Config.BaseUrl)/restapi/v3.2/services/$escapedServiceName/ssl-security"
 	if ($KeyType -eq "rsa") {
 		$bindBody = @{
 			certificate = $CertificateName
