@@ -136,6 +136,8 @@ Edit these variables at the top of the script before deploying:
 
 ### ASSIGN_MODE Examples
 
+The following table shows practical examples of ASSIGN_MODE values and their effects:
+
 | ASSIGN_MODE Value | Effect |
 |-------------------|--------|
 | `assign_refs` or empty | Reassign all features: SSL-VPN, Admin HTTPS, Admin HTTPS fallback, IPsec phase1-interface, and IPsec phase1 |
