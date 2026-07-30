@@ -584,7 +584,6 @@ function Test-BarracudaWafPrerequisites {
 
 function Print-ParsedArguments {
     param([Parameter(Mandatory = $true)][hashtable]$ParsedArgs)
-    Write-Log -Message $ParsedArgs -Level "INFO"
     Write-Log -Message "Parsed input arguments:" -Level "INFO"
     foreach ($key in $ParsedArgs.Keys) {
         $value = $ParsedArgs[$key]
