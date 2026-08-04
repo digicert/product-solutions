@@ -8,12 +8,13 @@ These scripts are designed to run as **automation scripts** within the DigiCert 
 
 ## Contents
 
-| Script | Target Product | Purpose |
-|--------|---------------|---------|
-| [FortiGATE/Linux/fortigate-awr.sh](FortiGATE/Linux/fortigate-awr.sh) | Fortinet FortiGate | Shell script to Import cert + reassign SSL-VPN / Admin / IPsec references |
-| [FortiGATE/Windows/fortigate-awr.ps1](FortiGATE/Windows/fortigate-awr.ps1) | Fortinet FortiGate | PowerShell script to Import cert + reassign SSL-VPN / Admin / IPsec references |
-| [FortiWEB/fortiweb-awr.sh](FortiWEB/fortiweb-awr.sh) | Fortinet FortiWeb | Upload cert under a unique name + rotate all references (policy / SNI / multi-cert), then delete the old cert |
-| [FortiNAC/fortinac-awr.sh](FortiNAC/fortinac-awr.sh) | Fortinet FortiNAC | Upload cert to RADIUS/RadSec/Portal/Agent/Admin UI + restart service |
+| Script | Target Product | Platform | Purpose |
+|--------|---------------|----------|---------|
+| [FortiGATE/Linux/fortigate-awr.sh](FortiGATE/Linux/fortigate-awr.sh) | Fortinet FortiGate | Linux | Import cert + reassign SSL-VPN / Admin / IPsec references |
+| [FortiGATE/Windows/fortigate-awr.ps1](FortiGATE/Windows/fortigate-awr.ps1) | Fortinet FortiGate | Windows | Import cert + reassign SSL-VPN / Admin / IPsec references |
+| [FortiWEB/fortiweb-awr.sh](FortiWEB/fortiweb-awr.sh) | Fortinet FortiWeb | Linux | Upload cert under a unique name + rotate all references (policy / SNI / multi-cert), then delete the old cert |
+| [FortiWEB/fortiweb-discovery.sh](FortiWEB/fortiweb-discovery.sh) | Fortinet FortiWeb | Linux | Read-only inspection helper for setup and debugging (manual use only — not run by TLM) |
+| [FortiNAC/fortinac-awr.sh](FortiNAC/fortinac-awr.sh) | Fortinet FortiNAC | Linux | Upload cert to RADIUS/RadSec/Portal/Agent/Admin UI + restart service |
 
 ---
 
@@ -22,12 +23,20 @@ These scripts are designed to run as **automation scripts** within the DigiCert 
 All scripts require:
 
 - **DigiCert TLM Agent** installed and configured with post-enrollment script execution enabled
+- Network access from the TLM Agent host to the Fortinet appliance management interface
+- A valid API token or Bearer token with sufficient permissions on the target appliance
+
+**Linux scripts** (`fortigate-awr.sh`, `fortiweb-awr.sh`, `fortinac-awr.sh`) additionally require:
+
 - **Bash** 4.0 or later
 - **curl** installed and accessible in `PATH`
 - **python3** installed (FortiGate and FortiNAC use it for JSON parsing and Base64 encoding; FortiWeb uses it for subject-CN / key-algorithm matching and reference discovery — it degrades gracefully to a name-convention fallback if python3 is absent)
 - **openssl** CLI (FortiWeb only — used to extract the certificate Common Name, serial and key algorithm)
-- Network access from the TLM Agent host to the Fortinet appliance management interface
-- A valid API token or Bearer token with sufficient permissions on the target appliance
+
+**Windows script** (`fortigate-awr.ps1`) additionally requires:
+
+- **PowerShell** 5.1 or later (ships with Windows 10/Server 2016+; PowerShell 7+ also supported)
+- **TLM Agent** running on a Windows host with script execution enabled
 
 ---
 
@@ -71,20 +80,28 @@ The `DC1_POST_SCRIPT_DATA` variable contains a Base64-encoded JSON object with t
 
 ---
 
-## FortiGate (`fortigate-awr.sh`)
+## FortiGate (`fortigate-awr.sh` / `fortigate-awr.ps1`)
 
 ### Overview
 
 Imports a certificate into FortiGate and optionally reassigns all existing references to the old certificate (SSL-VPN, Admin HTTPS, IPsec Phase1) to the newly imported one. Supports automatic cleanup of old certificates after reassignment.
 
+Two script variants are provided — identical in behavior and argument structure, differing only in runtime platform:
+
+| Script | Platform | Location |
+|--------|----------|----------|
+| `fortigate-awr.sh` | Linux (Bash) | `FortiGATE/Linux/` |
+| `fortigate-awr.ps1` | Windows (PowerShell 5.1+) | `FortiGATE/Windows/` |
+
 ### Script Configuration
 
 Edit these variables at the top of the script before deploying:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LEGAL_NOTICE_ACCEPT` | `"false"` | Must be set to `"true"` to allow execution |
-| `LOGFILE` | `/opt/digicert/fortigate.log` | Path to the script log file |
+| Variable | Script | Default | Description |
+|----------|--------|---------|-------------|
+| `LEGAL_NOTICE_ACCEPT` | Both | `"false"` | Must be set to `"true"` to allow execution |
+| `LOGFILE` | Linux | `/opt/digicert/fortigate.log` | Path to the script log file |
+| `LOG_PATH` | Windows | `C:\Program Files\DigiCert\TLM Agent\log\fortigate-awr.log` | Path to the script log file |
 
 ### Arguments (passed via `DC1_POST_SCRIPT_DATA` `args` array)
 
@@ -94,7 +111,7 @@ Edit these variables at the top of the script before deploying:
 | 2 | `CERT_BASE_NAME` | Yes | Base name used to identify the certificate. New certs are named `<base>-YYYYMMDD-HHmmss` |
 | 3 | `BEARER_TOKEN` | Yes | FortiGate API Bearer token |
 | 4 | `DELETE_MODE` | No | `delete_old` — delete previously matched certs after reassignment. `keep_old` (default) — leave old certs in place |
-| 5 | `ASSIGN_MODE` | No | Assignment strategy. One of:<br>`assign_refs` (default) — reassign all references to the new cert<br>`import_only` — only import, skip reassignment<br>Comma-separated selectors (e.g., `ssl_vpn,admin_https`) — reassign only specified features:<br>&nbsp;&nbsp;• `ssl_vpn` — SSL-VPN settings<br>&nbsp;&nbsp;• `admin_https` — Admin HTTPS certificate<br>&nbsp;&nbsp;• `admin_https_fallback` — Admin HTTPS certificate fallback<br>&nbsp;&nbsp;• `ipsec_phase1_interface` — IPsec phase1-interface table<br>&nbsp;&nbsp;• `ipsec_phase1` — IPsec phase1 table |
+| 5 | `ASSIGN_MODE` | No | Assignment strategy. One of:<br>`assign_refs` (default) — reassign all references to the new cert<br>`import_only` — only import, skip reassignment<br>Comma-separated selectors (e.g., `ssl_vpn,admin_https`) — reassign only the specified features:<br>&nbsp;&nbsp;• `ssl_vpn` — SSL-VPN settings<br>&nbsp;&nbsp;• `admin_https` — Admin HTTPS certificate<br>&nbsp;&nbsp;• `admin_https_fallback` — Admin HTTPS certificate fallback<br>&nbsp;&nbsp;• `ipsec_phase1_interface` — IPsec phase1-interface table<br>&nbsp;&nbsp;• `ipsec_phase1` — IPsec phase1 table |
 
 ### Flow
 
@@ -108,14 +125,29 @@ Edit these variables at the top of the script before deploying:
    c. If admin_https_fallback enabled: GET system/global (admin-server-certname) → if referencing old cert, PUT new cert name
    d. If ipsec_phase1_interface enabled: GET vpn.ipsec/phase1-interface → for each entry referencing old cert, PUT new cert name
    e. If ipsec_phase1 enabled: GET vpn.ipsec/phase1 → for each entry referencing old cert, PUT new cert name
-   
+
    Feature selection rules:
-   - `assign_refs` (default): all features enabled
-   - `import_only`: no features enabled, reassignment skipped
-   - Comma-separated list (e.g., `ssl_vpn,admin_https`): only listed features enabled
+   - assign_refs (default): all features enabled
+   - import_only: no features enabled, reassignment skipped
+   - Comma-separated list (e.g., ssl_vpn,admin_https): only listed features enabled
 5. If DELETE_MODE = delete_old: DELETE all previously matched old cert names
 6. Log summary and exit
 ```
+
+### ASSIGN_MODE Examples
+
+The following table shows practical examples of ASSIGN_MODE values and their effects:
+
+| ASSIGN_MODE Value | Effect |
+|-------------------|--------|
+| `assign_refs` or empty | Reassign all features: SSL-VPN, Admin HTTPS, Admin HTTPS fallback, IPsec phase1-interface, and IPsec phase1 |
+| `import_only` | Import certificate only; skip all reassignments |
+| `ssl_vpn` | Reassign SSL-VPN settings only |
+| `admin_https` | Reassign Admin HTTPS certificate only |
+| `ssl_vpn,admin_https` | Reassign SSL-VPN and Admin HTTPS; skip Admin fallback and IPsec |
+| `admin_https,admin_https_fallback` | Reassign both Admin HTTPS references |
+| `ipsec_phase1_interface,ipsec_phase1` | Reassign IPsec configurations only; skip VPN/Admin references |
+| `ssl_vpn,admin_https,ipsec_phase1` | Reassign SSL-VPN, Admin HTTPS, and IPsec phase1 (skip Admin fallback and phase1-interface) |
 
 ### FortiGate API Permissions Required
 
@@ -145,7 +177,10 @@ The following table shows practical examples of ASSIGN_MODE values and their eff
 
 ### Log File
 
-`/opt/digicert/fortigate.log`
+| Platform | Path |
+|----------|------|
+| Linux | `/opt/digicert/fortigate.log` |
+| Windows | `C:\Program Files\DigiCert\TLM Agent\log\fortigate-awr.log` |
 
 ---
 
