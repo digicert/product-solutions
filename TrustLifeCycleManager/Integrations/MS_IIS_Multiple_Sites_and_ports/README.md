@@ -72,6 +72,8 @@ If this is not `"true"`, the script logs the reason and exits `1`.
 |---|---|---|
 | `$IIS_TARGET_SITES` | 4 sites | Sites whose https bindings are re-pointed. Used when discovery mode is `List` |
 | `$IIS_SITE_DISCOVERY_MODE` | `'List'` | `'List'` = only the sites above. `'AllHttps'` = every IIS site with at least one https binding |
+| `$IIS_PFX_VARIANT` | `'Legacy'` | `'Legacy'` / `'Modern'` / `'First'` — which delivered PFX to deploy when the payload contains more than one. See [Modern or Legacy PFX](#modern-or-legacy-pfx) |
+| `$IIS_PFX_FILE_PATTERN` | `''` | Advanced. Raw regex overriding `$IIS_PFX_VARIANT`; only needed if the file names do not follow the `_legacy` convention |
 | `$IIS_EXPECTED_SUBJECT_CN` | `'iis-01.digicert-demo.com'` | Safety net — abort before touching anything if the new certificate does not carry this CN. Set to `''` to disable |
 | `$IIS_CERT_STORE_NAME` | `'My'` | Store under `LocalMachine` that receives the leaf certificate |
 | `$IIS_IMPORT_CHAIN` | `$true` | Install intermediates found in the PFX into `LocalMachine\CA` |
@@ -90,10 +92,97 @@ Three settings can be overridden per job from the AWR profile, without editing t
 | **Parameter 1** | Comma-separated site list (e.g. `ws1-digicert-demo,ws2-digicert-demo`), or `ALL` / `*` to switch to `AllHttps` discovery |
 | **Parameter 2** | Expected subject CN, or `NONE` to disable the CN safety check |
 | **Parameter 3** | `REMOVEOLD` to delete the certificate that was replaced |
+| **Parameter 4** | `LEGACY`, `MODERN` or `FIRST` — which delivered PFX to deploy. Overrides `$IIS_PFX_VARIANT`. Any other value is ignored with a warning |
 
 Arguments are whitespace-stripped during extraction, so **site names containing spaces** (e.g. `Default Web Site`) cannot be passed this way — leave those in `$IIS_TARGET_SITES`.
 
 > **Why this block is not at the top of the file with everything else:** it reads `$ARGUMENT_1` … `$ARGUMENT_3`, which do not exist until `DC1_POST_SCRIPT_DATA` has been Base64-decoded and parsed. Hoisted to the top, the overrides would silently never fire. The block therefore stays immediately after argument extraction, with a pointer comment back to the configuration block.
+>
+> Parameter 4 is applied **earlier still** — at PFX selection time — because `$PFX_FILE` has to be resolved before that block is reached.
+
+### Modern or Legacy PFX
+
+TLM can deliver **two PFX files for the same certificate** in one payload:
+
+```
+iis-01.digicert-demo.com.pfx           <- Modern
+iis-01.digicert-demo.com_legacy.pfx    <- Legacy
+```
+
+Set `$IIS_PFX_VARIANT` to pick one — no regex required:
+
+| Value | Selects | Use when |
+|---|---|---|
+| `'Legacy'` | the `*_legacy` file **(current default)** | The target host cannot read the modern container — Windows Server 2016 and older are the usual cases |
+| `'Modern'` | the plain file | Everything on the target host can read AES-256 PKCS#12 |
+| `'First'` | whatever the payload lists first | Only sensible when a single PFX is delivered |
+
+`'First'` is supported but **not recommended when two files are delivered**: the choice then follows the payload's array order, which is not guaranteed to be stable between renewals. The script logs a warning in exactly that situation.
+
+#### What actually differs between them
+
+The certificate, the private key and the chain are the **same**. Only the PKCS#12 container differs — the algorithms used to encrypt the file and to MAC it:
+
+```
+========== Modern ==========
+MAC: sha256, Iteration 2048
+PKCS7 Encrypted data: PBES2, PBKDF2, AES-256-CBC, Iteration 2048, PRF hmacWithSHA256
+Shrouded Keybag:      PBES2, PBKDF2, AES-256-CBC, Iteration 2048, PRF hmacWithSHA256
+
+========== Legacy ==========
+MAC: sha1, Iteration 2048
+PKCS7 Encrypted data: pbeWithSHA1And40BitRC2-CBC, Iteration 2048
+Shrouded Keybag:      pbeWithSHA1And3-KeyTripleDES-CBC, Iteration 2048
+```
+
+The **MAC** is a keyed integrity tag over the whole file, with its key derived from the same password that encrypts the contents. Implementations verify it before decrypting anything, so *any* container problem — wrong password, unsupported encryption, unsupported MAC hash — surfaces as the same complaint: **"the specified network password is not correct."** A host that needs the legacy file therefore looks exactly like a wrong-password problem.
+
+Encryption and MAC are **independent** compatibility hurdles, set by separate flags, so a file can be modern on one axis and legacy on the other. Read both lines when inspecting.
+
+The weak legacy algorithms (RC2-40, 3DES, SHA-1) protect the **file in transit only**. Whichever variant you choose, the certificate and private key bound to IIS are byte-for-byte identical — TLS strength is unaffected.
+
+#### Verifying your own files
+
+Container algorithms, which settles the Modern/Legacy question:
+
+```
+openssl pkcs12 -info -in <file>.pfx        -passin pass:<password> -noout
+openssl pkcs12 -info -in <file>_legacy.pfx -passin pass:<password> -noout -legacy
+```
+
+Contents, to confirm the leaf and chain really are identical:
+
+```powershell
+$pw = '<the PFX password>'
+foreach ($f in Get-ChildItem -Path . -Filter *.pfx | Sort-Object Name) {
+    $col = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2Collection
+    $col.Import($f.FullName, $pw, 'DefaultKeySet')
+    ''
+    "=== $($f.Name)  ($($col.Count) certificate(s)) ==="
+    foreach ($c in $col) {
+        $role = if ($c.HasPrivateKey) { 'LEAF ' } elseif ($c.Subject -eq $c.Issuer) { 'root ' } else { 'inter' }
+        '  {0} {1}  {2}' -f $role, $c.Thumbprint, $c.Subject
+        '        issued by {0}' -f $c.Issuer
+    }
+}
+```
+
+Compare the **LEAF thumbprints**:
+
+- **Identical** — container encryption is the only difference, as described above. Switching variants changes nothing about what gets bound; it only changes whether the host can open the file
+- **Different** — these are genuinely different certificates, not just different containers, and switching changes the certificate the bindings point at
+
+#### The selection is always logged
+
+```
+[…] PFX candidates in payload (2): iis-01.digicert-demo.com.pfx, iis-01.digicert-demo.com_legacy.pfx
+[…] Selected the PFX for variant Legacy (older PKCS#12 container): iis-01.digicert-demo.com_legacy.pfx
+```
+
+If nothing matches the chosen variant, the script warns and falls back to the first PFX rather than failing — asking for Legacy and silently getting Modern is the mix-up this setting exists to prevent, so that warning is worth watching for.
+
+> **Advanced:** `$IIS_PFX_FILE_PATTERN` remains available as a raw regex override and wins over `$IIS_PFX_VARIANT` when non-empty. Leave it `''` unless the delivered file names do not follow the `_legacy` convention above.
+
 
 ### Log File
 
@@ -371,6 +460,11 @@ Useful when the sites are stopped or firewalled and the `TLS SKIPPED` lines are 
 | `HTTP.SYS OK` but `TLS FAIL` | Something else is answering on that IP and port, or the site is bound to a different certificate at another layer |
 | `TLS SKIPPED` on every binding | Sites stopped, or a firewall is blocking the loopback probe. Not an error — the config and `http.sys` checks are authoritative. Set `$IIS_VERIFY_TLS_HANDSHAKE = $false` to silence |
 | `ERROR: IIS site '…' does not exist` | Site name mismatch. Matching is case-insensitive but otherwise exact — no trimming beyond the whitespace stripping applied to AWR arguments, which is also why names containing spaces cannot be passed via AWR Parameter 1 |
+| `ERROR: Unable to read the PFX (wrong password or corrupt file?)` | Check the password first — but on Windows Server 2016 and older this is also what an unreadable **modern PKCS#12 container** looks like. If the password is definitely right, set `$IIS_PFX_VARIANT = 'Legacy'`. See [Modern or Legacy PFX](#modern-or-legacy-pfx) |
+| `WARNING: no delivered PFX matched …` | The chosen variant matched none of the delivered files, so the **first** PFX was deployed instead — possibly the wrong container. Check the logged candidate list against `$IIS_PFX_VARIANT` |
+| `WARNING: N PFX files were delivered and no variant filter applies` | Two or more PFX files in the payload with `$IIS_PFX_VARIANT = 'First'` (or an unrecognised value), so payload order decided. Set `Legacy` or `Modern` |
+| `WARNING: AWR Parameter 4 '…' is not LEGACY, MODERN or FIRST` | Parameter 4 was set to something else and ignored; the configured `$IIS_PFX_VARIANT` was used instead |
+| Wrong file deployed after a successful run | Read the `Selected the PFX for variant …` log line, then verify the file's contents with the commands in [Modern or Legacy PFX](#modern-or-legacy-pfx) |
 | Bindings revert after a later IIS change | Indicates only `http.sys` was updated, not `applicationHost.config`. Both are written here — check the log for a commit failure |
 
 ## License
