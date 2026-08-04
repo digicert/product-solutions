@@ -92,6 +92,51 @@ $IIS_TARGET_SITES = @(
 # 'AllHttps' - every IIS site that has at least one https binding
 $IIS_SITE_DISCOVERY_MODE = 'List'
 
+# ---- Which delivered PFX to deploy -----------------------------------------
+#
+# TLM can deliver two PFX files for the same certificate:
+#
+#     iis-01.digicert-demo.com.pfx           <- 'Modern'
+#     iis-01.digicert-demo.com_legacy.pfx    <- 'Legacy'
+#
+# The certificate, the private key and the chain inside them are the SAME. Only
+# the PKCS#12 container differs - the algorithms used to encrypt the file and to
+# MAC it (the MAC is a keyed integrity tag over the file, derived from the same
+# password, which is why a container problem gets reported as a bad password):
+#
+#     ========== Modern ==========
+#     MAC: sha256, Iteration 2048
+#     PKCS7 Encrypted data: PBES2, PBKDF2, AES-256-CBC, Iteration 2048, PRF hmacWithSHA256
+#     Shrouded Keybag:      PBES2, PBKDF2, AES-256-CBC, Iteration 2048, PRF hmacWithSHA256
+#
+#     ========== Legacy ==========
+#     MAC: sha1, Iteration 2048
+#     PKCS7 Encrypted data: pbeWithSHA1And40BitRC2-CBC, Iteration 2048
+#     Shrouded Keybag:      pbeWithSHA1And3-KeyTripleDES-CBC, Iteration 2048
+#
+# Older Windows CryptoAPI cannot read the modern container, and it reports that
+# as "the specified network password is not correct" - so a host that needs the
+# legacy file looks exactly like a wrong-password problem. Windows Server 2016
+# and older are the usual cases; verify on the target host rather than assuming.
+#
+# The weak legacy algorithms (RC2-40, 3DES, SHA-1) protect the file in transit
+# only. Whichever variant is chosen, the certificate and private key that end up
+# bound to IIS are byte-for-byte identical, so TLS strength is unaffected.
+#
+# Inspect the delivered files with:
+#     openssl pkcs12 -info -in <file>.pfx -passin pass:<password> -noout
+#     openssl pkcs12 -info -in <file>_legacy.pfx -passin pass:<password> -noout -legacy
+#
+#   'Legacy' - the *_legacy file  (SHA-1 MAC, RC2-40 / 3DES)
+#   'Modern' - the plain file     (SHA-256 MAC, AES-256-CBC)
+#   'First'  - whatever the payload lists first; only sensible when a single PFX
+#              is delivered, because payload order is not guaranteed to be stable
+$IIS_PFX_VARIANT = 'Legacy'
+
+# Advanced. Leave '' unless the delivered file names do not follow the _legacy
+# naming above; when set, this regex overrides $IIS_PFX_VARIANT entirely.
+$IIS_PFX_FILE_PATTERN = ''
+
 # Safety net - abort if the new certificate does not carry this common name.
 # Set to '' to disable the check.
 $IIS_EXPECTED_SUBJECT_CN = 'iis-01.digicert-demo.com'
@@ -305,10 +350,63 @@ if ($JSON_OBJECT.args) {
 $CERT_FOLDER = $JSON_OBJECT.certfolder
 Write-LogMessage "Extracted CERT_FOLDER: $CERT_FOLDER"
 
-# Extract the .pfx file name
+# Extract the .pfx file name.
+# When TLM delivers both a modern and a legacy PKCS#12 container there is more than
+# one PFX in the payload, so the selection is made explicit rather than left to the
+# order the files happen to appear in. See $IIS_PFX_VARIANT at the top of the file.
 $PFX_FILE = ""
 if ($JSON_OBJECT.files) {
-    $PFX_FILE = $JSON_OBJECT.files | Where-Object { $_ -match '\.pfx$|\.p12$' } | Select-Object -First 1
+    $pfxCandidates = @($JSON_OBJECT.files | Where-Object { $_ -match '\.pfx$|\.p12$' })
+    Write-LogMessage "PFX candidates in payload ($($pfxCandidates.Count)): $(if ($pfxCandidates.Count) { $pfxCandidates -join ', ' } else { '<none>' })"
+
+    # AWR Parameter 4 overrides the configured variant for a single job.
+    $pfxVariant = $IIS_PFX_VARIANT
+    if (-not [string]::IsNullOrWhiteSpace($ARGUMENT_4)) {
+        if ($ARGUMENT_4 -match '^(LEGACY|MODERN|FIRST)$') {
+            $pfxVariant = $ARGUMENT_4
+            Write-LogMessage "PFX variant overridden by AWR Parameter 4: $pfxVariant"
+        } else {
+            Write-LogMessage "WARNING: AWR Parameter 4 '$ARGUMENT_4' is not LEGACY, MODERN or FIRST - ignored, keeping the configured variant '$pfxVariant'"
+        }
+    }
+
+    # Resolve the variant to a file name pattern. An explicit pattern wins.
+    $pfxPattern = ''
+    $pfxReason  = ''
+    if (-not [string]::IsNullOrWhiteSpace($IIS_PFX_FILE_PATTERN)) {
+        $pfxPattern = $IIS_PFX_FILE_PATTERN
+        $pfxReason  = "the `$IIS_PFX_FILE_PATTERN override '$pfxPattern'"
+    } else {
+        switch ($pfxVariant) {
+            'Legacy' { $pfxPattern = '_legacy\.(pfx|p12)$';      $pfxReason = 'variant Legacy (older PKCS#12 container)' }
+            'Modern' { $pfxPattern = '(?<!_legacy)\.(pfx|p12)$'; $pfxReason = 'variant Modern (AES-256 PKCS#12 container)' }
+            'First'  { $pfxPattern = '';                         $pfxReason = 'variant First (payload order)' }
+            default  {
+                Write-LogMessage "WARNING: `$IIS_PFX_VARIANT '$pfxVariant' is not Legacy, Modern or First - falling back to the first PFX in the payload"
+                $pfxPattern = ''
+                $pfxReason  = 'an unrecognised variant'
+            }
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($pfxPattern) -and $pfxCandidates.Count -gt 0) {
+        $PFX_FILE = $pfxCandidates | Where-Object { $_ -match $pfxPattern } | Select-Object -First 1
+        if ($PFX_FILE) {
+            Write-LogMessage "Selected the PFX for $($pfxReason): $PFX_FILE"
+        } else {
+            # Worth flagging loudly: asking for the legacy container and silently
+            # getting the modern one is the exact mix-up this setting prevents, and
+            # on an older host it then fails looking like a wrong password.
+            Write-LogMessage "WARNING: no delivered PFX matched $($pfxReason) - falling back to the first PFX in the payload"
+        }
+    }
+
+    if ([string]::IsNullOrEmpty($PFX_FILE)) {
+        $PFX_FILE = $pfxCandidates | Select-Object -First 1
+        if ($pfxCandidates.Count -gt 1 -and [string]::IsNullOrWhiteSpace($pfxPattern)) {
+            Write-LogMessage "WARNING: $($pfxCandidates.Count) PFX files were delivered and no variant filter applies - using payload order, which is not guaranteed to be stable between renewals. Set `$IIS_PFX_VARIANT to Legacy or Modern."
+        }
+    }
 }
 Write-LogMessage "Extracted PFX_FILE: $PFX_FILE"
 
@@ -321,13 +419,11 @@ elseif ($JSON_OBJECT.keystore_password) { $PFX_PASSWORD = $JSON_OBJECT.keystore_
 elseif ($JSON_OBJECT.passphrase) { $PFX_PASSWORD = $JSON_OBJECT.passphrase }
 
 if ([string]::IsNullOrEmpty($PFX_PASSWORD)) {
-    Write-LogMessage "WARNING: No PFX password found in JSON. Checking if password is in arguments..."
-    if (-not [string]::IsNullOrEmpty($ARGUMENT_4)) {
-        Write-LogMessage "Checking if Argument 4 could be the password..."
-    }
-    if (-not [string]::IsNullOrEmpty($ARGUMENT_5)) {
-        Write-LogMessage "Checking if Argument 5 could be the password..."
-    }
+    # The AWR arguments are NOT searched for a password: Parameter 4 is the PFX
+    # selection pattern and the rest are unused here, so treating any of them as a
+    # possible password would be wrong as well as a way to leak one into the log.
+    Write-LogMessage "WARNING: No PFX password found in the payload (checked password, pfx_password, keystore_password, passphrase)"
+    Write-LogMessage "         A password-protected PFX cannot be imported without it - the run will fail at the import step."
 } else {
     Write-LogMessage "PFX password extracted from JSON"
     # Length only - never any part of the value itself. Enough to tell an empty or
@@ -411,7 +507,8 @@ if (Test-Path $PFX_FILE_PATH) {
             
             $pfxCert.Dispose()
         } catch {
-            Write-LogMessage "WARNING: Could not access PFX file with provided password: $_"
+            Write-LogMessage "WARNING: Could not open the PFX for inspection: $_"
+            Write-LogMessage "         Either the password is wrong or this host cannot read the PKCS#12 container (see `$IIS_PFX_VARIANT). This block is diagnostic only - the deployment below reports the real outcome."
         }
     } else {
         Write-LogMessage "No password provided, cannot inspect PFX contents"
@@ -490,6 +587,9 @@ Write-LogMessage "=========================================="
 #   AWR Parameter 1 : comma separated site list, or ALL for every https site
 #   AWR Parameter 2 : expected subject CN, or NONE to disable the CN check
 #   AWR Parameter 3 : REMOVEOLD to delete the certificate that was replaced
+#   AWR Parameter 4 : LEGACY, MODERN or FIRST - which delivered PFX to deploy.
+#                     Applied earlier, at PFX selection time - not in this block,
+#                     because $PFX_FILE is resolved before this point.
 # NOTE: arguments are whitespace-stripped during extraction, so site names that
 #       contain spaces (e.g. "Default Web Site") must stay in $IIS_TARGET_SITES.
 if (-not [string]::IsNullOrWhiteSpace($ARGUMENT_1)) {
@@ -731,7 +831,11 @@ function Update-IisCertificateBindings {
     try {
         $pfxCollection.Import($PFX_FILE_PATH, $pfxPasswordOrNull, $keyFlags)
     } catch {
-        Write-LogMessage "ERROR: Unable to read the PFX (wrong password or corrupt file?): $_"
+        # A PKCS#12 container this host cannot decrypt reports itself as a bad
+        # password, so name the other cause here rather than sending whoever reads
+        # this log on a password hunt.
+        Write-LogMessage "ERROR: Unable to read the PFX: $_"
+        Write-LogMessage "       Causes, in order of likelihood: wrong password; a PKCS#12 container this host cannot read (AES-256/PBES2 is unsupported on older Windows and fails looking exactly like a bad password - set `$IIS_PFX_VARIANT = 'Legacy' to use the *_legacy file); corrupt file."
         $script:IIS_ERRORS++
         return
     }
