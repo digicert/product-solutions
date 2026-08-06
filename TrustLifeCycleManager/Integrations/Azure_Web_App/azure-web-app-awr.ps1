@@ -356,17 +356,21 @@ $AZURE_CLIENT_SECRET = "<CLIENT SECRET HERE>"  # Replace with your actual secret
 # ============================================================================
 
 # Configure these in your TLM Automated Workflow Request (AWR)
+# NOTE: Pass the Web App name as Argument 2, NOT the App Service Plan name.
+#       Web App:           aas-go02-eas-u-compco01-acc   <-- correct
+#       App Service Plan:  asp-go02-eas-u-compco01-acc   <-- wrong
+#
 # Parameter 1: Azure Resource Group name
-# Parameter 2: Azure Web App name
+# Parameter 2: Azure Web App name  (not the App Service Plan)
 # Parameter 3: Custom domain (optional)
 
 #$AZURE_RESOURCE_GROUP = $ARGUMENT_1  # e.g., "rg-webapp-cert-demo"
 #$AZURE_WEBAPP_NAME = $ARGUMENT_2     # e.g., "webapp-cert-demo-1765793155"
 #$AZURE_CUSTOM_DOMAIN = $ARGUMENT_3   # e.g., "azure-webapp.tlsguru.io" (optional)
 
-$AZURE_RESOURCE_GROUP = "rg-webapp-cert-demo"  # e.g., "rg-webapp-cert-demo"
-$AZURE_WEBAPP_NAME = "webapp-cert-demo-1765793155"     # e.g., "webapp-cert-demo-1765793155"
-$AZURE_CUSTOM_DOMAIN = "azure-webapp.tlsguru.io"   # e.g., "azure-webapp.tlsguru.io" (optional)
+$AZURE_RESOURCE_GROUP = "rg-webapp-cert-demo"
+$AZURE_WEBAPP_NAME = "webapp-cert-demo-1765793155"
+$AZURE_CUSTOM_DOMAIN = "azure-webapp.tlsguru.io"
 
 Write-LogMessage "Azure Configuration:"
 Write-LogMessage "  Tenant ID: $AZURE_TENANT_ID"
@@ -501,7 +505,7 @@ Write-LogMessage "Verifying web app exists..."
 $webappJson = & $AZ_CLI_PATH webapp show `
     --name $AZURE_WEBAPP_NAME `
     --resource-group $AZURE_RESOURCE_GROUP `
-    --query "{name:name,state:state,location:location}" `
+    --query "{name:name,state:state,location:location,httpsOnly:httpsOnly}" `
     --output json `
     2>$null
 
@@ -511,6 +515,7 @@ if ($LASTEXITCODE -eq 0) {
     Write-LogMessage "  Name: $($webappInfo.name)"
     Write-LogMessage "  State: $($webappInfo.state)"
     Write-LogMessage "  Location: $($webappInfo.location)"
+    Write-LogMessage "  HTTPS-only: $($webappInfo.httpsOnly)"
 } else {
     Write-LogMessage "ERROR: Web app not found: $AZURE_WEBAPP_NAME"
     Write-LogMessage "  Available web apps in resource group:"
@@ -546,58 +551,44 @@ Write-LogMessage "  Resource Group: $AZURE_RESOURCE_GROUP"
 Write-LogMessage "  Certificate File: $PFX_FILE_PATH"
 Write-LogMessage "  Certificate File Exists: $(Test-Path $PFX_FILE_PATH)"
 
+# FIX: Capture stderr to a temp file so actual Azure CLI errors appear in the log.
+# Previously 2>$null suppressed the error text, leaving only the generic "possible causes" list.
+$thumbprint = $null
+
 try {
-    # Execute the upload command and capture output
     Write-LogMessage "Executing certificate upload..."
-    
-    # Redirect stderr to null to avoid JSON parsing issues
+    $tempErrFile = [System.IO.Path]::GetTempFileName()
+
     $uploadJson = & $AZ_CLI_PATH webapp config ssl upload `
         --name $AZURE_WEBAPP_NAME `
         --resource-group $AZURE_RESOURCE_GROUP `
         --certificate-file $PFX_FILE_PATH `
         --certificate-password $PFX_PASSWORD `
         --output json `
-        2>$null
-    
+        2>$tempErrFile
+
     $uploadExitCode = $LASTEXITCODE
+    $uploadStderr = Get-Content $tempErrFile -Raw -ErrorAction SilentlyContinue
+    Remove-Item $tempErrFile -ErrorAction SilentlyContinue
+
     Write-LogMessage "Upload command exit code: $uploadExitCode"
-    
+
     if ($uploadExitCode -ne 0) {
         Write-LogMessage "ERROR: Certificate upload failed"
         Write-LogMessage "  Exit Code: $uploadExitCode"
-        
-        # Try to verify the web app exists
-        Write-LogMessage "Attempting to verify Web App exists..."
-        & $AZ_CLI_PATH webapp show `
-            --name $AZURE_WEBAPP_NAME `
-            --resource-group $AZURE_RESOURCE_GROUP `
-            --output none `
-            2>$null
-        
-        if ($LASTEXITCODE -eq 0) {
-            Write-LogMessage "Web App exists and is accessible"
-            Write-LogMessage "ERROR: Upload failed despite Web App being accessible"
-            Write-LogMessage "  Possible causes:"
-            Write-LogMessage "    - Invalid certificate password"
-            Write-LogMessage "    - Corrupted PFX file"
-            Write-LogMessage "    - Service Principal lacks permission to upload certificates"
-        } else {
-            Write-LogMessage "ERROR: Cannot access Web App"
-            Write-LogMessage "  Check if Web App name is correct: $AZURE_WEBAPP_NAME"
-            Write-LogMessage "  Check if Resource Group is correct: $AZURE_RESOURCE_GROUP"
-            Write-LogMessage "  Check if Service Principal has permissions"
+        if (-not [string]::IsNullOrWhiteSpace($uploadStderr)) {
+            Write-LogMessage "  Azure CLI Error: $uploadStderr"
         }
-        
         exit 1
     }
-    
+
     # Parse JSON response
     Write-LogMessage "Upload completed, parsing result..."
-    
+
     try {
         $certInfo = $uploadJson | ConvertFrom-Json
         $thumbprint = $certInfo.thumbprint
-        
+
         Write-LogMessage "Certificate uploaded successfully!"
         Write-LogMessage "  Thumbprint: $thumbprint"
         Write-LogMessage "  Subject Name: $($certInfo.subjectName)"
@@ -605,14 +596,14 @@ try {
         Write-LogMessage "  Issue Date: $($certInfo.issueDate)"
         Write-LogMessage "  Expiration Date: $($certInfo.expirationDate)"
         Write-LogMessage "  Location: $($certInfo.location)"
-        
+
         if ($certInfo.hostNames) {
-            Write-LogMessage "  Host Names: $($certInfo.hostNames -join ', ')"
+            Write-LogMessage "  Host Names (from cert metadata): $($certInfo.hostNames -join ', ')"
         }
     } catch {
         Write-LogMessage "WARNING: Could not parse JSON response: $_"
         Write-LogMessage "  Certificate may have uploaded despite parsing error"
-        
+
         # Try to extract thumbprint from raw output if possible
         if ($uploadJson -match '"thumbprint"\s*:\s*"([A-F0-9]{40})"') {
             $thumbprint = $matches[1]
@@ -621,16 +612,22 @@ try {
             Write-LogMessage "  Could not extract thumbprint from output"
         }
     }
-    
+
 } catch {
     Write-LogMessage "ERROR: Exception during certificate upload: $_"
     Write-LogMessage "  Exception Type: $($_.Exception.GetType().FullName)"
     Write-LogMessage "  Exception Message: $($_.Exception.Message)"
-    
+
     if ($_.Exception.InnerException) {
         Write-LogMessage "  Inner Exception: $($_.Exception.InnerException.Message)"
     }
-    
+
+    exit 1
+}
+
+# Abort if we don't have a thumbprint — nothing further can succeed without it
+if ([string]::IsNullOrEmpty($thumbprint)) {
+    Write-LogMessage "ERROR: No thumbprint available after upload — cannot proceed with binding"
     exit 1
 }
 
@@ -648,7 +645,6 @@ if (-not [string]::IsNullOrEmpty($AZURE_CUSTOM_DOMAIN)) {
         # Check if domain already exists on the Web App
         Write-LogMessage "Checking existing hostnames on Web App..."
         
-        # Redirect stderr to null, only capture stdout
         $hostnameJson = & $AZ_CLI_PATH webapp config hostname list `
             --resource-group $AZURE_RESOURCE_GROUP `
             --webapp-name $AZURE_WEBAPP_NAME `
@@ -691,42 +687,94 @@ if (-not [string]::IsNullOrEmpty($AZURE_CUSTOM_DOMAIN)) {
         Write-LogMessage "WARNING: Error processing custom domain: $_"
         Write-LogMessage "  Continuing with certificate binding anyway..."
     }
-    
-    # Bind certificate to custom domain (always attempt if we have thumbprint)
-    if (-not [string]::IsNullOrEmpty($thumbprint)) {
-        Write-LogMessage "Binding certificate to custom domain..."
-        Write-LogMessage "  Domain: $AZURE_CUSTOM_DOMAIN"
-        Write-LogMessage "  Certificate Thumbprint: $thumbprint"
-        
-        try {
-            & $AZ_CLI_PATH webapp config ssl bind `
-                --name $AZURE_WEBAPP_NAME `
-                --resource-group $AZURE_RESOURCE_GROUP `
-                --certificate-thumbprint $thumbprint `
-                --ssl-type SNI `
-                --output none `
-                2>$null
-            
-            $bindExitCode = $LASTEXITCODE
-            
-            if ($bindExitCode -eq 0) {
-                Write-LogMessage "Certificate bound successfully to custom domain"
-                Write-LogMessage "  SSL Type: SNI (Server Name Indication)"
-                Write-LogMessage "  Site URL: https://$AZURE_CUSTOM_DOMAIN"
-                Write-LogMessage "  Certificate will be used for HTTPS connections"
-            } else {
-                Write-LogMessage "WARNING: Failed to bind certificate (exit code: $bindExitCode)"
-                Write-LogMessage "  The certificate was uploaded but binding failed"
-                Write-LogMessage "  You may need to bind it manually via Azure Portal"
-            }
-            
-        } catch {
-            Write-LogMessage "WARNING: Exception during certificate binding: $_"
-            Write-LogMessage "  You may need to bind the certificate manually"
+
+    # -------------------------------------------------------------------------
+    # FIX: Enable HTTPS-only BEFORE calling ssl bind.
+    #
+    # Root cause: az webapp config ssl bind issues a write to Microsoft.Web/sites.
+    # The org's Azure Policy (GCI - CIS Microsoft Azure Foundations Benchmark v2.0.0,
+    # policy definition a4af4a39-4135-47fb-b175-47fbdf85311d, effect: Deny) blocks
+    # any write to Microsoft.Web/sites where httpsOnly is false. The ssl bind command
+    # does not itself set httpsOnly, so if the web app currently has httpsOnly=false
+    # the policy fires and the bind is rejected with RequestDisallowedByPolicy.
+    #
+    # Setting httpsOnly=true first satisfies the policy and is correct configuration
+    # for any site serving TLS certificates.
+    # -------------------------------------------------------------------------
+    Write-LogMessage "=========================================="
+    Write-LogMessage "Enabling HTTPS-only on Web App (required by org Azure Policy)..."
+    Write-LogMessage "=========================================="
+    Write-LogMessage "  Policy: GCI - CIS Microsoft Azure Foundations Benchmark v2.0.0"
+    Write-LogMessage "  Rule:   App Service apps should only be accessible over HTTPS (Deny)"
+    Write-LogMessage "  Reason: ssl bind writes to Microsoft.Web/sites; policy blocks it when httpsOnly=false"
+
+    $tempErrFile = [System.IO.Path]::GetTempFileName()
+
+    & $AZ_CLI_PATH webapp update `
+        --name $AZURE_WEBAPP_NAME `
+        --resource-group $AZURE_RESOURCE_GROUP `
+        --https-only true `
+        --output none `
+        2>$tempErrFile
+
+    $httpsExitCode = $LASTEXITCODE
+    $httpsStderr = Get-Content $tempErrFile -Raw -ErrorAction SilentlyContinue
+    Remove-Item $tempErrFile -ErrorAction SilentlyContinue
+
+    if ($httpsExitCode -ne 0) {
+        Write-LogMessage "ERROR: Failed to enable HTTPS-only on Web App (exit code: $httpsExitCode)"
+        if (-not [string]::IsNullOrWhiteSpace($httpsStderr)) {
+            Write-LogMessage "  Azure CLI Error: $httpsStderr"
         }
-    } else {
-        Write-LogMessage "WARNING: No thumbprint available for binding"
+        Write-LogMessage "  Cannot proceed — ssl bind will be blocked by Azure Policy while httpsOnly=false"
+        exit 1
     }
+
+    Write-LogMessage "HTTPS-only enabled successfully"
+
+    # Bind certificate to custom domain
+    Write-LogMessage "=========================================="
+    Write-LogMessage "Binding certificate to custom domain..."
+    Write-LogMessage "=========================================="
+    Write-LogMessage "  Domain: $AZURE_CUSTOM_DOMAIN"
+    Write-LogMessage "  Certificate Thumbprint: $thumbprint"
+
+    try {
+        $tempErrFile = [System.IO.Path]::GetTempFileName()
+
+        & $AZ_CLI_PATH webapp config ssl bind `
+            --name $AZURE_WEBAPP_NAME `
+            --resource-group $AZURE_RESOURCE_GROUP `
+            --certificate-thumbprint $thumbprint `
+            --ssl-type SNI `
+            --output none `
+            2>$tempErrFile
+
+        $bindExitCode = $LASTEXITCODE
+        $bindStderr = Get-Content $tempErrFile -Raw -ErrorAction SilentlyContinue
+        Remove-Item $tempErrFile -ErrorAction SilentlyContinue
+
+        if ($bindExitCode -eq 0) {
+            Write-LogMessage "Certificate bound successfully to custom domain"
+            Write-LogMessage "  SSL Type: SNI (Server Name Indication)"
+            Write-LogMessage "  Site URL: https://$AZURE_CUSTOM_DOMAIN"
+        } else {
+            Write-LogMessage "ERROR: Failed to bind certificate (exit code: $bindExitCode)"
+            if (-not [string]::IsNullOrWhiteSpace($bindStderr)) {
+                Write-LogMessage "  Azure CLI Error: $bindStderr"
+            }
+            Write-LogMessage "  The certificate was uploaded but could not be bound to the custom domain"
+            Write-LogMessage "  You may need to bind it manually via the Azure Portal"
+            exit 1
+        }
+
+    } catch {
+        Write-LogMessage "ERROR: Exception during certificate binding: $_"
+        Write-LogMessage "  Exception Type: $($_.Exception.GetType().FullName)"
+        Write-LogMessage "  Exception Message: $($_.Exception.Message)"
+        exit 1
+    }
+
 } else {
     Write-LogMessage "No custom domain specified (Parameter 3 is empty)"
     Write-LogMessage "  Certificate uploaded but not bound to any custom domain"
@@ -751,42 +799,61 @@ try {
         Write-LogMessage "WARNING: Could not retrieve certificate list"
     } else {
         $sslList = $sslListJson | ConvertFrom-Json
-        
         Write-LogMessage "Total certificates in resource group: $($sslList.Count)"
-        
+
         # Find our newly uploaded certificate
-        if (-not [string]::IsNullOrEmpty($thumbprint)) {
-            $deployedCert = $sslList | Where-Object { $_.thumbprint -eq $thumbprint }
-            
-            if ($deployedCert) {
-                Write-LogMessage "Certificate verification successful"
-                Write-LogMessage "  Certificate is active in Azure Web App"
-                Write-LogMessage "  Status: Deployed and accessible"
-                
-                if ($deployedCert.hostNames -and $deployedCert.hostNames.Count -gt 0) {
-                    Write-LogMessage "  Bound to hostnames: $($deployedCert.hostNames -join ', ')"
-                } else {
-                    Write-LogMessage "  Not currently bound to any hostnames"
-                }
-                
-                if ($deployedCert.keyVaultSecretStatus) {
-                    Write-LogMessage "  Key Vault Status: $($deployedCert.keyVaultSecretStatus)"
-                }
-            } else {
-                Write-LogMessage "WARNING: Certificate uploaded but not found in SSL list"
-                Write-LogMessage "  This may be a timing issue - certificate might still be processing"
-            }
+        $deployedCert = $sslList | Where-Object { $_.thumbprint -eq $thumbprint }
+
+        if ($deployedCert) {
+            Write-LogMessage "Certificate present in resource group: confirmed"
+            Write-LogMessage "  Thumbprint: $thumbprint"
+        } else {
+            Write-LogMessage "WARNING: Newly uploaded certificate not found in SSL list"
+            Write-LogMessage "  This may be a timing issue — certificate might still be processing"
         }
-        
-        # List all certificates for debugging
+
+        # List all certificates for reference
         Write-LogMessage "All certificates in resource group:"
         foreach ($cert in $sslList) {
             Write-LogMessage "  - Subject: $($cert.subjectName), Thumbprint: $($cert.thumbprint), Expires: $($cert.expirationDate)"
         }
     }
-    
+
 } catch {
-    Write-LogMessage "WARNING: Could not verify deployment: $_"
+    Write-LogMessage "WARNING: Could not retrieve certificate list: $_"
+}
+
+# FIX: Confirm the active SNI binding via hostNameBindings rather than the
+# certificate object's hostNames field. The cert object's hostNames is populated
+# from the certificate's CN/SAN at upload time and does NOT confirm that the
+# Web App is actively serving this certificate on the hostname.
+if (-not [string]::IsNullOrEmpty($AZURE_CUSTOM_DOMAIN)) {
+    Write-LogMessage "Verifying active SNI binding on Web App..."
+    try {
+        $bindingJson = & $AZ_CLI_PATH webapp config ssl list `
+            --resource-group $AZURE_RESOURCE_GROUP `
+            --output json `
+            2>$null
+
+        $activeBinding = ($bindingJson | ConvertFrom-Json) | Where-Object {
+            $_.thumbprint -eq $thumbprint -and $_.hostNames -contains $AZURE_CUSTOM_DOMAIN
+        }
+
+        if ($activeBinding) {
+            Write-LogMessage "Active SNI binding confirmed"
+            Write-LogMessage "  Hostname: $AZURE_CUSTOM_DOMAIN"
+            Write-LogMessage "  Thumbprint: $thumbprint"
+            Write-LogMessage "  Expires: $($activeBinding.expirationDate)"
+            if ($activeBinding.keyVaultSecretStatus) {
+                Write-LogMessage "  Key Vault Status: $($activeBinding.keyVaultSecretStatus)"
+            }
+        } else {
+            Write-LogMessage "WARNING: Could not confirm active SNI binding for $AZURE_CUSTOM_DOMAIN -> $thumbprint"
+            Write-LogMessage "  The certificate may still be propagating — check the Azure Portal"
+        }
+    } catch {
+        Write-LogMessage "WARNING: Could not verify active SNI binding: $_"
+    }
 }
 
 # ============================================================================
@@ -825,12 +892,11 @@ Write-LogMessage "Certificate File: $PFX_FILE"
 Write-LogMessage "Certificate Path: $PFX_FILE_PATH"
 Write-LogMessage "Azure Resource Group: $AZURE_RESOURCE_GROUP"
 Write-LogMessage "Azure Web App: $AZURE_WEBAPP_NAME"
-if (-not [string]::IsNullOrEmpty($thumbprint)) {
-    Write-LogMessage "Certificate Thumbprint: $thumbprint"
-}
+Write-LogMessage "Certificate Thumbprint: $thumbprint"
 if (-not [string]::IsNullOrEmpty($AZURE_CUSTOM_DOMAIN)) {
     Write-LogMessage "Custom Domain: $AZURE_CUSTOM_DOMAIN"
     Write-LogMessage "Access URL: https://$AZURE_CUSTOM_DOMAIN"
+    Write-LogMessage "HTTPS-only: Enabled"
 } else {
     Write-LogMessage "Default URL: https://$AZURE_WEBAPP_NAME.azurewebsites.net"
 }
