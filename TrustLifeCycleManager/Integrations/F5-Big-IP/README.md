@@ -203,7 +203,9 @@ TLM Agent enrolls/renews cert
 └─────────────────────────┘
 ```
 
-Each step logs its own success or failure. **The scripts do not abort on a failed step** — a failed upload is logged as an `ERROR` and execution continues to the next step, and both scripts always `exit 0`. Check the log file to confirm the run actually succeeded; the exit code will not tell you.
+Each step logs its own success or failure. **The scripts do not abort on a failed step** — a failed upload is logged as an `ERROR` and execution continues to the next step, and both scripts still `exit 0` after the workflow even if one or more steps failed.
+
+Both scripts do `exit 1` for preflight failures (for example, `LEGAL_NOTICE_ACCEPT` not set to `"true"`, or `DC1_POST_SCRIPT_DATA` missing). Check the log file to confirm the run actually succeeded; the exit code will not tell you.
 
 ### Client SSL Profile Handling
 
