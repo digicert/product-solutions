@@ -27,7 +27,7 @@ Both scripts are functionally equivalent and follow the same six-step BIG-IP wor
 ### DigiCert TLM Agent
 
 - **TLM Agent** installed and configured with an active certificate profile
-- The certificate profile must produce a **separate `.crt` and `.key` file** (PEM). The scripts locate the first `*.crt` and first `*.key` in the AWR `files` array — a PFX-only profile will not work
+- The certificate profile must produce a **separate `.crt` and `.key` file** (PEM). The PowerShell script selects the first matching `.crt` and `.key` in the AWR `files` array; the Bash script assumes there is exactly one of each (multiple matches will break parsing) — a PFX-only profile will not work
 - The post-enrollment (AWR) script must be registered in the agent configuration with the **three arguments** described in [AWR Arguments](#awr-arguments)
 - **Linux:** the script needs the execute bit (`chmod +x`) and must be readable by the account the agent runs as
 - **Linux:** the directory in `LOGFILE` **must already exist and be writable** — the Bash script does not create it, and if it is missing every log write fails silently. (The PowerShell script does create its log directory automatically.)
