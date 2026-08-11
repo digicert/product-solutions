@@ -1,0 +1,112 @@
+{
+  "metadata": {
+    "author": "DigiCert",
+    "email": "support@digicert.com"
+  },
+  "core_settings": [
+    {
+      "name": "core_attributes.sensor_id",
+      "label": "Managing sensor",
+      "type": "select",
+      "description": "Sensor that runs the integration against the target.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "options_provider": "Sensors",
+      "validation": [
+        {
+          "rule": "alphaNumericRule"
+        }
+      ]
+    }
+  ],
+  "config_settings": [
+    {
+      "name": "config_attributes.tenantId",
+      "label": "Azure Tenant ID",
+      "type": "input",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.clientId",
+      "label": "Azure Client ID (App Registration)",
+      "type": "input",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.clientSecret",
+      "label": "Azure Client Secret",
+      "type": "password",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.keyVaultUrl",
+      "label": "Key Vault URL",
+      "type": "input",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.excludeExpiredCertificates",
+      "label": "Exclude expired certificates from discovery",
+      "type": "checkbox",
+      "size": "l",
+      "editable": true,
+      "optional": true
+    },
+    {
+      "name": "config_attributes.excludeDisabledCertificates",
+      "label": "Exclude disabled certificates from discovery",
+      "type": "checkbox",
+      "size": "l",
+      "editable": true,
+      "optional": true
+    }
+  ],
+  "additional_settings": [],
+  "credential_sets": [
+    {
+      "name": "sensitive",
+      "fields": [
+        {
+          "name": "config_attributes.clientSecret"
+        }
+      ]
+    },
+    {
+      "name": "unique",
+      "fields": [
+        {
+          "name": "config_attributes.keyVaultUrl"
+        }
+      ]
+    }
+  ]
+}
