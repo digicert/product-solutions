@@ -1,9 +1,10 @@
 # Azure Key Vault Automation Plugin
 
-A Java-based automation plugin for DigiCert **Trust Lifecycle Manager (TLM)** that manages the
-certificate lifecycle in a single **Azure Key Vault**. It discovers the certificate objects held in
-the vault, generates CSRs inside Key Vault (**the private key never leaves Azure**), and merges the
-CA-signed certificate back in as a new version — all driven by TLM.
+A custom plugin built on **DigiCert Trust Lifecycle Manager (TLM) extensibility** — a Java automation
+plugin, implemented against the TLM Plugin SDK and uploaded to TLM, that manages the certificate
+lifecycle in a single **Azure Key Vault**. It discovers the certificate objects held in the vault,
+generates CSRs inside Key Vault (**the private key never leaves Azure**), and merges the CA-signed
+certificate back in as a new version — all driven by TLM.
 
 The plugin extends `AbstractAutomationWorkflow` and implements the five TLM lifecycle operations:
 
