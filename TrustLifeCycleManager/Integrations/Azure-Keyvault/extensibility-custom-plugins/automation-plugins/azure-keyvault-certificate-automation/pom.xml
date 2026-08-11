@@ -1,0 +1,225 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>com.example</groupId>
+	<artifactId>azurekeyvault-automation-plugin</artifactId>
+	<version>1.0.0</version>
+	<properties>
+		<maven.compiler.source>17</maven.compiler.source>
+		<maven.compiler.target>17</maven.compiler.target>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
+
+	<dependencyManagement>
+		<dependencies>
+			<!-- Aligns all com.azure.* artifacts to a tested set; same BOM version the
+			     legacy Azure Key Vault delivery connector ships with. -->
+			<dependency>
+				<groupId>com.azure</groupId>
+				<artifactId>azure-sdk-bom</artifactId>
+				<version>1.2.27</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+	<dependencies>
+		<dependency>
+			<groupId>com.digicert.tlm</groupId>
+			<artifactId>plugin-sdk</artifactId>
+			<version>1.1</version>
+			<exclusions>
+				<!--
+				  unirest-java (transitive via plugin-sdk and used internally by
+				  DownloadCertificateUtil) pulls in commons-logging:1.2. That jar
+				  ships org.apache.commons.logging.impl.ServletContextCleaner, which
+				  implements javax.servlet.ServletContextListener. SdkRuntime scans
+				  the whole classpath via Guava's ClassPath.load(), so the missing
+				  javax.servlet class trips a NoClassDefFoundError before any plugin
+				  method runs. We bridge the commons-logging API with jcl-over-slf4j
+				  below so dropping commons-logging itself is safe.
+				-->
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<!-- Azure authentication (Azure AD client-secret credential). -->
+		<dependency>
+			<groupId>com.azure</groupId>
+			<artifactId>azure-identity</artifactId>
+		</dependency>
+
+		<!-- Azure Key Vault certificate operations: create (CSR), merge, get, list. -->
+		<dependency>
+			<groupId>com.azure</groupId>
+			<artifactId>azure-security-keyvault-certificates</artifactId>
+		</dependency>
+
+		<!-- Lombok -->
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<version>1.18.30</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<!-- Logging -->
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-simple</artifactId>
+			<version>2.0.9</version>
+		</dependency>
+
+		<!-- Bridges the commons-logging API removed from the SDK above, so the
+		     startup classpath scan does not fail on a missing implementation. -->
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>jcl-over-slf4j</artifactId>
+			<version>2.0.9</version>
+		</dependency>
+
+		<!-- jackson-databind is declared by the SDK pom but not exposed transitively,
+		     so we pull it in explicitly. It is also the type used for the plugin's
+		     JsonNode request/response envelopes. -->
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+			<version>2.18.2</version>
+		</dependency>
+	</dependencies>
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>com.google.code.maven-replacer-plugin</groupId>
+				<artifactId>replacer</artifactId>
+				<version>1.5.3</version>
+				<executions>
+					<execution>
+						<phase>process-resources</phase>
+						<goals>
+							<goal>replace</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<file>${project.build.outputDirectory}/plugin-meta.json</file>
+					<replacements>
+						<replacement>
+							<token>\$\{project\.artifactId\}</token>
+							<value>${project.artifactId}</value>
+						</replacement>
+						<replacement>
+							<token>\$\{project\.version\}</token>
+							<value>${project.version}</value>
+						</replacement>
+					</replacements>
+				</configuration>
+			</plugin>
+
+			<!--
+			  Build the plugin fat jar with the Shade plugin (not the Assembly plugin):
+			  the Azure SDK resolves HttpClient/serializer providers through
+			  META-INF/services, and ServicesResourceTransformer is what merges those
+			  entries across the many com.azure.* jars into the single uber jar. The
+			  Assembly plugin's unpack would let one jar's service file overwrite the
+			  others, breaking provider discovery at runtime. minimizeJar is deliberately
+			  OFF because the Azure SDK loads classes reflectively. Shade is declared
+			  before the assembly (zip) execution so the uber jar exists when the zip is
+			  built.
+			-->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>3.6.0</version>
+				<executions>
+					<execution>
+						<id>build-plugin-fat-jar</id>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+						<configuration>
+							<createDependencyReducedPom>false</createDependencyReducedPom>
+							<filters>
+								<filter>
+									<artifact>*:*</artifact>
+									<excludes>
+										<exclude>META-INF/*.SF</exclude>
+										<exclude>META-INF/*.DSA</exclude>
+										<exclude>META-INF/*.RSA</exclude>
+										<exclude>module-info.class</exclude>
+										<exclude>META-INF/versions/**</exclude>
+										<!--
+										  The TLM SdkRuntime eagerly loads EVERY class on the classpath
+										  at startup (Guava ClassPath.load). Netty and Reactor ship
+										  "optional integration" glue classes whose superclass/interface
+										  lives in an OPTIONAL dependency we don't bundle (BlockHound,
+										  Micrometer context, Conscrypt/Jetty alternative TLS, JBoss
+										  Marshalling, Zstd, Kotlin, Log4j2). Those are never used by
+										  this plugin (it reaches Azure over Netty with the JDK TLS
+										  engine), but the eager scan force-loads them and crashes with
+										  NoClassDefFoundError. Stripping them from the fat jar is safe
+										  and is what makes the plugin start. Re-verify with the
+										  unresolvable-supertype scan after any dependency bump.
+										-->
+										<!-- Kotlin sugar (kotlin-stdlib optional) -->
+										<exclude>reactor/**/*Kt.class</exclude>
+										<exclude>reactor/**/*Kt$*.class</exclude>
+										<!-- BlockHound integrations (io.projectreactor.tools:blockhound optional) -->
+										<exclude>reactor/core/scheduler/ReactorBlockHoundIntegration.class</exclude>
+										<exclude>io/netty/util/internal/Hidden$*.class</exclude>
+										<!-- Micrometer context propagation (io.micrometer:context-propagation optional) -->
+										<exclude>reactor/netty/contextpropagation/ChannelContextAccessor.class</exclude>
+										<!-- Alternative TLS providers we don't use (Conscrypt / Jetty ALPN-NPN) -->
+										<exclude>io/netty/handler/ssl/Conscrypt*.class</exclude>
+										<exclude>io/netty/handler/ssl/Jetty*SslEngine*.class</exclude>
+										<!-- Optional codecs we don't use (JBoss Marshalling, Zstd) -->
+										<exclude>io/netty/handler/codec/marshalling/**</exclude>
+										<exclude>io/netty/handler/codec/compression/ZstdDecoder$*.class</exclude>
+										<!-- Log4j2 logger binding (we use slf4j-simple) -->
+										<exclude>io/netty/util/internal/logging/Log4J2Logger.class</exclude>
+									</excludes>
+								</filter>
+							</filters>
+							<transformers>
+								<transformer
+									implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+								<transformer
+									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+									<mainClass>com.example.automation.AzureKeyvaultAutomationPluginRunner</mainClass>
+								</transformer>
+							</transformers>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<version>3.7.1</version>
+				<executions>
+					<execution>
+						<id>zip-all</id>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+						<configuration>
+							<descriptors>
+								<descriptor>${project.basedir}/zip.xml</descriptor>
+							</descriptors>
+							<appendAssemblyId>false</appendAssemblyId>
+							<ignoreMissingDescriptor>true</ignoreMissingDescriptor>
+							<outputDirectory>${project.basedir}/plugin-dist</outputDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>
