@@ -131,7 +131,8 @@ try {
 }
 
 $timestamp  = Get-Date -Format "yyyy_MM_dd_HH_mm_ss"
-$folderName = "${commonName}_pfx_${timestamp}"
+$safeCommonName = $commonName -replace '^\*\.', ''
+$folderName = "${safeCommonName}_pfx_${timestamp}"
 $archiveDir = Join-Path -Path $certFolder -ChildPath $folderName
 
 try {
