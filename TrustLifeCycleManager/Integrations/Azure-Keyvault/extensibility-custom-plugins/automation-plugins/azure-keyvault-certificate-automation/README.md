@@ -126,8 +126,13 @@ its certificate-import screen; the plugin-side flag additionally trims the autom
 ### Azure prerequisites
 
 - An **Azure AD app registration / service principal** (Tenant ID, Client ID, Client Secret).
-- A **Key Vault access policy** (or Azure RBAC role such as *Key Vault Certificates Officer*)
-  granting the service principal certificate **get / list / create / merge** permissions on the vault.
+- Certificate **get / list / create** permissions for that service principal **on the one vault**
+  (`create` also authorises `mergeCertificate` — there is no separate merge permission). Either
+  permission model works, because the plugin is data-plane only:
+  - a **Key Vault access policy** granting those three certificate permissions, or
+  - an **Azure RBAC** role assignment scoped to the vault, such as *Key Vault Certificates Officer*.
+- No **secrets** permission is required — the plugin never exports certificate material — and no Azure
+  Resource Manager role, so no subscription ID and no Reader assignment.
 - The **vault URL**, e.g. `https://myvault.vault.azure.net/`.
 - Network egress to `login.microsoftonline.com` and the vault endpoint.
 
