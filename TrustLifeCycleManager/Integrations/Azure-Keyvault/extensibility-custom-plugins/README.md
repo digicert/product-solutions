@@ -82,7 +82,7 @@ network and drives the full lifecycle against the vault's data plane.
 |---|---|---|
 | **Connector type** | Admin Web Request — certificate *delivery* | Automation connector — full lifecycle (test, discover, CSR, install, validate) |
 | **Scope of one connector** | **Subscription ↔ connector** — one connector corresponds to a single Azure subscription and covers the vaults within it; multiple subscriptions require multiple connectors | **Key Vault ↔ connector** — one connector maps to a single vault, addressed by URL; manage multiple vaults with one connector each |
-| **Key generation and custody** | Key pair is generated inside Key Vault | Key pair is generated **inside Key Vault** (`Unknown` issuer); only the CSR and the signed chain cross the wire |
+| **Key generation and custody** | Key pair is generated **inside Key Vault** ; only the CSR and the signed chain cross the wire | Key pair is generated **inside Key Vault** ; only the CSR and the signed chain cross the wire |
 | **Certificate naming** | Derived from the common name, dots replaced by hyphens (`example-com`) | Uses the discovered certificate's **existing Azure name verbatim**, an explicit `certificateName` override, or a derived name for brand-new certificates |
 | **Renewal model** | Unique object per issuance (random suffix) *or* new version of the CN-derived name | New **version** of the targeted certificate, in place — no duplicate object, no rebinding |
 | **Discovery** | Yes | Yes — including expired, disabled and self-signed objects, with optional filters to trim the inventory |
