@@ -58,6 +58,54 @@ function Write-ApiCallLog {
     "[$timestamp] $Message" | Add-Content -Path $API_CALL_LOGFILE -Encoding UTF8
 }
 
+function Test-ImpervaResultCode {
+    param(
+        [Parameter(Mandatory = $true)]$ApiResponse
+    )
+
+    $resultCodeMember = Get-Member -InputObject $ApiResponse -Name "resultCode" -MemberType Property, NoteProperty -ErrorAction SilentlyContinue
+    if ($null -eq $resultCodeMember) {
+        return
+    }
+
+    $resultCode = [int]$ApiResponse.resultCode
+    if ($resultCode -ne 0) {
+        $resultMessageMember = Get-Member -InputObject $ApiResponse -Name "resultMessage" -MemberType Property, NoteProperty -ErrorAction SilentlyContinue
+        $resultMessage = if ($null -ne $resultMessageMember) { [string]$ApiResponse.resultMessage } else { "No result message returned." }
+        throw "Imperva WAF SaaS API returned error result code: $resultCode, message: $resultMessage"
+    }
+}
+
+function SendEmailNotification {
+    param(
+        [Parameter(Mandatory = $true)]$statusCode,
+        [Parameter(Mandatory = $true)]$type,
+        [Parameter(Mandatory = $true)]$emailTo
+    )
+    if (($statusCode -eq 200 -or $statusCode -eq 201) -and $type -eq "notify") {
+        $emailTo = $emailTo.Trim()
+        if (-not [string]::IsNullOrEmpty($emailTo)) {
+            $subject = "Certificate Deployment to Imperva - $env:COMPUTERNAME"
+            $body = @"
+Certificate successfully deployed to Imperva
+Site ID: $SITE_ID
+Certificate: $CRT_FILE_PATH
+Key: $KEY_FILE_PATH
+Time: $(Get-Date)
+"@
+        
+            Send-MailMessage `
+                -To $emailTo `
+                -From "admin@example.com" `
+                -Subject $subject `
+                -Body $body `
+                -SmtpServer "smtp.example.com"
+            
+            Write-LogMessage "Notification sent to: $emailTo"
+        }
+    }
+}
+
 # Start logging
 Write-LogMessage "=========================================="
 Write-LogMessage "Starting DC1_POST_SCRIPT_DATA extraction script with Imperva integration"
@@ -104,10 +152,10 @@ try {
 }
 
 # Log the raw JSON for debugging
-Write-LogMessage "=========================================="
-Write-LogMessage "Raw JSON content:"
-Write-LogMessage $JSON_STRING
-Write-LogMessage "=========================================="
+# Write-LogMessage "=========================================="
+# Write-LogMessage "Raw JSON content:"
+# Write-LogMessage $JSON_STRING
+# Write-LogMessage "=========================================="
 
 # Parse JSON
 try {
@@ -125,8 +173,8 @@ Write-LogMessage "Extracting arguments from JSON..."
 $ARGUMENT_1 = ""  # Site ID
 $ARGUMENT_2 = ""  # API ID
 $ARGUMENT_3 = ""  # API Key
-$ARGUMENT_4 = ""
-$ARGUMENT_5 = ""
+$ARGUMENT_4 = ""  # Optional Argument to enable email notification. Accepted values: "notify"
+$ARGUMENT_5 = ""  # Optional Argument for email address to send notification to
 
 # Extract arguments if they exist
 if ($JSON_OBJECT.args) {
@@ -143,7 +191,7 @@ if ($JSON_OBJECT.args) {
         Write-LogMessage "ARGUMENT_2 (API ID) extracted: '$ARGUMENT_2'"
         Write-LogMessage "ARGUMENT_2 length: $($ARGUMENT_2.Length)"
     }
-    if ($ARGS_ARRAY.Count -ge 3) { 
+    if ($ARGS_ARRAY.Count -ge 3) {
         $ARGUMENT_3 = ($ARGS_ARRAY[2] -replace '\s', '').Trim()
         $ApiKeyPreview = if ($ARGUMENT_3.Length -gt 5) { $ARGUMENT_3.Substring(0, 5) + "..." } else { "***" }
         Write-LogMessage "ARGUMENT_3 (API Key) extracted: '$ApiKeyPreview'"
@@ -300,7 +348,8 @@ elseif ($keyContent -match "BEGIN PRIVATE KEY") {
         "C:\Program Files\OpenSSL-Win64\bin\openssl.exe",
         "C:\Program Files\OpenSSL\bin\openssl.exe",
         "C:\OpenSSL\bin\openssl.exe",
-        "openssl.exe"
+        "openssl.exe",
+        "openssl"
     )
     
     foreach ($path in $possiblePaths) {
@@ -348,18 +397,29 @@ elseif ($keyContent -match "BEGIN PRIVATE KEY") {
         }
     }
     else {
-        # OpenSSL not available, try simple text matching in certificate
-        if ($certContent -match "RSA|rsaEncryption") {
-            $AUTH_TYPE = "RSA"
-            Write-LogMessage "Detected RSA from certificate text (OpenSSL not available)"
+        $cert = $null
+        try {
+            $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($CRT_FILE_PATH)
         }
-        elseif ($certContent -match "EC|elliptic") {
-            $AUTH_TYPE = "ECC"
-            Write-LogMessage "Detected ECC from certificate text (OpenSSL not available)"
+        catch {
+            Write-LogMessage "Error analyzing certificate with .NET: $_"
+            $cert = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
+            $cert.Import($CRT_FILE_PATH)
         }
-        else {
-            $AUTH_TYPE = "RSA"
-            Write-LogMessage "Could not determine key type, defaulting to RSA"
+        if ($null -eq $cert) {
+            Write-LogMessage "Could not load certificate for analysis, by default RSA will be used"
+        } else {
+            $publicKey = $cert.PublicKey
+            $keyAlgorithm = $publicKey.Oid.FriendlyName
+            if ($keyAlgorithm -match "RSA") {
+                $AUTH_TYPE = "RSA"
+                Write-LogMessage "Detected RSA from certificate public key (using .NET)"
+            } elseif ($keyAlgorithm -match "ECC|ECDSA") {
+                $AUTH_TYPE = "ECC"
+                Write-LogMessage "Detected ECC from certificate public key (using .NET)"
+            } else {
+                Write-LogMessage "Could not determine key type from certificate public key, by default RSA will be used"
+            }
         }
     }
 }
@@ -510,8 +570,26 @@ try {
     
     # Check if API call was successful
     if ($statusCode -eq 200 -or $statusCode -eq 201) {
+        Test-ImpervaResultCode -ApiResponse $response
         Write-LogMessage "SUCCESS: Certificate chain uploaded successfully to Imperva"
         Write-LogMessage "Certificate chain with $certCount certificate(s) has been installed"
+        # Log summary
+        Write-LogMessage "=========================================="
+        Write-LogMessage "Script execution completed"
+        Write-LogMessage "Summary:"
+        Write-LogMessage "  Certificate file: $CRT_FILE_PATH"
+        Write-LogMessage "  Private key file: $KEY_FILE_PATH"
+        Write-LogMessage "  Certificates in chain: $certCount"
+        Write-LogMessage "  Auth type: $AUTH_TYPE"
+        Write-LogMessage "  API endpoint: https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate"
+        Write-LogMessage "  HTTP status: $statusCode"
+
+        # SendEmailNotification -statusCode $statusCode -type $ARGUMENT_4 -emailTo $ARGUMENT_5
+        
+        Write-LogMessage "=========================================="
+        Write-LogMessage "All operations completed"
+        Write-LogMessage "=========================================="
+        exit 0
     }
     else {
         Write-LogMessage "ERROR: API call failed with status $statusCode"
@@ -533,6 +611,7 @@ try {
                 Write-LogMessage "DEBUG: Current auth_type: $AUTH_TYPE"
             }
         }
+        exit 1
     }
 }
 catch {
@@ -540,69 +619,5 @@ catch {
     if ($_.Exception.Message) {
         Write-LogMessage "Exception details: $($_.Exception.Message)"
     }
-    exit 1
-}
-
-# Log summary
-Write-LogMessage "=========================================="
-Write-LogMessage "Script execution completed"
-Write-LogMessage "Summary:"
-Write-LogMessage "  Certificate file: $CRT_FILE_PATH"
-Write-LogMessage "  Private key file: $KEY_FILE_PATH"
-Write-LogMessage "  Certificates in chain: $certCount"
-Write-LogMessage "  Auth type: $AUTH_TYPE"
-Write-LogMessage "  API endpoint: https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate"
-Write-LogMessage "  HTTP status: $statusCode"
-
-if ($statusCode -eq 200 -or $statusCode -eq 201) {
-    Write-LogMessage "  Result: SUCCESS - Certificate chain uploaded"
-} else {
-    Write-LogMessage "  Result: FAILED - Check response for details"
-}
-
-Write-LogMessage "=========================================="
-
-# ============================================================================
-# ADDITIONAL CUSTOM LOGIC SECTION
-# You can add additional custom logic here if needed
-# ============================================================================
-
-# Example: Send notification email on success (commented out)
-# if (($statusCode -eq 200 -or $statusCode -eq 201) -and $ARGUMENT_4 -eq "notify") {
-#     $emailTo = $ARGUMENT_5
-#     if (-not [string]::IsNullOrEmpty($emailTo)) {
-#         $subject = "Certificate Deployment to Imperva - $env:COMPUTERNAME"
-#         $body = @"
-# Certificate successfully deployed to Imperva
-# Site ID: $SITE_ID
-# Certificate: $CRT_FILE_PATH
-# Key: $KEY_FILE_PATH
-# Time: $(Get-Date)
-# "@
-#         
-#         Send-MailMessage `
-#             -To $emailTo `
-#             -From "admin@example.com" `
-#             -Subject $subject `
-#             -Body $body `
-#             -SmtpServer "smtp.example.com"
-#         
-#         Write-LogMessage "Notification sent to: $emailTo"
-#     }
-# }
-
-Write-LogMessage "=========================================="
-Write-LogMessage "All operations completed"
-Write-LogMessage "=========================================="
-
-# Exit with a code that reflects the actual API result. A non-2xx status
-# (e.g. 401 Unauthorized, 403, 404, 500) is caught by the inner catch block
-# and logged, but does NOT throw to the outer catch - so we must fail here
-# explicitly, otherwise the caller would treat a failed upload as success.
-if ($statusCode -eq 200 -or $statusCode -eq 201) {
-    exit 0
-}
-else {
-    Write-LogMessage "ERROR: Exiting with failure - API returned status $statusCode"
     exit 1
 }
