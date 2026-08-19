@@ -89,7 +89,7 @@ log_message "Extracting arguments from JSON..."
 
 # First, let's log the args array
 ARGS_ARRAY=$(echo "$JSON_STRING" | grep -oP '"args":\[\K[^]]*')
-log_message "Raw args array: $ARGS_ARRAY"
+# log_message "Raw args array: $ARGS_ARRAY"
 
 # Extract Argument_1 - first argument (Site ID)
 ARGUMENT_1=$(echo "$ARGS_ARRAY" | awk -F',' '{print $1}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
@@ -352,8 +352,15 @@ log_message "API call completed"
 log_message "HTTP Status Code: $HTTP_STATUS"
 log_message "Response Body: $RESPONSE_BODY"
 
+# Imperva can return an application-level error in a successful HTTP response.
+RESULT_CODE=$(printf '%s' "$RESPONSE_BODY" | jq -r 'if .resultCode == null then empty else .resultCode end' 2>/dev/null || true)
+if [ -n "$RESULT_CODE" ]; then
+    log_message "Imperva result code: $RESULT_CODE"
+fi
+
 # Check if API call was successful
-if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 201 ]; then
+if { [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; } && \
+   { [ -z "$RESULT_CODE" ] || [ "$RESULT_CODE" = "0" ]; }; then
     log_message "SUCCESS: Certificate chain uploaded successfully to Imperva"
     log_message "Certificate chain with $CERT_COUNT certificate(s) has been installed"
 else
@@ -384,7 +391,8 @@ log_message "  Certificates in chain: $CERT_COUNT"
 log_message "  Auth type: $AUTH_TYPE"
 log_message "  API endpoint: https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate"
 log_message "  HTTP status: $HTTP_STATUS"
-if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 201 ]; then
+if { [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; } && \
+    { [ -z "$RESULT_CODE" ] || [ "$RESULT_CODE" = "0" ]; }; then
     log_message "  Result: SUCCESS - Certificate chain uploaded"
 else
     log_message "  Result: FAILED - Check response for details"
