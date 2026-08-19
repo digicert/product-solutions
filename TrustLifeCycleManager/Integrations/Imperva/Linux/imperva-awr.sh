@@ -353,7 +353,9 @@ log_message "HTTP Status Code: $HTTP_STATUS"
 log_message "Response Body: $RESPONSE_BODY"
 
 # Imperva can return an application-level error in a successful HTTP response.
-RESULT_CODE=$(printf '%s' "$RESPONSE_BODY" | jq -r 'if .resultCode == null then empty else .resultCode end' 2>/dev/null || true)
+RESULT_CODE=$(printf '%s' "$RESPONSE_BODY" | \
+    grep -oE '"resultCode"[[:space:]]*:[[:space:]]*"?-?[0-9]+"?' | \
+    sed -E 's/.*:[[:space:]]*"?(-?[0-9]+)"?/\1/' | head -n 1)
 if [ -n "$RESULT_CODE" ]; then
     log_message "Imperva result code: $RESULT_CODE"
 fi
@@ -402,9 +404,10 @@ log_message "=========================================="
 # Exit with a code that reflects the actual API result. A non-2xx status
 # (e.g. 401 Unauthorized, 403, 404, 500) is logged above but must fail here
 # explicitly, otherwise the caller would treat a failed upload as success.
-if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; then
+if { [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; } && \
+   { [ -z "$RESULT_CODE" ] || [ "$RESULT_CODE" = "0" ]; }; then
     exit 0
 else
-    log_message "ERROR: Exiting with failure - API returned status $HTTP_STATUS"
+    log_message "ERROR: Exiting with failure - API returned status $HTTP_STATUS and result code ${RESULT_CODE:-unknown}"
     exit 1
 fi

@@ -584,7 +584,7 @@ try {
         Write-LogMessage "  API endpoint: https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate"
         Write-LogMessage "  HTTP status: $statusCode"
 
-        # SendEmailNotification -statusCode $statusCode -ARGUMENT_4 $ARGUMENT_4 -ARGUMENT_5 $ARGUMENT_5
+        # SendEmailNotification -statusCode $statusCode -type $ARGUMENT_4 -emailTo $ARGUMENT_5
         
         Write-LogMessage "=========================================="
         Write-LogMessage "All operations completed"
