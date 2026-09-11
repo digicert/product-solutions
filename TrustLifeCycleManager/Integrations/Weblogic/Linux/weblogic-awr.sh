@@ -286,6 +286,7 @@ run_import() {
             -deststoretype  "$DEST_STORETYPE" \
             -deststorepass  "$JKS_PASSWORD" \
             -destalias      "$JKS_ALIAS" \
+            -destkeypass    "$JKS_PASSWORD" \
             -noprompt 2>&1 | tee -a "$LOGFILE"
     else
         $KEYTOOL $legacy_flag -importkeystore \
@@ -326,6 +327,17 @@ if [ -z "$SRC_ALIAS" ]; then
         log_message "Renaming imported alias '$IMPORTED_ALIAS' to '$JKS_ALIAS'..."
         $KEYTOOL -changealias -keystore "$TEMP_JKS" -storepass "$JKS_PASSWORD" \
             -alias "$IMPORTED_ALIAS" -destalias "$JKS_ALIAS" 2>&1 | tee -a "$LOGFILE"
+    fi
+
+    # A full-keystore -importkeystore cannot take -destkeypass, so the private
+    # key is still protected with the PFX password here - WebLogic loads the
+    # identity key with the keystore passphrase, so align the key password
+    log_message "Normalising key password for alias '$JKS_ALIAS' to the keystore password..."
+    $KEYTOOL -keypasswd -keystore "$TEMP_JKS" -storetype "$DEST_STORETYPE" \
+        -storepass "$JKS_PASSWORD" -alias "$JKS_ALIAS" \
+        -keypass "$PFX_PASSWORD" -new "$JKS_PASSWORD" 2>&1 | tee -a "$LOGFILE"
+    if [ ${PIPESTATUS[0]} -ne 0 ]; then
+        log_message "WARNING: Could not change key password (may already match the keystore password)"
     fi
 fi
 
@@ -406,6 +418,39 @@ else
 fi
 
 rm -f "$CA_BUNDLE"
+
+# =====================================================
+# Verify the private key is recoverable with the
+# keystore password BEFORE replacing the live keystore.
+# WebLogic retrieves the identity key with its configured
+# key passphrase (normally the keystore passphrase) - if
+# the key is protected with a different password it fails
+# at startup with BEA-090716 "Failed to retrieve identity
+# key/certificate". keytool -list does NOT catch this, so
+# do a single-alias export dry-run which must decrypt the key.
+# =====================================================
+log_message "Verifying private key '$JKS_ALIAS' is recoverable with the keystore password..."
+VERIFY_JKS="${TEMP_JKS}.verify"
+rm -f "$VERIFY_JKS"
+$KEYTOOL -importkeystore \
+    -srckeystore   "$TEMP_JKS" \
+    -srcstoretype  "$DEST_STORETYPE" \
+    -srcstorepass  "$JKS_PASSWORD" \
+    -srcalias      "$JKS_ALIAS" \
+    -srckeypass    "$JKS_PASSWORD" \
+    -destkeystore  "$VERIFY_JKS" \
+    -deststorepass "$JKS_PASSWORD" \
+    -destkeypass   "$JKS_PASSWORD" \
+    -noprompt >/dev/null 2>&1
+KEY_RECOVERABLE=$?
+rm -f "$VERIFY_JKS"
+if [ $KEY_RECOVERABLE -ne 0 ]; then
+    log_message "ERROR: Private key under alias '$JKS_ALIAS' is NOT recoverable with the keystore password."
+    log_message "WebLogic would fail at startup with BEA-090716 - leaving existing keystore untouched."
+    rm -f "$TEMP_JKS"
+    exit 1
+fi
+log_message "Verified: private key '$JKS_ALIAS' is recoverable with the keystore password"
 
 # Atomically replace destination keystore with temp
 mv -f "$TEMP_JKS" "$JKS_PATH"

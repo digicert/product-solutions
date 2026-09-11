@@ -51,7 +51,7 @@ This interactive script performs the full certificate lifecycle in a single sess
 ### PowerShell AWR Script Only
 
 - **Windows PowerShell 5.1** or **PowerShell 7+**
-- OpenSSL on the system PATH (required for the `common_name` certificate naming method)
+- OpenSSL on the system PATH (required for the `common_name` certificate naming method and for encrypting the private key before upload; without it the script aborts rather than upload the key unencrypted)
 
 ### Standalone Script Only
 
@@ -80,7 +80,7 @@ Edit the configuration block at the top of the script:
 | `CERT_NAME_METHOD` | How to name the certificate: `common_name` (extract CN from cert) or `manual` | `common_name` |
 | `MANUAL_CERT_NAME` | Certificate name when using the `manual` method | `my-firewall-cert` |
 | `COMMIT_CONFIG` | Automatically commit after upload (`true` / `false`) | `true` |
-| `PRIVATE_KEY_PASSPHRASE` | Passphrase for the private key (leave empty if none) | *(your passphrase)* |
+| `PRIVATE_KEY_PASSPHRASE` | Passphrase of the private key **if the key file is already encrypted**. Leave empty (default) for the unencrypted keys the TLM Agent normally delivers — the script then generates a one-time passphrase, encrypts the key with OpenSSL before upload, and passes that passphrase to PAN-OS. | *(empty)* |
 | `LEGAL_NOTICE_ACCEPT` | Must be set to `true` to allow execution | `true` |
 
 **Log file locations:**
@@ -126,6 +126,22 @@ All scripts interact with the PAN-OS XML API at `https://<firewall>/api/`:
 | Verify installation (standalone only) | `type=config`, `action=get`, `xpath=/config/shared/certificate/entry[@name='...']` |
 
 All API calls use `--insecure` / TLS validation bypass to accommodate self-signed management certificates on the firewall.
+
+**Private key passphrase handling (AWR scripts).** PAN-OS rejects a private-key import whose `passphrase` parameter is empty, even when the key itself is unencrypted (`Parameter "passphrase" is required while importing private-key`). The AWR scripts therefore never send an empty passphrase:
+
+- If the key file is unencrypted (the TLM Agent default) and `PRIVATE_KEY_PASSPHRASE` is empty, a random one-time passphrase is generated, the key is encrypted with it via OpenSSL (traditional PEM with a PKCS#8 fallback) into a temporary file, that file is uploaded, and the temporary file is deleted immediately afterwards. If OpenSSL is not available or the encryption step fails, the script logs an error and exits without uploading the key. The private key is never sent in plaintext, because the connection to PAN-OS runs without certificate validation and an unencrypted key on the wire would be exposed to a man-in-the-middle. The one-time passphrase is generated from the OS random source (`/dev/urandom` on Linux, the .NET CSPRNG on Windows) and does not depend on OpenSSL; the script also refuses to send an empty passphrase.
+- If the key file is already encrypted, `PRIVATE_KEY_PASSPHRASE` must contain its passphrase, otherwise the script exits with an error.
+
+**Verifying the import.** A successful run logs `SUCCESS: Private key uploaded successfully` followed by `SUCCESS: Configuration commit accepted (Commit job enqueued with jobid ...)`. To confirm on the firewall that the key was attached to the certificate, open **Device > Certificate Management > Certificates** and check that the entry shows a private key, or query the running configuration:
+
+```bash
+curl --insecure -sS "https://<firewall>/api/?key=<api-key>&type=config&action=get" \
+  --data-urlencode "xpath=/config/shared/certificate/entry[@name='<cert-name>']"
+```
+
+The returned `<entry>` contains a `<private-key>` element when the key import succeeded. If the key import failed, the certificate entry exists without it and the log contains `Certificate '<cert-name>' was imported without its key`.
+
+**Response checking.** PAN-OS returns HTTP 200 for many application-level failures and reports the outcome in the XML body (`<response status="error" code="400">`). The AWR scripts require both an HTTP 2xx status and `status="success"` in the body before treating an upload or commit as successful, and they log the `<msg>`/`<line>` text from the response on failure.
 
 ## Deployment
 
@@ -193,7 +209,13 @@ Progress is written directly to stdout with status indicators at each step.
 | `PA_API_KEY (Argument 2) is empty` (AWR) | API key not configured in automation profile args | Add the PAN-OS API key as Argument 2 in the TLM AWR automation profile |
 | HTTP status `000` with curl error (bash AWR) | Connection failed before receiving a response — DNS failure, firewall blocking, TLS error, or missing `https://` in URL | Check the curl error detail in the log; verify `PA_URL` includes `https://` and the firewall is reachable |
 | Certificate upload returns non-200 status | Invalid API key, incorrect firewall URL, or network issue | Verify `PA_URL` and `PA_API_KEY` in the automation profile args; test with `curl` manually |
-| Private key upload fails | Passphrase mismatch or key format issue | Verify `PRIVATE_KEY_PASSPHRASE` matches the key; ensure PEM format |
+| HTTP 200 but `<response status="error">` in the API response | PAN-OS reports application-level errors in the XML body, not the HTTP status | Read the `API message` line in the log; the scripts now treat this as a failure and exit non-zero |
+| `Parameter "passphrase" is required while importing private-key` | Private key was sent with an empty `passphrase` parameter (older script versions) | Update to the current script; it always sends a passphrase and encrypts unencrypted keys before upload |
+| `Private key is encrypted but PRIVATE_KEY_PASSPHRASE is empty` | The key file delivered by the agent is passphrase-protected | Set `PRIVATE_KEY_PASSPHRASE` to the key's passphrase |
+| `Private key could not be encrypted locally` (AWR) | OpenSSL is missing from the PATH of the account running the TLM Agent, or `openssl pkey` / `openssl pkcs8` failed on the key file | Install OpenSSL and make sure it is on the agent's PATH; check the OpenSSL error in the log. The script deliberately refuses to upload an unencrypted key |
+| `Could not generate a one-time passphrase` (bash AWR) | Neither `/dev/urandom` nor `openssl rand` produced random data | Check the environment's random source; the script refuses to send an empty passphrase to PAN-OS |
+| Private key upload fails | Passphrase mismatch or key format issue | Verify `PRIVATE_KEY_PASSPHRASE` matches the key; ensure PEM format; check the `API message` line in the log |
+| Certificate exists on the firewall without a key | An earlier run imported the certificate but the key import failed | Re-run the script (the certificate import is idempotent), or import the key manually and commit |
 | Commit fails but uploads succeed | Pending configuration lock or insufficient privileges | Commit manually via the PAN-OS web UI; check API key permissions |
 | CSR generation fails (standalone) | Certificate name already exists on PAN-OS | Delete the existing certificate entry or use a different name |
 | DigiCert API returns error (standalone) | Invalid API key, profile ID, or seat ID | Verify DigiCert credentials; check the response in the saved JSON file |
@@ -201,7 +223,8 @@ Progress is written directly to stdout with status indicators at each step.
 
 ## Security Considerations
 
-- **API keys and passphrases:** The PAN-OS API key is passed via the TLM automation profile arguments (within the `DC1_POST_SCRIPT_DATA` JSON payload) rather than hard-coded in the script. The private key passphrase remains in the script configuration. For production deployments, consider sourcing passphrases from a secrets manager.
+- **API keys and passphrases:** The PAN-OS API key is passed via the TLM automation profile arguments (within the `DC1_POST_SCRIPT_DATA` JSON payload) rather than hard-coded in the script. With the default configuration no passphrase is stored anywhere: a one-time passphrase is generated per run, held only in memory, handed to OpenSSL through an environment variable (never on the command line), and discarded after the upload. `PRIVATE_KEY_PASSPHRASE` only needs a value when the agent delivers an already-encrypted key; in that case consider sourcing it from a secrets manager.
+- **Key material in transit:** The private key is always encrypted before it is uploaded, so it is protected at the application layer in addition to TLS. If OpenSSL is missing or encryption fails, the script exits with an error and does not upload the key. Note that the passphrase travels in the same request as the encrypted key and the connection skips certificate validation, so the local encryption protects the temporary file at rest and satisfies the PAN-OS passphrase requirement; it is not a substitute for a trusted management certificate on the firewall.
 - The standalone script stores DigiCert API responses (including the signed certificate) on disk. Secure the output directory with appropriate file permissions.
 - All PAN-OS API calls bypass TLS certificate verification (`--insecure`). In production, import the firewall's management certificate into the trusted store and remove this flag.
 - Ensure the scripts and their log files have restrictive permissions (`600` or `640`) to protect private key material and API credentials.

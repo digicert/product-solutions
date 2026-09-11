@@ -31,8 +31,10 @@ Post-enrollment script
 
 - **DigiCert TLM Agent** installed and configured with an AWR enrollment profile
 - **IIS6 SMTP service** (`smtpsvc`) installed and running on the target host
-- PFX enrollment output configured in the TLM AWR profile
+- PFX enrollment output configured in the TLM AWR profile (CRT/KEY output is rejected with a clear error)
 - Script runs with administrative privileges (required for certificate store access, service restart, and `icacls`/`certutil` operations)
+- **Windows PowerShell 3.0 or later** (5.1 recommended; the script is not targeted at PowerShell 7)
+- **Windows Server 2012 R2 through 2022** with the IIS 6 SMTP Server feature. Server 2008 R2 works with WMF 3.0+ but lacks the `Import-PfxCertificate` fallback. Server 2025 is untested.
 
 ## Configuration
 
@@ -54,6 +56,37 @@ C:\Program Files\DigiCert\TLM Agent\log\smtp_cert_replacement.log
 
 If the DigiCert directory is not accessible, the script falls back to `C:\smtp_cert_replacement.log`.
 
+### PFX Variant Selection
+
+TLM can deliver two PKCS#12 containers for the same certificate and private key:
+
+| File | Variant | Encryption | MAC |
+|------|---------|------------|-----|
+| `<name>.pfx` | Modern | AES-256-CBC, PBKDF2 | SHA-256 |
+| `<name>_legacy.pfx` | Legacy | RC2-40 / 3DES | SHA-1 |
+
+Windows Server 2016 and earlier cannot open the modern container with the built-in CryptoAPI. The import then fails looking like a wrong password or a corrupted file. Because the IIS 6 SMTP service usually runs on such hosts, the script defaults to the **legacy** container. Server 2019 and later open both. Either choice yields an identical certificate and private key in the store, so TLS strength is unaffected.
+
+```powershell
+$SMTP_PFX_VARIANT = 'Legacy'   # 'Legacy', 'Modern' or 'First'
+$SMTP_PFX_FILE_PATTERN = ''    # optional regex; overrides the variant when set
+```
+
+- **`Legacy`** — selects the `*_legacy.pfx` file
+- **`Modern`** — selects the plain `.pfx` file
+- **`First`** — uses whichever PFX the payload lists first. Only sensible when a single PFX is delivered, because payload order is not guaranteed to be stable between renewals.
+
+**AWR Parameter 1** (`LEGACY`, `MODERN` or `FIRST`) overrides the configured variant for a single job. Any other value is ignored with a warning.
+
+If the requested variant is not present in the payload, the script logs a warning and falls back to the first PFX delivered. If only one PFX is delivered, it is used regardless of naming. All candidates and the selected file are written to the log, and the summary at the end of the run records the file that was imported.
+
+To inspect the delivered containers:
+
+```
+openssl pkcs12 -info -in <file>.pfx -passin pass:<password> -noout
+openssl pkcs12 -info -in <file>_legacy.pfx -passin pass:<password> -noout -legacy
+```
+
 ## DC1_POST_SCRIPT_DATA Format
 
 The TLM Agent sets the `DC1_POST_SCRIPT_DATA` environment variable as a **Base64-encoded JSON string**:
@@ -61,17 +94,17 @@ The TLM Agent sets the `DC1_POST_SCRIPT_DATA` environment variable as a **Base64
 ```json
 {
   "certfolder": "C:\\path\\to\\certs",
-  "files": ["certificate.pfx"],
+  "files": ["certificate.pfx", "certificate_legacy.pfx"],
   "password": "pfx-password",
-  "args": ["arg1", "arg2"]
+  "args": ["LEGACY"]
 }
 ```
 
 The script extracts:
 
-- **`certfolder`** + **`files[0]`** — full path to the PFX file
-- **`password`** — PFX import password
-- **`args`** — optional custom arguments from the AWR profile
+- **`certfolder`** + the selected PFX from **`files`** — full path to the PFX file (see [PFX Variant Selection](#pfx-variant-selection))
+- **`password`** — PFX import password (required; an empty value aborts the run)
+- **`args`** — optional AWR parameters. Parameter 1 may be `LEGACY`, `MODERN` or `FIRST` to override the PFX variant for this job.
 
 ## Execution Phases
 
@@ -197,8 +230,10 @@ SSL Test: SUCCESS
 The script exits with code `1` on critical failures:
 
 - `DC1_POST_SCRIPT_DATA` cannot be decoded
+- No PFX file in the payload (the AWR profile is configured for CRT/KEY output instead of PFX)
 - PFX file does not exist
-- Invalid PFX password or corrupted file
+- PFX password missing or empty in the payload
+- Invalid PFX password or corrupted file. The log now records the CryptographicException HRESULT and message. `0x80070056` is a genuine password mismatch. Any other code on Server 2016 and earlier usually means the **modern** PFX was imported; set `$SMTP_PFX_VARIANT` to `Legacy`.
 - Certificate import fails
 - Any unhandled exception in the main try/catch block
 
