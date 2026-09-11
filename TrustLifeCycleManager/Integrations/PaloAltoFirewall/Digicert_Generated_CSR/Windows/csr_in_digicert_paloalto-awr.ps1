@@ -58,8 +58,8 @@ $COMMIT_CONFIG = "true"  # Set to "true" to automatically commit after upload
 # key itself is unencrypted, so the script never sends it empty:
 #   - Leave empty (default) when the TLM Agent delivers an unencrypted key. The script generates a
 #     random one-time passphrase, encrypts the key with it (via OpenSSL) before upload, and passes
-#     that passphrase to PAN-OS. If OpenSSL is unavailable the unencrypted key is uploaded with the
-#     generated passphrase parameter set.
+#     that passphrase to PAN-OS. If OpenSSL is unavailable or encryption fails the run aborts;
+#     the key is never uploaded in plaintext.
 #   - Set it only when the key file is already encrypted with a known passphrase.
 $PRIVATE_KEY_PASSPHRASE = ""
 
@@ -596,12 +596,25 @@ if ($KEY_IS_ENCRYPTED) {
         $IMPORT_PASSPHRASE = $PRIVATE_KEY_PASSPHRASE
         Write-LogMessage "Using configured PRIVATE_KEY_PASSPHRASE for key import"
     }
+    # The private key is never uploaded in plaintext. The TLS connection to PAN-OS skips certificate
+    # validation, so an unencrypted key on the wire would be exposed to a man-in-the-middle.
+    # If the key cannot be encrypted locally the run fails instead of degrading.
     $ENCRYPTED_KEY_TEMP = Protect-PrivateKeyFile -InputPath $KEY_FILE_PATH -Passphrase $IMPORT_PASSPHRASE
     if ($ENCRYPTED_KEY_TEMP) {
         $KEY_UPLOAD_PATH = $ENCRYPTED_KEY_TEMP
     } else {
-        Write-LogMessage "WARNING: Uploading unencrypted key with passphrase parameter set (PAN-OS ignores the passphrase for unencrypted keys)"
+        Write-LogMessage "ERROR: Private key could not be encrypted locally (is OpenSSL installed and on PATH?)"
+        Write-LogMessage "Refusing to upload an unencrypted private key over a connection without certificate validation"
+        Write-LogMessage "Certificate '$CERT_NAME' was imported without its key; candidate configuration was not committed"
+        $IMPORT_PASSPHRASE = $null
+        exit 1
     }
+}
+
+if ([string]::IsNullOrEmpty($IMPORT_PASSPHRASE)) {
+    Write-LogMessage "ERROR: Import passphrase is empty; PAN-OS requires a non-empty passphrase for private-key import"
+    Write-LogMessage "Certificate '$CERT_NAME' was imported without its key; candidate configuration was not committed"
+    exit 1
 }
 
 # Upload private key

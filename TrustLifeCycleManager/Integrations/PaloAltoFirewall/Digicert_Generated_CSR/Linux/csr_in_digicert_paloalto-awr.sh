@@ -72,9 +72,18 @@ urlencode() {
     done
 }
 
-# Function to generate a random alphanumeric passphrase
+# Function to generate a random alphanumeric passphrase.
+# Reads the kernel CSPRNG directly so the passphrase does not depend on OpenSSL being installed;
+# openssl rand is only used as a secondary source if /dev/urandom is unavailable.
 generate_passphrase() {
-    openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 32
+    local passphrase=""
+    if [ -r /dev/urandom ]; then
+        passphrase=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
+    fi
+    if [ ${#passphrase} -lt 32 ] && command -v openssl >/dev/null 2>&1; then
+        passphrase=$(openssl rand -base64 48 2>/dev/null | tr -dc 'A-Za-z0-9' | head -c 32)
+    fi
+    printf '%s' "$passphrase"
 }
 
 # Function to extract the status attribute ("success" / "error") from a PAN-OS XML API response
@@ -474,18 +483,39 @@ else
     log_message "Private key file is unencrypted"
     if [ -z "$PRIVATE_KEY_PASSPHRASE" ]; then
         IMPORT_PASSPHRASE=$(generate_passphrase)
+        if [ ${#IMPORT_PASSPHRASE} -lt 32 ]; then
+            log_message "ERROR: Could not generate a one-time passphrase (no usable random source)"
+            log_message "Certificate '$CERT_NAME' was imported without its key; candidate configuration was not committed"
+            cleanup_temp_files
+            exit 1
+        fi
         log_message "Generated one-time passphrase for key import"
     else
         IMPORT_PASSPHRASE="$PRIVATE_KEY_PASSPHRASE"
         log_message "Using configured PRIVATE_KEY_PASSPHRASE for key import"
     fi
+    # The private key is never uploaded in plaintext. The TLS connection to PAN-OS runs with
+    # --insecure, so an unencrypted key on the wire would be exposed to a man-in-the-middle.
+    # If the key cannot be encrypted locally the run fails instead of degrading.
     ENCRYPTED_KEY_TEMP=$(encrypt_private_key "$KEY_FILE_PATH" "$IMPORT_PASSPHRASE")
     if [ -n "$ENCRYPTED_KEY_TEMP" ] && [ -s "$ENCRYPTED_KEY_TEMP" ]; then
         KEY_UPLOAD_PATH="$ENCRYPTED_KEY_TEMP"
     else
         ENCRYPTED_KEY_TEMP=""
-        log_message "WARNING: Uploading unencrypted key with passphrase parameter set (PAN-OS ignores the passphrase for unencrypted keys)"
+        log_message "ERROR: Private key could not be encrypted locally (is OpenSSL installed and on PATH?)"
+        log_message "Refusing to upload an unencrypted private key over a connection without certificate validation"
+        log_message "Certificate '$CERT_NAME' was imported without its key; candidate configuration was not committed"
+        unset IMPORT_PASSPHRASE
+        cleanup_temp_files
+        exit 1
     fi
+fi
+
+if [ -z "$IMPORT_PASSPHRASE" ]; then
+    log_message "ERROR: Import passphrase is empty; PAN-OS requires a non-empty passphrase for private-key import"
+    log_message "Certificate '$CERT_NAME' was imported without its key; candidate configuration was not committed"
+    cleanup_temp_files
+    exit 1
 fi
 
 PASSPHRASE_ENCODED=$(urlencode "$IMPORT_PASSPHRASE")
