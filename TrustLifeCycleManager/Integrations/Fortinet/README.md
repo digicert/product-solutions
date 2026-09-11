@@ -108,7 +108,7 @@ Edit these variables at the top of the script before deploying:
 | Position | Variable | Required | Description |
 |----------|----------|----------|-------------|
 | 1 | `FORTIGATE_URL` | Yes | FortiGate hostname or IP (no `https://` prefix) |
-| 2 | `CERT_BASE_NAME` | Yes | Base name used to identify the certificate. New certs are named `<base>-YYYYMMDD-HHmmss` |
+| 2 | `CERT_BASE_NAME` | Yes | Base name used to identify the certificate. Should match, or be a prefix of, the name of the certificate already bound to the selected setting(s). Ex: if the old cert is named `mydomain.com` or `mydomain.com-2025`, use `mydomain.com` as the base name. New certs would be named as `<base>-YYYYMMDD-HHmmss`. |
 | 3 | `BEARER_TOKEN` | Yes | FortiGate API Bearer token |
 | 4 | `DELETE_MODE` | No | `delete_old` — delete previously matched certs after reassignment. `keep_old` (default) — leave old certs in place |
 | 5 | `ASSIGN_MODE` | No | Assignment strategy. One of:<br>`assign_refs` (default) — reassign all references to the new cert<br>`import_only` — only import, skip reassignment<br>Comma-separated selectors (e.g., `ssl_vpn,admin_https`) — reassign only the specified features:<br>&nbsp;&nbsp;• `ssl_vpn` — SSL-VPN settings<br>&nbsp;&nbsp;• `admin_https` — Admin HTTPS certificate<br>&nbsp;&nbsp;• `admin_https_fallback` — Admin HTTPS certificate fallback<br>&nbsp;&nbsp;• `ipsec_phase1_interface` — IPsec phase1-interface table<br>&nbsp;&nbsp;• `ipsec_phase1` — IPsec phase1 table |
