@@ -40,6 +40,37 @@ The contractor/manufacturer is DIGICERT, INC.
 # Legal notice acceptance variable (user must set to $true to accept and allow script execution)
 $LEGAL_NOTICE_ACCEPT = $false  # Change this to $true to accept the legal notice and run the script
 
+# -----------------------------------------------------------------------------
+# PFX variant selection
+# -----------------------------------------------------------------------------
+# TLM can deliver two PKCS#12 containers for the same certificate and key:
+#
+#   <name>.pfx         - "Modern": AES-256-CBC, PBKDF2, SHA-256 MAC
+#   <name>_legacy.pfx  - "Legacy": RC2-40 / 3DES, SHA-1 MAC
+#
+# Windows Server 2016 and earlier cannot open the modern container with the
+# built-in CryptoAPI; the import then fails looking like a wrong password or a
+# corrupted file. The IIS 6 SMTP service tends to live on exactly those hosts,
+# so this integration defaults to the legacy container. Server 2019 and later
+# open both, and either choice yields a byte-for-byte identical certificate and
+# private key in the store - TLS strength is unaffected.
+#
+# Inspect the delivered files with:
+#     openssl pkcs12 -info -in <file>.pfx -passin pass:<password> -noout
+#     openssl pkcs12 -info -in <file>_legacy.pfx -passin pass:<password> -noout -legacy
+#
+#   'Legacy' - the *_legacy file  (SHA-1 MAC, RC2-40 / 3DES)
+#   'Modern' - the plain file     (SHA-256 MAC, AES-256-CBC)
+#   'First'  - whatever the payload lists first; only sensible when a single PFX
+#              is delivered, because payload order is not guaranteed to be stable
+#
+# AWR Parameter 1 (LEGACY, MODERN or FIRST) overrides this for a single job.
+$SMTP_PFX_VARIANT = 'Legacy'
+
+# Advanced. Leave '' unless the delivered file names do not follow the _legacy
+# naming above; when set, this regex overrides $SMTP_PFX_VARIANT entirely.
+$SMTP_PFX_FILE_PATTERN = ''
+
 # Set up logging configuration
 $logFile = "C:\Program Files\DigiCert\TLM Agent\log\smtp_cert_replacement.log"
 
@@ -647,21 +678,98 @@ try {
     $jsonObject = $jsonString | ConvertFrom-Json
     Write-Log "Converted JSON string to object"
     
-    Write-Log "Arguments: $($jsonObject.args)"
-    
+    Write-Log "Arguments: $($jsonObject.args -join ', ')"
+
+    # AWR Parameter 1 may override the configured PFX variant for this job.
+    $argument1 = ""
+    if ($jsonObject.args -and @($jsonObject.args).Count -ge 1) {
+        $argument1 = ("$(@($jsonObject.args)[0])" -replace '\s', '').Trim()
+    }
+
     # Extract values from JSON object
     $certFolder = $jsonObject.certfolder
-    $pfxFile = Join-Path -Path $certFolder -ChildPath $jsonObject.files[0]
     $password = $jsonObject.password
     Write-Log "Certificate folder: $certFolder"
+    Write-Log "Delivered files: $(if ($jsonObject.files) { @($jsonObject.files) -join ', ' } else { '<none>' })"
+
+    # Select the PFX to import. TLM may deliver both a modern and a _legacy
+    # container, so the choice is made explicit rather than left to payload order.
+    # See $SMTP_PFX_VARIANT at the top of the file.
+    $pfxCandidates = @($jsonObject.files | Where-Object { $_ -match '\.(pfx|p12)$' })
+    Write-Log "PFX candidates in payload ($($pfxCandidates.Count)): $(if ($pfxCandidates.Count) { $pfxCandidates -join ', ' } else { '<none>' })"
+
+    if ($pfxCandidates.Count -eq 0) {
+        Write-Log "ERROR: No PFX file was delivered. This script requires PKCS#12 (PFX) output."
+        Write-Log "       The AWR enrollment profile appears to be configured for another format (e.g. CRT/KEY)."
+        Write-Log "       Change the profile's certificate format to PFX/PKCS12 and re-run the enrollment."
+        throw "No PFX file in the AWR payload - the enrollment profile must be configured for PFX output."
+    }
+
+    $pfxVariant = $SMTP_PFX_VARIANT
+    if (-not [string]::IsNullOrWhiteSpace($argument1)) {
+        if ($argument1 -match '^(LEGACY|MODERN|FIRST)$') {
+            $pfxVariant = $argument1
+            Write-Log "PFX variant overridden by AWR Parameter 1: $pfxVariant"
+        } else {
+            Write-Log "WARNING: AWR Parameter 1 '$argument1' is not LEGACY, MODERN or FIRST - ignored, keeping the configured variant '$pfxVariant'"
+        }
+    }
+
+    # Resolve the variant to a file name pattern. An explicit pattern wins.
+    $pfxPattern = ''
+    $pfxReason  = ''
+    if (-not [string]::IsNullOrWhiteSpace($SMTP_PFX_FILE_PATTERN)) {
+        $pfxPattern = $SMTP_PFX_FILE_PATTERN
+        $pfxReason  = "the `$SMTP_PFX_FILE_PATTERN override '$pfxPattern'"
+    } else {
+        switch ($pfxVariant) {
+            'Legacy' { $pfxPattern = '_legacy\.(pfx|p12)$';      $pfxReason = 'variant Legacy (older PKCS#12 container, SHA-1 MAC)' }
+            'Modern' { $pfxPattern = '(?<!_legacy)\.(pfx|p12)$'; $pfxReason = 'variant Modern (AES-256 PKCS#12 container)' }
+            'First'  { $pfxPattern = '';                         $pfxReason = 'variant First (payload order)' }
+            default  {
+                Write-Log "WARNING: `$SMTP_PFX_VARIANT '$pfxVariant' is not Legacy, Modern or First - falling back to the first PFX in the payload"
+                $pfxPattern = ''
+                $pfxReason  = 'an unrecognised variant'
+            }
+        }
+    }
+
+    $pfxFileName = ''
+    if (-not [string]::IsNullOrWhiteSpace($pfxPattern)) {
+        $pfxFileName = $pfxCandidates | Where-Object { $_ -match $pfxPattern } | Select-Object -First 1
+        if ($pfxFileName) {
+            Write-Log "Selected the PFX for $($pfxReason): $pfxFileName"
+        } else {
+            # Flag loudly: asking for the legacy container and silently getting the
+            # modern one is the exact mix-up this setting prevents, and on an older
+            # host it then fails looking like a wrong password.
+            Write-Log "WARNING: no delivered PFX matched $($pfxReason) - falling back to the first PFX in the payload"
+        }
+    }
+
+    if ([string]::IsNullOrEmpty($pfxFileName)) {
+        $pfxFileName = $pfxCandidates | Select-Object -First 1
+        if ($pfxCandidates.Count -gt 1 -and [string]::IsNullOrWhiteSpace($pfxPattern)) {
+            Write-Log "WARNING: $($pfxCandidates.Count) PFX files were delivered and no variant filter applies - using payload order, which is not guaranteed to be stable between renewals. Set `$SMTP_PFX_VARIANT to Legacy or Modern."
+        }
+        Write-Log "Selected PFX (payload order): $pfxFileName"
+    }
+
+    $pfxFile = Join-Path -Path $certFolder -ChildPath $pfxFileName
     Write-Log "PFX file path: $pfxFile"
-    
+
     # Validate inputs
     if (-not (Test-Path -Path $pfxFile)) {
         Write-Log "ERROR: The PFX file does not exist at path: $pfxFile"
         throw "The PFX file does not exist."
     }
     Write-Log "PFX file exists"
+
+    if ([string]::IsNullOrEmpty($password)) {
+        Write-Log "ERROR: No PFX password in the AWR payload (field 'password' is missing or empty)."
+        Write-Log "       A password-protected PFX cannot be imported without it."
+        throw "No PFX password in the AWR payload."
+    }
     
     # Get certificate thumbprint and domain from the new certificate
     Write-Log "PHASE 2: Processing new certificate and extracting domain"
@@ -682,8 +790,20 @@ try {
             $pfxCert.Import($pfxFile, $password, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
         }
         catch [System.Security.Cryptography.CryptographicException] {
-            Write-Log "ERROR: Invalid password or corrupted PFX file. Please verify the password is correct."
-            throw "Invalid certificate password or corrupted PFX file."
+            $cryptoEx = $_.Exception
+            $hresult  = ('0x{0:X8}' -f $cryptoEx.HResult)
+            Write-Log "ERROR: PFX import failed. CryptographicException HRESULT=$hresult Message='$($cryptoEx.Message)'"
+            # 0x80070056 (ERROR_INVALID_PASSWORD) is a genuine password mismatch.
+            # 0x80090008 (NTE_BAD_ALGID), 0x80092009 (CRYPT_E_NO_MATCH) or ASN.1
+            # errors on Server 2016 and earlier mean the host cannot open the
+            # modern AES-256 container - use the _legacy PFX instead.
+            if ($cryptoEx.HResult -eq 0x80070056) {
+                Write-Log "       The password does not match this PFX. Verify the password in the AWR profile."
+            } elseif ($pfxFileName -notmatch '_legacy\.(pfx|p12)$') {
+                Write-Log "       The modern PFX '$pfxFileName' was used. On Windows Server 2016 and earlier this container cannot be opened;"
+                Write-Log "       set `$SMTP_PFX_VARIANT = 'Legacy' (or pass AWR Parameter 1 = LEGACY) so the _legacy PFX is imported instead."
+            }
+            throw "Invalid certificate password or corrupted PFX file ($hresult)."
         }
         
         $newThumbprint = $pfxCert.Thumbprint
@@ -744,7 +864,7 @@ try {
             Write-Log "Certificate thumbprint: $($cert.Thumbprint)"
             
         } catch {
-            Write-Log "X509Certificate2 method failed, trying Import-PfxCertificate: $_"
+            Write-Log "X509Certificate2 method failed (HRESULT=$('0x{0:X8}' -f $_.Exception.HResult)), trying Import-PfxCertificate: $($_.Exception.Message)"
             
             # Fallback to Import-PfxCertificate
             $cert = Import-PfxCertificate -FilePath $pfxFile -CertStoreLocation Cert:\LocalMachine\My -Password (ConvertTo-SecureString -String $password -Force -AsPlainText)
@@ -842,6 +962,7 @@ try {
     Write-Log "Domain Processed: $(if ($newCertDomain) { $newCertDomain } else { 'Could not determine' })"
     Write-Log "Old Certificate Thumbprint: $(if ($currentThumbprint) { $currentThumbprint } else { 'None found' })"
     Write-Log "New Certificate Thumbprint: $newThumbprint"
+    Write-Log "PFX File Used: $pfxFileName"
     Write-Log "Old Certificate Cleanup: SUCCESS"
     Write-Log "Certificate Import: SUCCESS"
     Write-Log "Permission Setting: $(if ($permissionSuccess) { 'SUCCESS' } else { 'WARNING - Manual intervention may be required' })"
