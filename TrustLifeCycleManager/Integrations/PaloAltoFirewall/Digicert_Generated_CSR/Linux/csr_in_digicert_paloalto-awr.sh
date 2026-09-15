@@ -58,6 +58,23 @@ log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOGFILE"
 }
 
+# Function to mask a secret for logging: first and last 4 characters only, or **** if too short
+mask_secret() {
+    local secret="$1"
+    if [ -z "$secret" ]; then
+        printf ''
+    elif [ ${#secret} -gt 8 ]; then
+        printf '%s...%s' "${secret:0:4}" "${secret: -4}"
+    else
+        printf '****'
+    fi
+}
+
+# Function to redact the args array (which carries the PAN-OS API key) from a raw JSON string
+redact_json_args() {
+    printf '%s' "$1" | sed -E 's/"args" *: *\[[^]]*\]/"args":["<redacted>"]/'
+}
+
 # Function to percent-encode a string for use in a URL query parameter
 urlencode() {
     local string="$1"
@@ -208,10 +225,10 @@ log_message "CERT_INFO length: ${#CERT_INFO} characters"
 JSON_STRING=$(echo "$CERT_INFO" | base64 -d)
 log_message "JSON_STRING decoded successfully"
 
-# Log the raw JSON for debugging
+# Log the JSON for debugging with the args array redacted (it carries the PAN-OS API key)
 log_message "=========================================="
-log_message "Raw JSON content:"
-log_message "$JSON_STRING"
+log_message "JSON content (args redacted):"
+log_message "$(redact_json_args "$JSON_STRING")"
 log_message "=========================================="
 
 # Extract arguments from JSON
@@ -219,7 +236,7 @@ log_message "Extracting arguments from JSON..."
 
 # First, let's log the args array
 ARGS_ARRAY=$(echo "$JSON_STRING" | grep -oP '"args":\[\K[^]]*')
-log_message "Raw args array: $ARGS_ARRAY"
+log_message "Args array: $(printf '%s' "$ARGS_ARRAY" | awk -F',' '{print NF}') element(s) (values redacted; argument 2 is the API key)"
 
 # Extract Argument_1 (PA_URL) - first argument
 ARGUMENT_1=$(echo "$ARGS_ARRAY" | awk -F',' '{print $1}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
@@ -228,7 +245,7 @@ log_message "ARGUMENT_1 length: ${#ARGUMENT_1}"
 
 # Extract Argument_2 (PA_API_KEY) - second argument
 ARGUMENT_2=$(echo "$ARGS_ARRAY" | awk -F',' '{print $2}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
-log_message "ARGUMENT_2 extracted: '$ARGUMENT_2'"
+log_message "ARGUMENT_2 extracted: '$(mask_secret "$ARGUMENT_2")' (masked)"
 log_message "ARGUMENT_2 length: ${#ARGUMENT_2}"
 
 # Clean arguments (remove whitespace, newlines, carriage returns)
@@ -254,11 +271,7 @@ fi
 log_message "Palo Alto Configuration (from arguments):"
 log_message "  PA_URL: $PA_URL"
 # Mask API key for security - show only first and last 4 characters
-if [ ${#PA_API_KEY} -gt 8 ]; then
-    PA_API_KEY_MASKED="${PA_API_KEY:0:4}...${PA_API_KEY: -4}"
-else
-    PA_API_KEY_MASKED="****"
-fi
+PA_API_KEY_MASKED=$(mask_secret "$PA_API_KEY")
 log_message "  PA_API_KEY: '$PA_API_KEY_MASKED' (masked for security)"
 log_message "  CERT_NAME_METHOD: $CERT_NAME_METHOD"
 log_message "  MANUAL_CERT_NAME: $MANUAL_CERT_NAME"
