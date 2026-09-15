@@ -70,6 +70,22 @@ function Write-LogMessage {
     "[$timestamp] $Message" | Add-Content -Path $LOGFILE -Encoding UTF8
 }
 
+# Function to mask a secret for logging: first and last 4 characters only, or **** if too short
+function Get-MaskedSecret {
+    param([string]$Secret)
+    if ([string]::IsNullOrEmpty($Secret)) { return "" }
+    if ($Secret.Length -gt 8) {
+        return $Secret.Substring(0, 4) + "..." + $Secret.Substring($Secret.Length - 4)
+    }
+    return "****"
+}
+
+# Function to redact the args array (which carries the PAN-OS API key) from a raw JSON string
+function Get-RedactedJson {
+    param([string]$Json)
+    return [regex]::Replace($Json, '"args"\s*:\s*\[[^\]]*\]', '"args":["<redacted>"]')
+}
+
 # Function to extract common name from certificate
 function Get-CommonName {
     param([string]$CertFile)
@@ -101,7 +117,7 @@ function Get-CommonName {
 
 # Function to generate a random alphanumeric passphrase (URL-safe, no encoding surprises)
 function New-RandomPassphrase {
-    param([int]$Length = 32)
+    param([int]$Length = 12)
     $chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
     $bytes = New-Object byte[] $Length
     $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
@@ -281,10 +297,10 @@ try {
     exit 1
 }
 
-# Log the raw JSON for debugging
+# Log the JSON for debugging with the args array redacted (it carries the PAN-OS API key)
 Write-LogMessage "=========================================="
-Write-LogMessage "Raw JSON content:"
-Write-LogMessage $JSON_STRING
+Write-LogMessage "JSON content (args redacted):"
+Write-LogMessage (Get-RedactedJson -Json $JSON_STRING)
 Write-LogMessage "=========================================="
 
 # Parse JSON
@@ -306,7 +322,7 @@ $ARGUMENT_2 = ""
 # Extract arguments if they exist
 if ($JSON_OBJECT.args) {
     $ARGS_ARRAY = $JSON_OBJECT.args
-    Write-LogMessage "Raw args array: $($ARGS_ARRAY -join ',')"
+    Write-LogMessage "Args array: $($ARGS_ARRAY.Count) element(s) (values redacted; argument 2 is the API key)"
 
     if ($ARGS_ARRAY.Count -ge 1) {
         $ARGUMENT_1 = ($ARGS_ARRAY[0] -replace '\s', '').Trim()
@@ -315,7 +331,7 @@ if ($JSON_OBJECT.args) {
     }
     if ($ARGS_ARRAY.Count -ge 2) {
         $ARGUMENT_2 = ($ARGS_ARRAY[1] -replace '\s', '').Trim()
-        Write-LogMessage "ARGUMENT_2 extracted: '$ARGUMENT_2'"
+        Write-LogMessage "ARGUMENT_2 extracted: '$(Get-MaskedSecret -Secret $ARGUMENT_2)' (masked)"
         Write-LogMessage "ARGUMENT_2 length: $($ARGUMENT_2.Length)"
     }
 }
@@ -339,11 +355,7 @@ if ([string]::IsNullOrEmpty($PA_API_KEY)) {
 Write-LogMessage "Palo Alto Configuration (from arguments):"
 Write-LogMessage "  PA_URL: $PA_URL"
 # Mask API key for security - show only first and last 4 characters
-if ($PA_API_KEY.Length -gt 8) {
-    $PA_API_KEY_MASKED = $PA_API_KEY.Substring(0, 4) + "..." + $PA_API_KEY.Substring($PA_API_KEY.Length - 4)
-} else {
-    $PA_API_KEY_MASKED = "****"
-}
+$PA_API_KEY_MASKED = Get-MaskedSecret -Secret $PA_API_KEY
 Write-LogMessage "  PA_API_KEY: '$PA_API_KEY_MASKED' (masked for security)"
 Write-LogMessage "  CERT_NAME_METHOD: $CERT_NAME_METHOD"
 Write-LogMessage "  MANUAL_CERT_NAME: $MANUAL_CERT_NAME"
