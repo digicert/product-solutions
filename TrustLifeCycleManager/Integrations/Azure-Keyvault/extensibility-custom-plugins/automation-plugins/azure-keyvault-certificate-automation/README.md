@@ -110,12 +110,74 @@ Defined in `configuration.json` and surfaced in the TLM connector UI:
 | Managing Sensor | select | Dynamic TLM list (`options_provider: Sensors`) |
 | Azure Tenant ID | input | Azure AD directory (tenant) ID |
 | Azure Client ID (App Registration) | input | Application (client) ID of the service principal |
-| Azure Client Secret | password | Stored as a sensitive credential |
+| Authentication method | select | *Self-authentication (Direct input)* (default) or *Self-authentication (Secrets manager)* — see [Secrets Manager (PAM) authentication](#secrets-manager-pam-authentication) |
+| Azure Client Secret | password | Direct-input mode only. Stored by TLM as a sensitive credential |
+| Secrets manager connector | select | Secrets-manager mode only. Dynamic TLM list of registered PAM connectors (`options_provider: PamConnectors`) |
+| Azure Client Secret (PAM vault reference) | input | Secrets-manager mode only. The **vault reference** (not the secret) the PAM connector resolves at runtime |
 | Key Vault URL | input | `https://<vault>.vault.azure.net/` — the connector unique key |
 | Exclude expired certificates from discovery | checkbox | Optional; default off (show all) |
 | Exclude disabled certificates from discovery | checkbox | Optional; default off (show all) |
 
-`Name` and `Business Unit` are TLM connector-level fields managed by TLM itself.
+`Name` and `Business Unit` are TLM connector-level fields managed by TLM itself. The two
+`Azure Client Secret` rows are the **same** `config_attributes.clientSecret` field declared twice with
+a different `type` and a `conditional_group`, so exactly one of them is shown depending on the
+authentication method.
+
+## Secrets Manager (PAM) authentication
+
+The Azure client secret can be kept in an external privileged-access vault instead of in TLM. The
+connector then stores only a **vault reference**; at run time TLM asks the selected **Secrets Manager
+(PAM) connector** (BeyondTrust Password Safe, CyberArk CCP, or Delinea Secret Server / Platform) to
+resolve that reference and injects the real secret into the plugin's `clientSecret` field. The plugin
+never talks to the vault itself and never sees the reference — it only receives the resolved secret.
+
+```
+configuration.json            TLM UI                       TLM run time
+authentication_method  ─▶  operator picks mode  ─▶  [Secrets manager] PAM connector fetchSecret(reference)
+pam_connector_id                                            │ resolved secret
+clientSecret (reference)                                    ▼
+                                            MyPluginConfiguration.clientSecret  ─▶  ClientSecretCredential
+```
+
+### Order of operations
+
+1. **Register the PAM connector first.** In TLM add the external Secrets Manager connector for your
+   provider and run its **Test Connection**. The `Secrets manager connector` dropdown on this plugin
+   is populated from the registered PAM connectors, so it stays empty until one exists.
+2. **Add this connector** and set **Authentication method → Self-authentication (Secrets manager)**.
+   Select the PAM connector from step 1.
+3. **Enter the vault reference** for the Azure client secret in the `Azure Client Secret (PAM vault
+   reference)` field, using the provider's format (the UI shows a banner per provider):
+
+   | Provider | Reference format | Example |
+   |---|---|---|
+   | BeyondTrust Password Safe | `SystemName/AccountName` | `AzureSP/svc-keyvault-tlm` |
+   | CyberArk CCP | object / secret name (the Safe is fixed on the PAM connector) | `AzureKeyVaultSP` |
+   | Delinea Secret Server / Platform | `secretId` or `secretId/fieldSlug` (`fieldSlug` defaults to `password`) | `42` or `42/password` |
+
+4. **Run Test Connection** on this connector. TLM resolves the reference through the PAM connector,
+   injects the secret, and the plugin lists the vault's certificates with it.
+
+### Plugin behaviour in secrets-manager mode
+
+- **Fail closed.** If the PAM connector does not deliver a value (unknown reference, no permission,
+  connector unreachable), every lifecycle call fails with a clear `WorkflowExecutionException`
+  naming the PAM connector instead of calling Azure with an empty credential.
+- **Encoding.** TLM base64-encodes secrets typed directly into the connector, while a PAM-injected
+  secret may arrive as plain text. The plugin base64-decodes the value only when it is valid base64
+  **and** decodes to printable text; otherwise it is used as-is. Azure client secrets contain `~`
+  and `.` so they are never mistaken for base64.
+- **No caching.** The secret is read once per plugin invocation, so rotating it in the vault takes
+  effect on the next TLM workflow run without touching the connector.
+- **Logging.** The plugin logs the authentication mode, the PAM connector ID and the secret's
+  length, never the secret or the reference.
+- `authenticationMethod` / `pamConnectorId` exist on `MyPluginConfiguration` for diagnostics only.
+  TLM consumes them to drive the UI and the secret-resolution step; the plugin's Azure calls are
+  identical in both modes.
+
+Vault-side prerequisites (API app key / `runas` rights and an auto-approve policy on BeyondTrust; a
+CCP Application ID with *Retrieve* on the Safe for CyberArk; a read-capable service account or
+client-credentials app for Delinea) belong to the PAM connector, not to this plugin.
 
 The two **exclude** options trim the discovery inventory (filtered on the cheap list metadata before
 any per-certificate fetch; skips are logged). Both default to off so the connector shows every
@@ -125,7 +187,8 @@ its certificate-import screen; the plugin-side flag additionally trims the autom
 
 ### Azure prerequisites
 
-- An **Azure AD app registration / service principal** (Tenant ID, Client ID, Client Secret).
+- An **Azure AD app registration / service principal** (Tenant ID, Client ID, Client Secret). The
+  client secret can be typed into TLM or held in a PAM vault (see above).
 - Certificate **get / list / create** permissions for that service principal **on the one vault**
   (`create` also authorises `mergeCertificate` — there is no separate merge permission). Either
   permission model works, because the plugin is data-plane only:
