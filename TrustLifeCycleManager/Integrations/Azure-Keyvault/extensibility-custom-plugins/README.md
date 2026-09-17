@@ -57,8 +57,12 @@ generated from the Maven coordinates, so a version bump in `pom.xml` keeps them 
 Uploaded alongside the ZIP and rendered directly as the connector form in TLM. It defines three groups:
 
 - **`core_settings`** — the Managing Sensor selector, populated dynamically by TLM (`options_provider: Sensors`).
-- **`config_settings`** — Azure Tenant ID, Client ID, Client Secret, Key Vault URL, and the two optional
-  discovery filters (exclude expired / exclude disabled certificates).
+- **`config_settings`** — Azure Tenant ID, Client ID, an **Authentication method** selector, Client Secret,
+  Key Vault URL, and the two optional discovery filters (exclude expired / exclude disabled certificates).
+  The Client Secret can be typed directly into TLM (*Self-authentication (Direct input)*, the default) or
+  held in an external PAM vault (*Self-authentication (Secrets manager)*), in which case the form shows a
+  **Secrets manager connector** dropdown (`options_provider: PamConnectors`) and takes a vault reference
+  instead of the secret. See the plugin README's *Secrets Manager (PAM) authentication* section.
 - **`credential_sets`** — declares `config_attributes.clientSecret` as **sensitive** (stored encrypted,
   never returned to the UI) and `config_attributes.keyVaultUrl` as the connector's **unique** key, which
   is what enforces one connector per vault.
