@@ -1,0 +1,69 @@
+# This workflow will build a package using Maven and then publish it to GitHub packages when a release is created
+# For more information see: https://github.com/actions/setup-java/blob/main/docs/advanced-usage.md#apache-maven-with-a-settings-path
+
+name: Maven Java Plugin publish
+
+on:
+    workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
+        settings-path: ${{ github.workspace }}
+
+    - name: Build with Maven
+      run: build.sh
+      env:
+        GITHUB_ACTOR: ${{ github.actor }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Scan with VirusTotal
+      id: scan
+      uses: crazy-max/ghaction-virustotal@v3
+      with:
+        vt_api_key: ${{ secrets.VT_API_KEY }}
+        files: |
+          ${{ github.workspace }}/plugin-dist/*
+          
+    - name: Generate VirusTotal scan report
+      run: |
+        echo "# VirusTotal Scan Results" > ${{ github.workspace }}/plugin-dist/vt-report.md
+        echo "Scan completed on $(date)" >> ${{ github.workspace }}/plugin-dist/vt-report.md
+        echo "## Results" >> ${{ github.workspace }}/plugin-dist/vt-report.md
+        echo '```' >> ${{ github.workspace }}/plugin-dist/vt-report.md
+        echo "${{ steps.scan.outputs.analysis }}" >> ${{ github.workspace }}/plugin-dist/vt-report.md
+        echo '```' >> ${{ github.workspace }}/plugin-dist/vt-report.md
+
+    - name: Create release
+      id: create_release
+      uses: actions/create-release@v1
+      with:
+        draft: true
+        prerelease: false
+        tag_name: ${{ github.ref }}
+        release_name: Release plugins-java ${{ github.ref }}
+        body_path:  ${{ github.workspace }}/plugin-dist/checksums
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload Release Assets
+      id: upload-release-assets
+      uses: dwenegar/upload-release-assets@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        release_id: ${{ steps.create_release.outputs.id }}
+        assets_path: ${{ github.workspace }}/plugin-dist

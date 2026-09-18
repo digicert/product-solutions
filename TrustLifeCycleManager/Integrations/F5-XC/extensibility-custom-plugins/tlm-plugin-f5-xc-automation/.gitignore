@@ -1,0 +1,4 @@
+target/
+plugin-dist/
+
+.settings/
