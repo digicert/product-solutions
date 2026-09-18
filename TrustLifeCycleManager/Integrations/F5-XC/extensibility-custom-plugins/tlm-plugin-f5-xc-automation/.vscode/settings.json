@@ -1,0 +1,58 @@
+{
+    // Java Configuration
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "java.jdt.ls.java.home": "",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-17",
+            "path": "",
+            "default": true
+        }
+    ],
+    // Maven Configuration
+    "java.configuration.maven.userSettings": "",
+    "maven.executable.path": "",
+    "maven.terminal.useJavaHome": true,
+    "maven.excludedFolders": [
+        "**/.*",
+        "**/node_modules",
+        "**/target"
+    ],
+    // Editor Settings for Java
+    "java.format.settings.url": "",
+    "java.format.enabled": true,
+    "java.saveActions.organizeImports": true,
+    "java.sources.organizeImports.starThreshold": 5,
+    "java.sources.organizeImports.staticStarThreshold": 3,
+    // Code Completion
+    "java.completion.enabled": true,
+    "java.completion.guessMethodArguments": "auto",
+    "java.completion.importOrder": [
+        "java",
+        "javax",
+        "org",
+        "com",
+        ""
+    ],
+    // Code Analysis
+    "java.errors.incompleteClasspath.severity": "warning",
+    "java.maxConcurrentBuilds": 1,
+    "java.autobuild.enabled": true,
+    // Debug Configuration
+    "java.debug.settings.hotCodeReplace": "auto",
+    "java.debug.settings.enableRunDebugCodeLens": true,
+    // Test Configuration
+    "java.test.defaultConfig": "",
+    // Editor Formatting
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit"
+    },
+    "[java]": {
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true,
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "redhat.java"
+    }
+}

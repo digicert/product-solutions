@@ -134,6 +134,42 @@ ARGUMENT_3=$(echo "$ARGUMENT_3" | tr -d '[:space:]')
 ARGUMENT_4=$(echo "$ARGUMENT_4" | tr -d '[:space:]')
 ARGUMENT_5=$(echo "$ARGUMENT_5" | tr -d '[:space:]')
 
+# ========================================
+# Determine certificate upload type (Argument 4) and network slice (Argument 5)
+# SNI    = default workflow: PUT to /api/prov/v2/sites/{siteId}/customCertificate
+# NONSNI = site group workflow: POST to /api/prov/v1/sitesgroups/manualCertificate/upload
+#          (requires a network slice as Argument 5)
+# ========================================
+CERT_UPLOAD_TYPE=$(echo "$ARGUMENT_4" | tr '[:lower:]' '[:upper:]')
+if [ -z "$CERT_UPLOAD_TYPE" ]; then
+    CERT_UPLOAD_TYPE="SNI"
+    log_message "No certificate upload type provided (Argument 4), defaulting to SNI"
+fi
+
+if [ "$CERT_UPLOAD_TYPE" != "SNI" ] && [ "$CERT_UPLOAD_TYPE" != "NONSNI" ]; then
+    log_message "ERROR: Invalid certificate upload type '$ARGUMENT_4' (Argument 4). Must be SNI or NONSNI."
+    exit 1
+fi
+
+NETWORK_SLICE="$ARGUMENT_5"
+if [ "$CERT_UPLOAD_TYPE" = "NONSNI" ] && [ -z "$NETWORK_SLICE" ]; then
+    log_message "ERROR: Certificate upload type NONSNI requires a network slice (Argument 5)."
+    exit 1
+fi
+
+# Site ID (Argument 1) is only used by the SNI (per-site) endpoint. It may be
+# left empty for NONSNI uploads, but must still be passed as a placeholder so
+# the remaining arguments keep their positions.
+if [ "$CERT_UPLOAD_TYPE" = "SNI" ] && [ -z "$ARGUMENT_1" ]; then
+    log_message "ERROR: Certificate upload type SNI requires a Site ID (Argument 1)."
+    exit 1
+fi
+
+log_message "Certificate upload type: $CERT_UPLOAD_TYPE"
+if [ "$CERT_UPLOAD_TYPE" = "NONSNI" ]; then
+    log_message "Network slice: $NETWORK_SLICE"
+fi
+
 # Extract cert folder
 CERT_FOLDER=$(echo "$JSON_STRING" | grep -oP '"certfolder":"\K[^"]+')
 log_message "Extracted CERT_FOLDER: $CERT_FOLDER"
@@ -274,13 +310,20 @@ log_message "  Site ID: $SITE_ID"
 log_message "  API ID: $API_ID"
 log_message "  API Key: ${API_KEY:0:5}..." # Only show first 5 chars of API key for security
 
-# ========================================
-# Prepare JSON payload with Base64 encoded certificate chain and key
-# ========================================
-log_message "Preparing JSON payload with Base64 encoded data..."
+# Prepare truncated values for logging
+CERT_FOR_LOG="${CERT_CHAIN_BASE64:0:100}..."
+KEY_FOR_LOG="${KEY_BASE64:0:100}..."
 
-# Create the API payload
-API_PAYLOAD=$(cat <<EOF
+if [ "$CERT_UPLOAD_TYPE" = "SNI" ]; then
+    # ========================================
+    # SNI workflow: PUT JSON payload to the per-site custom certificate endpoint
+    # ========================================
+    API_URL="https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate"
+
+    log_message "Preparing JSON payload with Base64 encoded data..."
+
+    # Create the API payload
+    API_PAYLOAD=$(cat <<EOF
 {
   "certificate": "${CERT_CHAIN_BASE64}",
   "private_key": "${KEY_BASE64}",
@@ -289,60 +332,113 @@ API_PAYLOAD=$(cat <<EOF
 EOF
 )
 
-log_message "JSON payload prepared successfully"
-log_message "Total payload size: ${#API_PAYLOAD} characters"
+    log_message "JSON payload prepared successfully"
+    log_message "Total payload size: ${#API_PAYLOAD} characters"
 
-# Prepare truncated payload for logging
-CERT_FOR_LOG="${CERT_CHAIN_BASE64:0:100}..."
-KEY_FOR_LOG="${KEY_BASE64:0:100}..."
-JSON_PAYLOAD_FOR_LOG="{
+    JSON_PAYLOAD_FOR_LOG="{
   \"certificate\": \"$CERT_FOR_LOG\",
   \"private_key\": \"$KEY_FOR_LOG\",
   \"auth_type\": \"$AUTH_TYPE\"
 }"
 
-# Log the complete curl command to api-call.log
-log_api_call "=========================================="
-log_api_call "COMPLETE CURL COMMAND (with Base64 encoded chain):"
-log_api_call "=========================================="
-log_api_call "curl --location --request PUT 'https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate' \\"
-log_api_call "--header 'Content-Type: application/json' \\"
-log_api_call "--header 'x-API-Key: ${API_KEY:0:5}...' \\"
-log_api_call "--header 'x-API-Id: $API_ID' \\"
-log_api_call "--data '${JSON_PAYLOAD_FOR_LOG}'"
-log_api_call "=========================================="
-log_api_call "Note: Certificate and key are Base64 encoded entire PEM files (including headers/footers)"
-log_api_call "Certificate chain contains $CERT_COUNT certificate(s)"
-log_api_call "=========================================="
+    # Log the complete curl command to api-call.log
+    log_api_call "=========================================="
+    log_api_call "COMPLETE CURL COMMAND (with Base64 encoded chain):"
+    log_api_call "=========================================="
+    log_api_call "curl --location --request PUT '$API_URL' \\"
+    log_api_call "--header 'Content-Type: application/json' \\"
+    log_api_call "--header 'x-API-Key: ${API_KEY:0:5}...' \\"
+    log_api_call "--header 'x-API-Id: $API_ID' \\"
+    log_api_call "--data '${JSON_PAYLOAD_FOR_LOG}'"
+    log_api_call "=========================================="
+    log_api_call "Note: Certificate and key are Base64 encoded entire PEM files (including headers/footers)"
+    log_api_call "Certificate chain contains $CERT_COUNT certificate(s)"
+    log_api_call "=========================================="
 
-# Make API call to Imperva
-log_message "=========================================="
-log_message "Making API call to Imperva with Base64 encoded certificate chain..."
-log_message "URL: https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate"
-log_message "Method: PUT"
-log_message "Headers:"
-log_message "  Content-Type: application/json"
-log_message "  x-API-Id: $API_ID"
-log_message "  x-API-Key: ${API_KEY:0:5}..."
-log_message "Payload preview (truncated):"
-log_message "  certificate (Base64): $CERT_FOR_LOG"
-log_message "  private_key (Base64): $KEY_FOR_LOG"
-log_message "  auth_type: $AUTH_TYPE"
-log_message "Certificate chain info:"
-log_message "  Number of certificates in chain: $CERT_COUNT"
-log_message "  Base64 encoded size: ${#CERT_CHAIN_BASE64} characters"
-log_message "  Private key Base64 size: ${#KEY_BASE64} characters"
-log_message "See $API_CALL_LOGFILE for complete curl command"
-log_message "=========================================="
+    # Make API call to Imperva
+    log_message "=========================================="
+    log_message "Making API call to Imperva with Base64 encoded certificate chain..."
+    log_message "URL: $API_URL"
+    log_message "Method: PUT"
+    log_message "Headers:"
+    log_message "  Content-Type: application/json"
+    log_message "  x-API-Id: $API_ID"
+    log_message "  x-API-Key: ${API_KEY:0:5}..."
+    log_message "Payload preview (truncated):"
+    log_message "  certificate (Base64): $CERT_FOR_LOG"
+    log_message "  private_key (Base64): $KEY_FOR_LOG"
+    log_message "  auth_type: $AUTH_TYPE"
+    log_message "Certificate chain info:"
+    log_message "  Number of certificates in chain: $CERT_COUNT"
+    log_message "  Base64 encoded size: ${#CERT_CHAIN_BASE64} characters"
+    log_message "  Private key Base64 size: ${#KEY_BASE64} characters"
+    log_message "See $API_CALL_LOGFILE for complete curl command"
+    log_message "=========================================="
 
-# Make the actual API call
-API_RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}\n" \
-  --location \
-  --request PUT "https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate" \
-  --header 'Content-Type: application/json' \
-  --header "x-API-Key: $API_KEY" \
-  --header "x-API-Id: $API_ID" \
-  --data "${API_PAYLOAD}")
+    # Make the actual API call
+    API_RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}\n" \
+      --location \
+      --request PUT "$API_URL" \
+      --header 'Content-Type: application/json' \
+      --header "x-API-Key: $API_KEY" \
+      --header "x-API-Id: $API_ID" \
+      --data "${API_PAYLOAD}")
+else
+    # ========================================
+    # NONSNI workflow: POST form-encoded payload to the site group manual
+    # certificate endpoint (network_slice, certificate, private_key).
+    # Base64 values are passed via --data-urlencode so '+', '/' and '='
+    # characters survive form encoding intact.
+    # ========================================
+    API_URL="https://my.incapsula.com/api/prov/v1/sitesgroups/manualCertificate/upload"
+
+    log_message "Preparing form-encoded payload for non-SNI site group upload..."
+    log_message "Payload fields: network_slice, certificate (Base64), private_key (Base64)"
+
+    # Log the complete curl command to api-call.log
+    log_api_call "=========================================="
+    log_api_call "COMPLETE CURL COMMAND (non-SNI site group upload):"
+    log_api_call "=========================================="
+    log_api_call "curl --request POST '$API_URL' \\"
+    log_api_call "--header 'x-API-Id: $API_ID' \\"
+    log_api_call "--header 'x-API-Key: ${API_KEY:0:5}...' \\"
+    log_api_call "--data-urlencode 'network_slice=$NETWORK_SLICE' \\"
+    log_api_call "--data-urlencode 'certificate=$CERT_FOR_LOG' \\"
+    log_api_call "--data-urlencode 'private_key=$KEY_FOR_LOG'"
+    log_api_call "=========================================="
+    log_api_call "Note: Certificate and key are Base64 encoded entire PEM files (including headers/footers)"
+    log_api_call "Certificate chain contains $CERT_COUNT certificate(s)"
+    log_api_call "=========================================="
+
+    # Make API call to Imperva
+    log_message "=========================================="
+    log_message "Making non-SNI site group API call to Imperva..."
+    log_message "URL: $API_URL"
+    log_message "Method: POST"
+    log_message "Headers:"
+    log_message "  x-API-Id: $API_ID"
+    log_message "  x-API-Key: ${API_KEY:0:5}..."
+    log_message "Payload preview (truncated):"
+    log_message "  network_slice: $NETWORK_SLICE"
+    log_message "  certificate (Base64): $CERT_FOR_LOG"
+    log_message "  private_key (Base64): $KEY_FOR_LOG"
+    log_message "Certificate chain info:"
+    log_message "  Number of certificates in chain: $CERT_COUNT"
+    log_message "  Base64 encoded size: ${#CERT_CHAIN_BASE64} characters"
+    log_message "  Private key Base64 size: ${#KEY_BASE64} characters"
+    log_message "See $API_CALL_LOGFILE for complete curl command"
+    log_message "=========================================="
+
+    # Make the actual API call
+    API_RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}\n" \
+      --location \
+      --request POST "$API_URL" \
+      --header "x-API-Id: $API_ID" \
+      --header "x-API-Key: $API_KEY" \
+      --data-urlencode "network_slice=${NETWORK_SLICE}" \
+      --data-urlencode "certificate=${CERT_CHAIN_BASE64}" \
+      --data-urlencode "private_key=${KEY_BASE64}")
+fi
 
 # Extract HTTP status code and response body
 HTTP_STATUS=$(echo "$API_RESPONSE" | grep "HTTP_STATUS:" | cut -d: -f2)
@@ -353,9 +449,15 @@ log_message "HTTP Status Code: $HTTP_STATUS"
 log_message "Response Body: $RESPONSE_BODY"
 
 # Imperva can return an application-level error in a successful HTTP response.
+# The v2 sites API reports it as "resultCode"; the v1 sitesgroups API as "res".
 RESULT_CODE=$(printf '%s' "$RESPONSE_BODY" | \
     grep -oE '"resultCode"[[:space:]]*:[[:space:]]*"?-?[0-9]+"?' | \
     sed -E 's/.*:[[:space:]]*"?(-?[0-9]+)"?/\1/' | head -n 1)
+if [ -z "$RESULT_CODE" ]; then
+    RESULT_CODE=$(printf '%s' "$RESPONSE_BODY" | \
+        grep -oE '"res"[[:space:]]*:[[:space:]]*"?-?[0-9]+"?' | \
+        sed -E 's/.*:[[:space:]]*"?(-?[0-9]+)"?/\1/' | head -n 1)
+fi
 if [ -n "$RESULT_CODE" ]; then
     log_message "Imperva result code: $RESULT_CODE"
 fi
@@ -391,7 +493,11 @@ log_message "  Certificate file: $CRT_FILE_PATH"
 log_message "  Private key file: $KEY_FILE_PATH"
 log_message "  Certificates in chain: $CERT_COUNT"
 log_message "  Auth type: $AUTH_TYPE"
-log_message "  API endpoint: https://my.imperva.com/api/prov/v2/sites/$SITE_ID/customCertificate"
+log_message "  Upload type: $CERT_UPLOAD_TYPE"
+if [ "$CERT_UPLOAD_TYPE" = "NONSNI" ]; then
+    log_message "  Network slice: $NETWORK_SLICE"
+fi
+log_message "  API endpoint: $API_URL"
 log_message "  HTTP status: $HTTP_STATUS"
 if { [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "201" ]; } && \
     { [ -z "$RESULT_CODE" ] || [ "$RESULT_CODE" = "0" ]; }; then
