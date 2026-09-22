@@ -44,12 +44,124 @@ MANUAL_CERT_NAME="tf-automated-cert"
 # Commit configuration after upload
 COMMIT_CONFIG="true"  # Set to "true" to automatically commit after upload
 
-# Passphrase for private key (if needed)
+# Passphrase for the private key.
+# PAN-OS rejects every private-key import that has an empty passphrase parameter, even when the
+# key itself is unencrypted, so the script never sends it empty:
+#   - Leave empty (default) when the TLM Agent delivers an unencrypted key. The script generates a
+#     random one-time passphrase, encrypts the key with it (via OpenSSL) before upload, and passes
+#     that passphrase to PAN-OS.
+#   - Set it only when the key file is already encrypted with a known passphrase.
 PRIVATE_KEY_PASSPHRASE=""
 
 # Function to log messages with timestamp
 log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOGFILE"
+}
+
+# Function to mask a secret for logging: first and last 4 characters only, or **** if too short
+mask_secret() {
+    local secret="$1"
+    if [ -z "$secret" ]; then
+        printf ''
+    elif [ ${#secret} -gt 8 ]; then
+        printf '%s...%s' "${secret:0:4}" "${secret: -4}"
+    else
+        printf '****'
+    fi
+}
+
+# Function to redact the args array (which carries the PAN-OS API key) from a raw JSON string
+redact_json_args() {
+    printf '%s' "$1" | sed -E 's/"args" *: *\[[^]]*\]/"args":["<redacted>"]/'
+}
+
+# Function to percent-encode a string for use in a URL query parameter
+urlencode() {
+    local string="$1"
+    local length=${#string}
+    local i c
+    for (( i = 0; i < length; i++ )); do
+        c="${string:i:1}"
+        case "$c" in
+            [a-zA-Z0-9.~_-]) printf '%s' "$c" ;;
+            *) printf '%%%02X' "'$c" ;;
+        esac
+    done
+}
+
+# Function to generate a random alphanumeric passphrase.
+# Reads the kernel CSPRNG directly so the passphrase does not depend on OpenSSL being installed;
+# openssl rand is only used as a secondary source if /dev/urandom is unavailable.
+generate_passphrase() {
+    local passphrase=""
+    if [ -r /dev/urandom ]; then
+        passphrase=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
+    fi
+    if [ ${#passphrase} -lt 32 ] && command -v openssl >/dev/null 2>&1; then
+        passphrase=$(openssl rand -base64 48 2>/dev/null | tr -dc 'A-Za-z0-9' | head -c 32)
+    fi
+    printf '%s' "$passphrase"
+}
+
+# Function to extract the status attribute ("success" / "error") from a PAN-OS XML API response
+panos_response_status() {
+    local status
+    status=$(printf '%s' "$1" | sed -n "s/.*<response[^>]*status *= *[\"']\([^\"']*\)[\"'].*/\1/p" | head -n 1 | tr 'A-Z' 'a-z')
+    if [ -n "$status" ]; then
+        echo "$status"
+    else
+        echo "unknown"
+    fi
+}
+
+# Function to extract the human-readable message lines from a PAN-OS XML API response
+panos_response_message() {
+    printf '%s' "$1" | grep -o '<\(msg\|line\)>[^<]*</\(msg\|line\)>' 2>/dev/null \
+        | sed -e 's/<[^>]*>//g' -e 's/&quot;/"/g' -e 's/&apos;/'"'"'/g' -e 's/&lt;/</g' -e 's/&gt;/>/g' -e 's/&amp;/\&/g' \
+        | awk 'NF' | sort -u | paste -sd '|' - | sed 's/|/ | /g'
+}
+
+# Function to decide whether a PAN-OS API call succeeded: requires HTTP 2xx AND status="success"
+# Usage: panos_success "$HTTP_STATUS" "$RESPONSE_BODY"
+panos_success() {
+    local http_status="$1"
+    local body="$2"
+    if [ "$http_status" -eq 200 ] 2>/dev/null || [ "$http_status" -eq 201 ] 2>/dev/null; then
+        if [ "$(panos_response_status "$body")" = "success" ]; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# Function to encrypt an unencrypted PEM private key with a passphrase using OpenSSL.
+# Prints the path of the encrypted temp file, or nothing if encryption failed.
+# Traditional PEM (BEGIN RSA/EC PRIVATE KEY + Proc-Type header) is tried first because it is the
+# most widely accepted by PAN-OS; encrypted PKCS#8 is the fallback for OpenSSL builds without -traditional.
+encrypt_private_key() {
+    local input_path="$1"
+    local passphrase="$2"
+    local output_path openssl_err
+    output_path=$(mktemp)
+    openssl_err=$(mktemp)
+    chmod 600 "$output_path"
+
+    # Pass the passphrase via environment variable so it never appears in the process list
+    if ! PAN_KEY_PASSPHRASE="$passphrase" openssl pkey -in "$input_path" -out "$output_path" -aes256 -traditional -passout env:PAN_KEY_PASSPHRASE 2>"$openssl_err" \
+        || [ ! -s "$output_path" ]; then
+        log_message "Traditional PEM encryption not available ($(tr '\n' ' ' < "$openssl_err")), falling back to PKCS#8"
+        : > "$output_path"
+        if ! PAN_KEY_PASSPHRASE="$passphrase" openssl pkcs8 -topk8 -in "$input_path" -out "$output_path" -v2 aes-256-cbc -passout env:PAN_KEY_PASSPHRASE 2>"$openssl_err" \
+            || [ ! -s "$output_path" ]; then
+            log_message "WARNING: OpenSSL failed to encrypt the private key: $(tr '\n' ' ' < "$openssl_err")"
+            rm -f "$output_path" "$openssl_err"
+            return 1
+        fi
+    fi
+
+    log_message "Private key encrypted for transport ($(head -n 1 "$output_path"))"
+    rm -f "$openssl_err"
+    echo "$output_path"
 }
 
 # Function to extract common name from certificate
@@ -113,10 +225,10 @@ log_message "CERT_INFO length: ${#CERT_INFO} characters"
 JSON_STRING=$(echo "$CERT_INFO" | base64 -d)
 log_message "JSON_STRING decoded successfully"
 
-# Log the raw JSON for debugging
+# Log the JSON for debugging with the args array redacted (it carries the PAN-OS API key)
 log_message "=========================================="
-log_message "Raw JSON content:"
-log_message "$JSON_STRING"
+log_message "JSON content (args redacted):"
+log_message "$(redact_json_args "$JSON_STRING")"
 log_message "=========================================="
 
 # Extract arguments from JSON
@@ -124,7 +236,7 @@ log_message "Extracting arguments from JSON..."
 
 # First, let's log the args array
 ARGS_ARRAY=$(echo "$JSON_STRING" | grep -oP '"args":\[\K[^]]*')
-log_message "Raw args array: $ARGS_ARRAY"
+log_message "Args array: $(printf '%s' "$ARGS_ARRAY" | awk -F',' '{print NF}') element(s) (values redacted; argument 2 is the API key)"
 
 # Extract Argument_1 (PA_URL) - first argument
 ARGUMENT_1=$(echo "$ARGS_ARRAY" | awk -F',' '{print $1}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
@@ -133,7 +245,7 @@ log_message "ARGUMENT_1 length: ${#ARGUMENT_1}"
 
 # Extract Argument_2 (PA_API_KEY) - second argument
 ARGUMENT_2=$(echo "$ARGS_ARRAY" | awk -F',' '{print $2}' | tr -d '"' | tr -d ' ' | tr -d '\n' | tr -d '\r')
-log_message "ARGUMENT_2 extracted: '$ARGUMENT_2'"
+log_message "ARGUMENT_2 extracted: '$(mask_secret "$ARGUMENT_2")' (masked)"
 log_message "ARGUMENT_2 length: ${#ARGUMENT_2}"
 
 # Clean arguments (remove whitespace, newlines, carriage returns)
@@ -159,11 +271,7 @@ fi
 log_message "Palo Alto Configuration (from arguments):"
 log_message "  PA_URL: $PA_URL"
 # Mask API key for security - show only first and last 4 characters
-if [ ${#PA_API_KEY} -gt 8 ]; then
-    PA_API_KEY_MASKED="${PA_API_KEY:0:4}...${PA_API_KEY: -4}"
-else
-    PA_API_KEY_MASKED="****"
-fi
+PA_API_KEY_MASKED=$(mask_secret "$PA_API_KEY")
 log_message "  PA_API_KEY: '$PA_API_KEY_MASKED' (masked for security)"
 log_message "  CERT_NAME_METHOD: $CERT_NAME_METHOD"
 log_message "  MANUAL_CERT_NAME: $MANUAL_CERT_NAME"
@@ -319,7 +427,17 @@ CERT_RESPONSE_FILE=$(mktemp)
 KEY_RESPONSE_FILE=$(mktemp)
 COMMIT_RESPONSE_FILE=$(mktemp)
 CURL_ERROR_FILE=$(mktemp)
+ENCRYPTED_KEY_TEMP=""
 log_message "Created temporary response files"
+
+cleanup_temp_files() {
+    rm -f "$CERT_RESPONSE_FILE" "$KEY_RESPONSE_FILE" "$COMMIT_RESPONSE_FILE" "$CURL_ERROR_FILE"
+    if [ -n "$ENCRYPTED_KEY_TEMP" ]; then
+        rm -f "$ENCRYPTED_KEY_TEMP"
+    fi
+}
+
+CERT_NAME_ENCODED=$(urlencode "$CERT_NAME")
 
 # Upload certificate
 log_message "Uploading certificate to Palo Alto..."
@@ -327,7 +445,7 @@ log_message "API Endpoint: ${PA_URL}/api/"
 
 CERT_HTTP_STATUS=$(curl --insecure -sS -w "%{http_code}" \
     -F "file=@${CRT_FILE_PATH}" \
-    "${PA_URL}/api/?key=${PA_API_KEY}&type=import&category=certificate&certificate-name=${CERT_NAME}&format=pem" \
+    "${PA_URL}/api/?key=${PA_API_KEY}&type=import&category=certificate&certificate-name=${CERT_NAME_ENCODED}&format=pem" \
     -o "$CERT_RESPONSE_FILE" 2>"$CURL_ERROR_FILE")
 
 CERT_RESPONSE=$(cat "$CERT_RESPONSE_FILE")
@@ -340,29 +458,99 @@ if [ -n "$CURL_ERROR" ]; then
     log_message "Certificate curl error: $CURL_ERROR"
 fi
 
-# Check certificate upload success
-if [ "$CERT_HTTP_STATUS" -eq 200 ] 2>/dev/null || [ "$CERT_HTTP_STATUS" -eq 201 ] 2>/dev/null; then
+# Check certificate upload success (HTTP 2xx AND <response status="success">)
+CERT_UPLOAD_OK="false"
+if panos_success "$CERT_HTTP_STATUS" "$CERT_RESPONSE"; then
+    CERT_UPLOAD_OK="true"
     log_message "SUCCESS: Certificate uploaded successfully"
 else
-    log_message "ERROR: Certificate upload failed with status $CERT_HTTP_STATUS"
-    log_message "Certificate response: $CERT_RESPONSE"
+    log_message "ERROR: Certificate upload failed (HTTP $CERT_HTTP_STATUS, API status: $(panos_response_status "$CERT_RESPONSE"))"
+    CERT_MSG=$(panos_response_message "$CERT_RESPONSE")
+    if [ -n "$CERT_MSG" ]; then
+        log_message "Certificate API message: $CERT_MSG"
+    fi
     if [ -n "$CURL_ERROR" ]; then
         log_message "Curl error detail: $CURL_ERROR"
     fi
-    rm -f "$CERT_RESPONSE_FILE" "$KEY_RESPONSE_FILE" "$COMMIT_RESPONSE_FILE" "$CURL_ERROR_FILE"
+    cleanup_temp_files
     exit 1
 fi
+
+# Prepare private key for import.
+# PAN-OS requires a non-empty passphrase for every private-key import. If the key is unencrypted
+# (the TLM Agent default) it is encrypted here with a one-time passphrase before upload.
+log_message "Preparing private key for import..."
+KEY_UPLOAD_PATH="$KEY_FILE_PATH"
+
+if grep -q -e "ENCRYPTED PRIVATE KEY" -e "Proc-Type: *4, *ENCRYPTED" "$KEY_FILE_PATH"; then
+    log_message "Private key file is already encrypted"
+    if [ -z "$PRIVATE_KEY_PASSPHRASE" ]; then
+        log_message "ERROR: Private key is encrypted but PRIVATE_KEY_PASSPHRASE is empty"
+        log_message "Certificate '$CERT_NAME' was imported without its key; candidate configuration was not committed"
+        cleanup_temp_files
+        exit 1
+    fi
+    IMPORT_PASSPHRASE="$PRIVATE_KEY_PASSPHRASE"
+    log_message "Using configured PRIVATE_KEY_PASSPHRASE to import encrypted key"
+else
+    log_message "Private key file is unencrypted"
+    if [ -z "$PRIVATE_KEY_PASSPHRASE" ]; then
+        IMPORT_PASSPHRASE=$(generate_passphrase)
+        if [ ${#IMPORT_PASSPHRASE} -lt 32 ]; then
+            log_message "ERROR: Could not generate a one-time passphrase (no usable random source)"
+            log_message "Certificate '$CERT_NAME' was imported without its key; candidate configuration was not committed"
+            cleanup_temp_files
+            exit 1
+        fi
+        log_message "Generated one-time passphrase for key import"
+    else
+        IMPORT_PASSPHRASE="$PRIVATE_KEY_PASSPHRASE"
+        log_message "Using configured PRIVATE_KEY_PASSPHRASE for key import"
+    fi
+    # The private key is never uploaded in plaintext. The TLS connection to PAN-OS runs with
+    # --insecure, so an unencrypted key on the wire would be exposed to a man-in-the-middle.
+    # If the key cannot be encrypted locally the run fails instead of degrading.
+    ENCRYPTED_KEY_TEMP=$(encrypt_private_key "$KEY_FILE_PATH" "$IMPORT_PASSPHRASE")
+    if [ -n "$ENCRYPTED_KEY_TEMP" ] && [ -s "$ENCRYPTED_KEY_TEMP" ]; then
+        KEY_UPLOAD_PATH="$ENCRYPTED_KEY_TEMP"
+    else
+        ENCRYPTED_KEY_TEMP=""
+        log_message "ERROR: Private key could not be encrypted locally (is OpenSSL installed and on PATH?)"
+        log_message "Refusing to upload an unencrypted private key over a connection without certificate validation"
+        log_message "Certificate '$CERT_NAME' was imported without its key; candidate configuration was not committed"
+        unset IMPORT_PASSPHRASE
+        cleanup_temp_files
+        exit 1
+    fi
+fi
+
+if [ -z "$IMPORT_PASSPHRASE" ]; then
+    log_message "ERROR: Import passphrase is empty; PAN-OS requires a non-empty passphrase for private-key import"
+    log_message "Certificate '$CERT_NAME' was imported without its key; candidate configuration was not committed"
+    cleanup_temp_files
+    exit 1
+fi
+
+PASSPHRASE_ENCODED=$(urlencode "$IMPORT_PASSPHRASE")
 
 # Upload private key
 log_message "Uploading private key to Palo Alto..."
 
 KEY_HTTP_STATUS=$(curl --insecure -sS -w "%{http_code}" \
-    -F "file=@${KEY_FILE_PATH}" \
-    "${PA_URL}/api/?key=${PA_API_KEY}&type=import&category=private-key&certificate-name=${CERT_NAME}&format=pem&passphrase=${PRIVATE_KEY_PASSPHRASE}" \
+    -F "file=@${KEY_UPLOAD_PATH};filename=${KEY_FILE}" \
+    "${PA_URL}/api/?key=${PA_API_KEY}&type=import&category=private-key&certificate-name=${CERT_NAME_ENCODED}&format=pem&passphrase=${PASSPHRASE_ENCODED}" \
     -o "$KEY_RESPONSE_FILE" 2>"$CURL_ERROR_FILE")
 
 KEY_RESPONSE=$(cat "$KEY_RESPONSE_FILE")
 CURL_ERROR=$(cat "$CURL_ERROR_FILE")
+
+# Remove the encrypted temp copy as soon as the upload has been attempted
+if [ -n "$ENCRYPTED_KEY_TEMP" ]; then
+    rm -f "$ENCRYPTED_KEY_TEMP"
+    ENCRYPTED_KEY_TEMP=""
+    log_message "Removed temporary encrypted key file"
+fi
+unset IMPORT_PASSPHRASE PASSPHRASE_ENCODED
 
 log_message "Private key upload completed"
 log_message "Private key HTTP Status Code: $KEY_HTTP_STATUS"
@@ -371,16 +559,22 @@ if [ -n "$CURL_ERROR" ]; then
     log_message "Private key curl error: $CURL_ERROR"
 fi
 
-# Check private key upload success
-if [ "$KEY_HTTP_STATUS" -eq 200 ] 2>/dev/null || [ "$KEY_HTTP_STATUS" -eq 201 ] 2>/dev/null; then
+# Check private key upload success (HTTP 2xx AND <response status="success">)
+KEY_UPLOAD_OK="false"
+if panos_success "$KEY_HTTP_STATUS" "$KEY_RESPONSE"; then
+    KEY_UPLOAD_OK="true"
     log_message "SUCCESS: Private key uploaded successfully"
 else
-    log_message "ERROR: Private key upload failed with status $KEY_HTTP_STATUS"
-    log_message "Private key response: $KEY_RESPONSE"
+    log_message "ERROR: Private key upload failed (HTTP $KEY_HTTP_STATUS, API status: $(panos_response_status "$KEY_RESPONSE"))"
+    KEY_MSG=$(panos_response_message "$KEY_RESPONSE")
+    if [ -n "$KEY_MSG" ]; then
+        log_message "Private key API message: $KEY_MSG"
+    fi
     if [ -n "$CURL_ERROR" ]; then
         log_message "Curl error detail: $CURL_ERROR"
     fi
-    rm -f "$CERT_RESPONSE_FILE" "$KEY_RESPONSE_FILE" "$COMMIT_RESPONSE_FILE" "$CURL_ERROR_FILE"
+    log_message "Certificate '$CERT_NAME' was imported without its key; candidate configuration was not committed"
+    cleanup_temp_files
     exit 1
 fi
 
@@ -402,12 +596,15 @@ if [ "$COMMIT_CONFIG" = "true" ]; then
         log_message "Commit curl error: $CURL_ERROR"
     fi
 
-    # Check commit success
-    if [ "$COMMIT_HTTP_STATUS" -eq 200 ] 2>/dev/null || [ "$COMMIT_HTTP_STATUS" -eq 201 ] 2>/dev/null; then
-        log_message "SUCCESS: Configuration committed successfully"
+    # Check commit success (HTTP 2xx AND <response status="success">)
+    COMMIT_MSG=$(panos_response_message "$COMMIT_RESPONSE")
+    if panos_success "$COMMIT_HTTP_STATUS" "$COMMIT_RESPONSE"; then
+        log_message "SUCCESS: Configuration commit accepted ($COMMIT_MSG)"
     else
-        log_message "WARNING: Configuration commit failed with status $COMMIT_HTTP_STATUS"
-        log_message "Commit response: $COMMIT_RESPONSE"
+        log_message "WARNING: Configuration commit failed (HTTP $COMMIT_HTTP_STATUS, API status: $(panos_response_status "$COMMIT_RESPONSE"))"
+        if [ -n "$COMMIT_MSG" ]; then
+            log_message "Commit API message: $COMMIT_MSG"
+        fi
         log_message "Certificate and key were uploaded successfully, but commit failed"
     fi
 else
@@ -415,7 +612,7 @@ else
 fi
 
 # Clean up
-rm -f "$CERT_RESPONSE_FILE" "$KEY_RESPONSE_FILE" "$COMMIT_RESPONSE_FILE" "$CURL_ERROR_FILE"
+cleanup_temp_files
 log_message "Cleaned up temporary files"
 
 log_message "Custom script section completed"
@@ -429,13 +626,9 @@ log_message "=========================================="
 log_message "Script execution completed"
 log_message "=========================================="
 
-# Exit with appropriate code based on certificate and key upload status
-if [ "$CERT_HTTP_STATUS" -eq 200 ] || [ "$CERT_HTTP_STATUS" -eq 201 ]; then
-    if [ "$KEY_HTTP_STATUS" -eq 200 ] || [ "$KEY_HTTP_STATUS" -eq 201 ]; then
-        exit 0
-    else
-        exit 1
-    fi
+# Exit with appropriate code based on parsed certificate and key upload results
+if [ "$CERT_UPLOAD_OK" = "true" ] && [ "$KEY_UPLOAD_OK" = "true" ]; then
+    exit 0
 else
     exit 1
 fi

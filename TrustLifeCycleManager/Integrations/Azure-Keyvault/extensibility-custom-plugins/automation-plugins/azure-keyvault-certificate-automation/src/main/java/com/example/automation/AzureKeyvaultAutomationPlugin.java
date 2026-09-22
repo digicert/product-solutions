@@ -1,5 +1,8 @@
 package com.example.automation;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -75,7 +78,14 @@ public class AzureKeyvaultAutomationPlugin extends AbstractAutomationWorkflow {
     private static final Integer VAULT_PORT = 443;
 
     private final MyPluginConfiguration extendedConfig;
+    /** Null when the connector configuration is unusable; see {@link #configurationError}. */
     private final AzureKeyVaultAdapter adapter;
+    /**
+     * Set when the plugin cannot authenticate with the supplied configuration (for example the PAM
+     * connector did not deliver a client secret). Every lifecycle method fails closed with this
+     * message instead of attempting to call Azure with an empty credential.
+     */
+    private final String configurationError;
     private final String keyVaultUrl;
     private final boolean excludeExpired;
     private final boolean excludeDisabled;
@@ -84,40 +94,104 @@ public class AzureKeyvaultAutomationPlugin extends AbstractAutomationWorkflow {
             PluginConfiguration<MyPluginConfiguration> configuration) {
         this.extendedConfig = Objects.requireNonNull(configuration.getExtendedConfig(),
                 "Plugin extended configuration is required");
-        log.info("Loaded extended configuration: keyVaultUrl={}, tenantId={}, clientId={}",
+        final var secretsManager = extendedConfig.isSecretsManagerAuth();
+        log.info("Loaded extended configuration: keyVaultUrl={}, tenantId={}, clientId={}, "
+                + "authenticationMethod={}, pamConnectorId={}",
                 extendedConfig.getKeyVaultUrl(),
                 extendedConfig.getTenantId(),
-                extendedConfig.getClientId());
+                extendedConfig.getClientId(),
+                secretsManager ? "secrets-manager" : "direct-input",
+                secretsManager ? extendedConfig.getPamConnectorId() : "n/a");
 
         this.keyVaultUrl = extendedConfig.getKeyVaultUrl();
         this.excludeExpired = Boolean.TRUE.equals(extendedConfig.getExcludeExpiredCertificates());
         this.excludeDisabled = Boolean.TRUE.equals(extendedConfig.getExcludeDisabledCertificates());
+
+        // Fail closed: never build an Azure credential around a missing secret. In secrets-manager
+        // mode an empty value means the PAM connector could not resolve the vault reference (TLM runs
+        // that step before the plugin and injects the result into clientSecret).
+        final var clientSecret = decodeSecret(extendedConfig.getClientSecret());
+        if (clientSecret == null || clientSecret.isBlank()) {
+            this.configurationError = secretsManager
+                    ? "Azure client secret was not resolved by the Secrets Manager (PAM) connector"
+                            + (extendedConfig.getPamConnectorId() == null
+                                    ? "" : " '" + extendedConfig.getPamConnectorId() + "'")
+                            + ". Check the PAM connector's Test Connection and that the vault reference"
+                            + " points at an existing secret the connector is allowed to read."
+                    : "Azure client secret is empty. Re-enter it on the connector, or if the connector"
+                            + " uses Self-authentication (Secrets manager), check that the PAM connector"
+                            + " resolved the vault reference.";
+            log.error(configurationError);
+            this.adapter = null;
+            return;
+        }
+        log.info("Azure client secret received ({} characters, redacted)", clientSecret.length());
+
+        this.configurationError = null;
         final var adapterConfig = AdapterConfig.builder()
                 .tenantId(extendedConfig.getTenantId())
                 .clientId(extendedConfig.getClientId())
-                .clientSecret(decodeSecret(extendedConfig.getClientSecret()))
+                .clientSecret(clientSecret)
                 .vaultUrl(extendedConfig.getKeyVaultUrl())
                 .build();
         this.adapter = new AzureKeyVaultAdapter(adapterConfig);
     }
 
     /**
-     * TLM hands plugin secrets over base64-encoded. If the value doesn't decode cleanly (someone
-     * passed plain text), fall back to the original string rather than failing hard.
+     * TLM hands directly-entered plugin secrets over base64-encoded, while a secret injected by a
+     * Secrets Manager (PAM) connector may arrive as plain text. Decode when the value is valid
+     * base64 <em>and</em> the decoded bytes are printable text; otherwise use the value as-is. The
+     * printable-text check stops a plain-text secret that happens to be valid base64 from being
+     * mangled into binary garbage.
      */
-    private static String decodeSecret(String raw) {
+    static String decodeSecret(String raw) {
         if (raw == null || raw.isEmpty()) {
             return raw;
         }
+        final byte[] decoded;
         try {
-            return new String(Base64.getDecoder().decode(raw), StandardCharsets.UTF_8);
+            decoded = Base64.getDecoder().decode(raw.trim());
         } catch (IllegalArgumentException e) {
             return raw;
+        }
+        final var text = decodeUtf8Text(decoded);
+        return text != null ? text : raw;
+    }
+
+    /** Decodes bytes as strict UTF-8 and returns the text, or null if invalid or non-printable. */
+    private static String decodeUtf8Text(byte[] bytes) {
+        try {
+            final var text = StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes))
+                    .toString();
+            if (text.isEmpty()) {
+                return null;
+            }
+            for (int i = 0; i < text.length(); i++) {
+                final char c = text.charAt(i);
+                if (Character.isISOControl(c) && c != '\n' && c != '\r' && c != '\t') {
+                    return null;
+                }
+            }
+            return text;
+        } catch (CharacterCodingException e) {
+            return null;
+        }
+    }
+
+    /** Throws the recorded configuration error so a misconfigured connector never reaches Azure. */
+    private void requireUsableConfiguration() throws WorkflowExecutionException {
+        if (adapter == null) {
+            throw new WorkflowExecutionException(configurationError,
+                    new IllegalStateException(configurationError));
         }
     }
 
     @Override
     public Response<JsonNode> testConnection(JsonNode request) throws WorkflowExecutionException {
+        requireUsableConfiguration();
         try {
             log.info("TestConnection request: {}", objectMapper.writeValueAsString(request));
 
@@ -141,6 +215,7 @@ public class AzureKeyvaultAutomationPlugin extends AbstractAutomationWorkflow {
 
     @Override
     public Response<JsonNode> generateCsr(JsonNode request) throws WorkflowExecutionException {
+        requireUsableConfiguration();
         try {
             log.info("GenerateCsr request: {}", objectMapper.writeValueAsString(request));
 
@@ -188,6 +263,7 @@ public class AzureKeyvaultAutomationPlugin extends AbstractAutomationWorkflow {
 
     @Override
     public Response<JsonNode> installCertificate(JsonNode request) throws WorkflowExecutionException {
+        requireUsableConfiguration();
         try {
             log.info("InstallCertificate request: {}", objectMapper.writeValueAsString(request));
 
@@ -256,6 +332,7 @@ public class AzureKeyvaultAutomationPlugin extends AbstractAutomationWorkflow {
 
     @Override
     public Response<JsonNode> validateCertificate(JsonNode request) throws WorkflowExecutionException {
+        requireUsableConfiguration();
         try {
             log.info("ValidateCertificate request: {}", objectMapper.writeValueAsString(request));
 
@@ -289,6 +366,7 @@ public class AzureKeyvaultAutomationPlugin extends AbstractAutomationWorkflow {
 
     @Override
     public Response<JsonNode> refreshConfiguration(JsonNode request) throws WorkflowExecutionException {
+        requireUsableConfiguration();
         try {
             final RefreshConfigurationRequest<MyRefreshRequest> refreshRequest =
                     PluginUtils.convertWrappedObject(request, RefreshConfigurationRequest.class,

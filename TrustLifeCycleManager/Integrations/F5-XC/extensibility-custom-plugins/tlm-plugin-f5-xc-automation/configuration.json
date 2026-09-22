@@ -1,0 +1,186 @@
+{
+  "metadata": {
+    "author": "Michael Rudloff",
+    "email": "michael.rudloff@digicert.com"
+  },
+  "core_settings": [
+    {
+      "name": "core_attributes.sensor_id",
+      "label": "sensor_id",
+      "type": "select",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "alphaNumericRule"
+        }
+      ],
+      "options_provider": "Sensors",
+      "required": true
+    }
+  ],
+  "config_settings": [
+    {
+      "name": "config_attributes.tenant",
+      "label": "F5 XC Tenant",
+      "type": "input",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    },
+    {
+      "name": "config_attributes.namespace",
+      "label": "F5 XC Namespace",
+      "type": "input",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    },
+    {
+      "name": "config_attributes.authentication_method",
+      "label": "authentication_method",
+      "type": "select",
+      "description": "How the F5-XC API token is supplied: typed directly into TLM, or resolved at runtime from an external Secrets Manager (PAM) connector.",
+      "options": [
+        {
+          "key": "Self authentication",
+          "value": "Self authentication",
+          "label": "Self-authentication (Direct input)"
+        },
+        {
+          "key": "Self authentication secrets manager",
+          "value": "Self authentication secrets manager",
+          "label": "Self-authentication (Secrets manager)"
+        }
+      ],
+      "value": "Self authentication",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.apiToken",
+      "label": "F5 XC API Token",
+      "type": "password",
+      "description": "F5-XC API Token, sent as the Authorization: API Token header on every request.",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true,
+      "conditional_group": {
+        "name": "authentication_method",
+        "value": "Self authentication",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.pam_connector_id",
+      "label": "secrets_manager_connector",
+      "type": "select",
+      "description": "Registered Secrets Manager (PAM) connector that resolves the F5-XC API token at runtime.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "alphaNumericRule"
+        }
+      ],
+      "options_provider": "PamConnectors",
+      "required": true,
+      "conditional_banners": [
+        {
+          "value": "BeyondTrust",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the format systemName slash accountName to reference the F5-XC API token from BeyondTrust vaults",
+          "banner_type": "info",
+          "dismissible": false
+        },
+        {
+          "value": "CyberArk",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the object or secret name to reference the F5-XC API token from CyberArk vaults",
+          "banner_type": "info",
+          "dismissible": false
+        },
+        {
+          "value": "Delinea",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the numeric secret id optionally followed by slash field slug to reference the F5-XC API token from Delinea secrets",
+          "banner_type": "info",
+          "dismissible": false
+        }
+      ],
+      "conditional_group": {
+        "name": "authentication_method",
+        "value": "Self authentication secrets manager",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.apiToken",
+      "label": "F5 XC API Token (PAM vault reference)",
+      "type": "input",
+      "description": "Enter the PAM vault reference that holds the F5-XC API token, not the token itself. BeyondTrust: SystemName/AccountName. CyberArk: object name. Delinea: secretId or secretId/fieldSlug.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true,
+      "conditional_group": {
+        "name": "authentication_method",
+        "value": "Self authentication secrets manager",
+        "required": true
+      }
+    }
+  ],
+  "additional_settings": [],
+  "credential_sets": [
+    {
+      "name": "sensitive",
+      "fields": [
+        {
+          "name": "config_attributes.apiToken"
+        }
+      ]
+    },
+    {
+      "name": "unique",
+      "fields": [
+        {
+          "name": "config_attributes.tenant"
+        }
+      ]
+    }
+  ]
+}

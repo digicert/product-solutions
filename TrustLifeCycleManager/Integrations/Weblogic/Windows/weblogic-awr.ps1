@@ -404,6 +404,7 @@ try {
                 "-deststoretype", $destStoreType,
                 "-deststorepass", $JKS_PASSWORD,
                 "-destalias",     $effectiveAlias,
+                "-destkeypass",   $JKS_PASSWORD,
                 "-noprompt"
             )
         } else {
@@ -470,7 +471,59 @@ try {
             if ($renameResult.StdErr) { Write-Log "changealias: $($renameResult.StdErr)" }
             Write-Log "Alias renamed to '$effectiveAlias'"
         }
+
+        # A full-keystore -importkeystore cannot take -destkeypass, so the
+        # private key is still protected with the PFX password here. WebLogic
+        # loads the identity key with the keystore passphrase - align them.
+        Write-Log "Normalising key password for alias '$effectiveAlias' to the keystore password..."
+        $keypassResult = Invoke-Keytool @(
+            "-keypasswd",
+            "-keystore",  $tempJks,
+            "-storetype", $destStoreType,
+            "-storepass", $JKS_PASSWORD,
+            "-alias",     $effectiveAlias,
+            "-keypass",   $pfxPassword,
+            "-new",       $JKS_PASSWORD
+        )
+        if ($keypassResult.ExitCode -ne 0) {
+            Write-Log "WARNING: Could not change key password (may already match the keystore password): $($keypassResult.StdErr)"
+        }
     }
+
+    # =====================================================
+    # Verify the private key is recoverable with the
+    # keystore password BEFORE replacing the live keystore.
+    # WebLogic retrieves the identity key with its configured
+    # key passphrase (normally the keystore passphrase) - if
+    # the key is protected with a different password it fails
+    # at startup with BEA-090716 "Failed to retrieve identity
+    # key/certificate". keytool -list does NOT catch this, so
+    # do a single-alias export dry-run which must decrypt the key.
+    # =====================================================
+    Write-Log "Verifying private key '$effectiveAlias' is recoverable with the keystore password..."
+    $verifyJks = "$tempJks.verify"
+    if (Test-Path $verifyJks) { Remove-Item $verifyJks -Force }
+    $keyCheckResult = Invoke-Keytool @(
+        "-importkeystore",
+        "-srckeystore",   $tempJks,
+        "-srcstoretype",  $destStoreType,
+        "-srcstorepass",  $JKS_PASSWORD,
+        "-srcalias",      $effectiveAlias,
+        "-srckeypass",    $JKS_PASSWORD,
+        "-destkeystore",  $verifyJks,
+        "-deststorepass", $JKS_PASSWORD,
+        "-destkeypass",   $JKS_PASSWORD,
+        "-noprompt"
+    )
+    if (Test-Path $verifyJks) { Remove-Item $verifyJks -Force }
+    if ($keyCheckResult.ExitCode -ne 0) {
+        Write-Log "ERROR: Private key under alias '$effectiveAlias' is NOT recoverable with the keystore password."
+        Write-Log "WebLogic would fail at startup with BEA-090716 - leaving existing keystore untouched."
+        Write-Log "keytool: $($keyCheckResult.StdErr)"
+        if (Test-Path $tempJks) { Remove-Item $tempJks -Force }
+        exit 1
+    }
+    Write-Log "Verified: private key '$effectiveAlias' is recoverable with the keystore password"
 
     # FIX: Atomically replace destination with temp file.
     # This avoids any window where the JKS is absent or corrupt.
