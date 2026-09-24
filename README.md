@@ -487,6 +487,15 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Network Policy Server certificate automation for PEAP authentication and 802.1X network access control.</sub>
     </td>
+    <td align="center" width="33%">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Oracle_Cloud_Infrastructure">
+        <img src="https://img.shields.io/badge/Oracle-OCI-F80000?style=for-the-badge&logo=oracle&logoColor=white" alt="Oracle Cloud Infrastructure">
+        <br><br>
+        <strong>Oracle Cloud Infrastructure</strong>
+      </a>
+      <br><br>
+      <sub>OCI certificate automation for compartment certificate management and Load Balancer certificate upload and listener binding.</sub>
+    </td>
   </tr>
 </table>
 
