@@ -389,6 +389,15 @@ Streamline your certificate management with our production-ready integration scr
       <sub>Docker-based mail server solution with automated certificate deployment for secure email services.</sub>
     </td>
     <td align="center" width="33%">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Oracle_Cloud_Infrastructure">
+        <img src="https://img.shields.io/badge/Oracle-OCI-F80000?style=for-the-badge&logo=oracle&logoColor=white" alt="Oracle Cloud Infrastructure">
+        <br><br>
+        <strong>Oracle Cloud Infrastructure</strong>
+      </a>
+      <br><br>
+      <sub>OCI certificate automation for compartment certificate management and Load Balancer certificate upload and listener binding.</sub>
+    </td>
+    <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Weblogic">
         <img src="https://img.shields.io/badge/Oracle-WebLogic-F80000?style=for-the-badge&logo=oracle&logoColor=white" alt="Oracle WebLogic">
         <br><br>
@@ -397,6 +406,12 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Enterprise Java application server certificate management for secure web application deployment.</sub>
     </td>
+  </tr>
+</table>
+
+<!-- Row 13 -->
+<table>
+  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/PaloAltoFirewall">
         <img src="https://img.shields.io/badge/PaloAlto-Firewall-FF6C37?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0wLTE0Yy0zLjMxIDAtNiAyLjY5LTYgNnMyLjY5IDYgNiA2IDYtMi42OSA2LTYtMi42OS02LTYtNnoiLz48L3N2Zz4=" alt="Palo Alto">
@@ -406,12 +421,6 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>PAN-OS certificate deployment with PANOS-generated and TLM-generated CSR workflows.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 13 -->
-<table>
-  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/PaloAltoPanorama">
         <img src="https://img.shields.io/badge/PaloAlto-Panorama-FF6C37?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0wLTE0Yy0zLjMxIDAtNiAyLjY5LTYgNnMyLjY5IDYgNiA2IDYtMi42OSA2LTYtMi42OS02LTYtNnoiLz48L3N2Zz4=" alt="Palo Alto Panorama">
@@ -430,6 +439,12 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Postfix MTA certificate management for securing SMTP transport with automated TLS certificate deployment.</sub>
     </td>
+  </tr>
+</table>
+
+<!-- Row 14 -->
+<table>
+  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Radware">
         <img src="https://img.shields.io/badge/Radware-ADC-CC0000?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0wLTE0Yy0zLjMxIDAtNiAyLjY5LTYgNnMyLjY5IDYgNiA2IDYtMi42OSA2LTYtMi42OS02LTYtNnoiLz48L3N2Zz4=" alt="Radware">
@@ -439,12 +454,6 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Application delivery controller and DDoS protection certificate management with Radware API integration.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 14 -->
-<table>
-  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/RedHat_Satellite">
         <img src="https://img.shields.io/badge/RedHat-Satellite-EE0000?style=for-the-badge&logo=red-hat&logoColor=white" alt="RedHat Satellite">
@@ -463,6 +472,12 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Sophos Firewall API integration for automated certificate management and deployment.</sub>
     </td>
+  </tr>
+</table>
+
+<!-- Row 15 -->
+<table>
+  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/VMware_AVI_Loadbalancer">
         <img src="https://img.shields.io/badge/VMware-AVI_LB-607078?style=for-the-badge&logo=vmware&logoColor=white" alt="VMware AVI">
@@ -472,12 +487,6 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Software-defined load balancer with ACME integration and automated certificate lifecycle management.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 15 -->
-<table>
-  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Windows_Radius_NPS">
         <img src="https://img.shields.io/badge/Windows-RADIUS_NPS-0078D4?style=for-the-badge&logo=microsoft&logoColor=white" alt="Windows RADIUS NPS">
@@ -486,15 +495,6 @@ Streamline your certificate management with our production-ready integration scr
       </a>
       <br><br>
       <sub>Network Policy Server certificate automation for PEAP authentication and 802.1X network access control.</sub>
-    </td>
-    <td align="center" width="33%">
-      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Oracle_Cloud_Infrastructure">
-        <img src="https://img.shields.io/badge/Oracle-OCI-F80000?style=for-the-badge&logo=oracle&logoColor=white" alt="Oracle Cloud Infrastructure">
-        <br><br>
-        <strong>Oracle Cloud Infrastructure</strong>
-      </a>
-      <br><br>
-      <sub>OCI certificate automation for compartment certificate management and Load Balancer certificate upload and listener binding.</sub>
     </td>
   </tr>
 </table>
