@@ -22,9 +22,10 @@ The result is automated certificate lifecycle management for TLS-terminated Virt
 | Requirement | Details |
 |---|---|
 | **DigiCert TLM Agent** | Installed and configured with certificate enrollment. The agent provides the `DC1_POST_SCRIPT_DATA` environment variable consumed by these scripts. |
-| **Kemp LoadMaster** | REST API enabled. Navigate to *System Configuration → Certificates & Security → API Access* in the LoadMaster UI. |
-| **API Credentials** | A user account with API access on the LoadMaster. Credentials are supplied inside the base URL argument (see [Arguments](#arguments)). Both scripts strip them from the URL and send them as HTTP Basic authentication. |
-| **Network Access** | The host running the TLM Agent must be able to reach the LoadMaster API port (commonly `8444/tcp`). |
+| **Kemp LoadMaster** | REST API enabled: *System Configuration → Miscellaneous Options → Remote Access → Enable API Interface* in the LoadMaster UI. |
+| **API Credentials** | A LoadMaster user account with API permission. Username and password are supplied inside the base URL argument and sent as HTTP Basic authentication. See [Authentication](#authentication). |
+| **Network Access** | The host running the TLM Agent must be able to reach the LoadMaster web UI / API port. This is `443/tcp` by default and is often changed to `8443` or `8444`. |
+| **Tested Firmware** | LoadMaster LMOS **7.2.x** with Basic authentication. See [Authentication](#authentication) for the API key caveat. |
 
 ### Bash-specific
 
@@ -98,6 +99,30 @@ If either file is still not found, the script logs the file names it saw and exi
 - **PowerShell:** arguments are parsed with `ConvertFrom-Json`, so commas are safe. The credential part of the URL is matched with `[^@/]+`, so the password may not contain `@` or `/`. Username and password are percent-decoded, so `%40` can be used to represent `@` — this decoding is **not** done by the Bash script.
 - **Cert name:** PowerShell URL-encodes the certificate name in the `addcert` and `modvs` query strings. Bash passes it through verbatim, so keep the name to URL-safe characters (letters, digits, `-`, `_`, `.`).
 
+## Authentication
+
+### Why a username, a password, and a port
+
+They answer different questions. The port says **where** the API listens. The credentials say **who** is calling. The LoadMaster REST API is served on the same port as the web UI, which is `443` by default and frequently moved to `8443` or `8444` by administrators, so it must be given explicitly in Argument 1. Three things have to be in place before a call succeeds:
+
+1. The API interface is enabled on the LoadMaster (*System Configuration → Miscellaneous Options → Remote Access → Enable API Interface*).
+2. The user account in Argument 1 exists on the LoadMaster and has API permission.
+3. The agent host can reach the LoadMaster on the port in Argument 1.
+
+Reaching the right port with wrong or missing credentials produces HTTP `401`.
+
+### How the credentials are handled
+
+- **Extracted from the URL.** Both scripts split `user:pass@` out of Argument 1 before making any request. The URL that is actually sent contains no credentials, so they do not appear in LoadMaster access logs or proxy logs as part of the path.
+- **Sent as HTTP Basic authentication.** Bash uses `curl -u`; PowerShell uses `NetworkCredential` with `PreAuthenticate`. Basic auth places `username:password` **Base64-encoded** in the `Authorization` header. Base64 is an encoding, not encryption, and is trivially reversible.
+- **TLS is the only protection on the wire.** Argument 1 must use `https://`. With `http://` the password crosses the network in effectively clear text.
+- **At rest in TLM.** The arguments are stored in the AWR configuration in DigiCert ONE and delivered to the script inside the Base64-encoded JSON in `DC1_POST_SCRIPT_DATA`. Again, encoding only. Anyone who can read the AWR configuration or the agent's process environment during the run can recover the password. Use a dedicated LoadMaster account with the minimum permissions needed for `listcert`, `addcert` and `modvs`.
+- **In the script log.** Only the first three characters of the username and password are written; the rest is masked with `***`.
+
+### API keys
+
+The scripts were tested against LoadMaster LMOS **7.2.x** using Basic authentication only. Newer LMOS releases also accept an API key as an alternative to a username and password. The scripts do **not** support API key authentication today. If a customer does not want a LoadMaster user password stored in TLM, adding API key support would be the change to make.
+
 ## Configuration
 
 Both scripts ship with the legal notice **not accepted**. You must edit the variables at the top of the script before use.
@@ -130,7 +155,7 @@ The PowerShell script creates the log directory if it does not exist.
 
 ## API Flow
 
-The scripts interact with the Kemp LoadMaster REST API as follows. Credentials are removed from the URL and sent as HTTP Basic auth (`curl -u` in Bash, `NetworkCredential` with `PreAuthenticate` in PowerShell).
+The scripts interact with the Kemp LoadMaster REST API as follows. Credentials are removed from the URL and sent as HTTP Basic auth on every request (see [Authentication](#authentication)).
 
 ```
 ┌─────────────────┐         ┌──────────────────┐
@@ -215,6 +240,7 @@ Additional PowerShell-only exit conditions:
 
 ## Security Considerations
 
+- **Credentials are encoded, not encrypted** — Basic auth and the TLM payload both use Base64. Use `https://` in Argument 1 and a least-privilege LoadMaster account. See [Authentication](#authentication).
 - **Credential obfuscation** — Log entries mask usernames and passwords embedded in URLs, showing only the first three characters of each.
 - **PEM file permissions** — The combined PEM (cert + key) is written to the agent's certificate folder with `chmod 600` (Bash) or an owner-only ACL (PowerShell).
 - **PEM cleanup** — PowerShell deletes the PEM after upload. **Bash does not** (see table above). If this matters in your environment, uncomment the `trap 'rm -f "$COMBINED_PEM_PATH"' EXIT` line in the Bash script.
@@ -232,7 +258,7 @@ Additional PowerShell-only exit conditions:
 | `Failed to create combined PEM: ... [System.Object[]] does not contain a method named 'EndsWith'` (PowerShell) | Older script version. Empty `CRT_FILE` / `KEY_FILE` collapsed to the folder path and the read returned nothing. | Update to the current script, which reports the previous row's message instead. Root cause is the same: delivery format. |
 | `ERROR: Missing certificate or key file.` | A file that was found during matching disappeared before PEM creation | Check whether another process cleans the certificate folder between delivery and the post-script |
 | `addcert HTTP status: 422` | Certificate format issue | Verify the cert and key are valid PEM, the key matches the cert, and the chain is complete |
-| `addcert HTTP status: 401` | Bad API credentials or API access not enabled | Check the user/password in Argument 1 and the LoadMaster API Access setting |
+| `listcert HTTP status: 401` or `addcert HTTP status: 401` | Wrong username/password, user lacks API permission, or the API interface is not enabled | Check Argument 1, the user's API permission, and *Remote Access → Enable API Interface*. See [Authentication](#authentication). |
 | `WARNING: modvs returned non-success status` (Bash) / `WARNING: modvs returned status <code>` (PowerShell) | VS IP/port mismatch or cert name not found | Confirm the Virtual Service exists with `prot=tcp` and the cert name matches what was uploaded. The script still exits `0`. |
 | No log file written (Bash) | Log directory does not exist | Create the directory in `LOGFILE` or point it at the agent's existing log folder |
 | `grep: invalid option -- 'P'` or `stat: illegal option` (Bash) | Non-GNU userland (e.g. macOS) | Run on a Linux host with GNU coreutils and grep |
