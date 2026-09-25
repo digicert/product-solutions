@@ -175,17 +175,104 @@ ARGUMENT_5=$(echo "$ARGUMENT_5" | tr -d '[:space:]')
 CERT_FOLDER=$(echo "$JSON_STRING" | grep -oP '"certfolder":"\K[^"]+')
 log_message "Extracted CERT_FOLDER: $CERT_FOLDER"
 
-# Extract the .crt file name
-CRT_FILE=$(echo "$JSON_STRING" | grep -oP '"files":\[\K[^]]*' | grep -oP '[^,"]+\.crt')
-log_message "Extracted CRT_FILE: $CRT_FILE"
+# ----------------------------------------------------------------------------
+# Locate the certificate and private key files.
+#
+# TLM delivery formats differ in what they write to disk (.crt/.key, .cer,
+# .pem, .p7b, ...). Match by extension first, then confirm by PEM content, and
+# fall back to a content scan of every delivered file. Fail fast with a clear
+# message if either file cannot be found - never let an empty file name
+# collapse to the bare folder path.
+# ----------------------------------------------------------------------------
 
-# Extract the .key file name
-KEY_FILE=$(echo "$JSON_STRING" | grep -oP '"files":\[\K[^]]*' | grep -oP '[^,"]+\.key')
+# File names from the payload "files" array (one per line)
+PAYLOAD_FILES=$(echo "$JSON_STRING" | grep -oP '"files":\[\K[^]]*' | grep -oP '"[^"]+"' | tr -d '"')
+PAYLOAD_COUNT=$(printf '%s\n' "$PAYLOAD_FILES" | grep -c .)
+log_message "Files listed in payload ($PAYLOAD_COUNT): $(printf '%s' "$PAYLOAD_FILES" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
+
+# Add anything on disk in the certificate folder that the payload did not list
+FOLDER_FILES=""
+if [ -n "$CERT_FOLDER" ] && [ -d "$CERT_FOLDER" ]; then
+    FOLDER_FILES=$(find "$CERT_FOLDER" -maxdepth 1 -type f 2>/dev/null | sed 's|.*/||')
+    FOLDER_COUNT=$(printf '%s\n' "$FOLDER_FILES" | grep -c .)
+    log_message "Files present in certificate folder ($FOLDER_COUNT): $(printf '%s' "$FOLDER_FILES" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
+else
+    log_message "WARNING: Certificate folder does not exist or was not provided: '$CERT_FOLDER'"
+fi
+CANDIDATE_FILES=$(printf '%s\n%s\n' "$PAYLOAD_FILES" "$FOLDER_FILES" | grep . | awk '!seen[$0]++')
+
+# Names that indicate a chain / intermediate file rather than the leaf certificate
+CHAIN_NAME_PATTERN='_ica\.|chain|intermediate|(^|[^a-z])ca\.'
+
+# has_pem_marker <file-name> <marker>  -> 0 if the file exists and contains the marker
+has_pem_marker() {
+    local path="$CERT_FOLDER/$1"
+    [ -n "$1" ] && [ -f "$path" ] && grep -q "$2" "$path" 2>/dev/null
+}
+
+# --- Private key: prefer *.key, otherwise any candidate containing a PRIVATE KEY block
+KEY_FILE=""
+while IFS= read -r f; do
+    if has_pem_marker "$f" "PRIVATE KEY"; then KEY_FILE="$f"; break; fi
+done < <(printf '%s\n' "$CANDIDATE_FILES" | grep -i '\.key$')
+if [ -z "$KEY_FILE" ]; then
+    while IFS= read -r f; do
+        if has_pem_marker "$f" "PRIVATE KEY"; then
+            KEY_FILE="$f"
+            log_message "Private key located by content (no *.key match): $f"
+            break
+        fi
+    done < <(printf '%s\n' "$CANDIDATE_FILES")
+fi
+
+# --- Certificate: prefer *.crt, then *.cer, then *.pem; skip chain files and the key file
+CRT_FILE=""
+for ext in crt cer pem; do
+    while IFS= read -r f; do
+        [ "$f" = "$KEY_FILE" ] && continue
+        if has_pem_marker "$f" "BEGIN CERTIFICATE"; then CRT_FILE="$f"; break; fi
+    done < <(printf '%s\n' "$CANDIDATE_FILES" | grep -i "\.${ext}$" | grep -viE "$CHAIN_NAME_PATTERN")
+    [ -n "$CRT_FILE" ] && break
+done
+if [ -z "$CRT_FILE" ]; then
+    # Content fallback: any non-chain file with a certificate block. A combined
+    # .pem holding both cert and key is acceptable here (same file as KEY_FILE).
+    while IFS= read -r f; do
+        if has_pem_marker "$f" "BEGIN CERTIFICATE"; then
+            CRT_FILE="$f"
+            log_message "Certificate located by content (no *.crt/*.cer/*.pem match): $f"
+            break
+        fi
+    done < <(printf '%s\n' "$CANDIDATE_FILES" | grep -viE "$CHAIN_NAME_PATTERN")
+fi
+
+log_message "Extracted CRT_FILE: $CRT_FILE"
 log_message "Extracted KEY_FILE: $KEY_FILE"
+
+if [ -z "$CRT_FILE" ] || [ -z "$KEY_FILE" ]; then
+    log_message "ERROR: Could not locate the PEM certificate and/or private key among the delivered files."
+    log_message "  Certificate file: ${CRT_FILE:-<not found>}"
+    log_message "  Private key file: ${KEY_FILE:-<not found>}"
+    if [ -n "$CANDIDATE_FILES" ]; then
+        log_message "  Files available:  $(printf '%s' "$CANDIDATE_FILES" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
+    else
+        log_message "  Files available:  <none>"
+    fi
+    if printf '%s\n' "$CANDIDATE_FILES" | grep -qiE '\.(p7b|pfx|p12)$'; then
+        log_message "  A PKCS#7 (.p7b) or PKCS#12 (.pfx/.p12) file was delivered. This script requires PEM output and does not convert containers."
+    fi
+    log_message "  Files are matched by PEM content; a file with the right extension that is empty or not PEM-encoded is ignored."
+    log_message "  Set the TLM delivery format to PEM with a separate certificate and private key file, and make sure private key export is enabled."
+    log_message "=========================================="
+    exit 1
+fi
 
 # Build full paths
 CRT_FILE_PATH="$CERT_FOLDER/$CRT_FILE"
 KEY_FILE_PATH="$CERT_FOLDER/$KEY_FILE"
+if [ "$CRT_FILE_PATH" = "$KEY_FILE_PATH" ]; then
+    log_message "Certificate and private key are in the same file (combined PEM)."
+fi
 
 log_message "=========================================="
 log_message "EXTRACTION SUMMARY:"
@@ -339,8 +426,13 @@ log_message "  Certificate name: $CERT_NAME"
 COMBINED_PEM_PATH="${CERT_FOLDER}/${CERT_NAME}.pem"
 if [ -f "$CRT_FILE_PATH" ] && [ -f "$KEY_FILE_PATH" ]; then
     log_message "Combining certificate and key into PEM..."
-    # Your example: cat cert_file key_file > combined.pem
-    cat "$CRT_FILE_PATH" "$KEY_FILE_PATH" > "$COMBINED_PEM_PATH"
+    # cat cert_file key_file > combined.pem
+    # If cert and key were delivered in one file, do not duplicate the content.
+    if [ "$CRT_FILE_PATH" = "$KEY_FILE_PATH" ]; then
+        cat "$CRT_FILE_PATH" > "$COMBINED_PEM_PATH"
+    else
+        cat "$CRT_FILE_PATH" "$KEY_FILE_PATH" > "$COMBINED_PEM_PATH"
+    fi
     chmod 600 "$COMBINED_PEM_PATH"
     log_message "Combined PEM created: $COMBINED_PEM_PATH"
     log_message "Combined PEM size: $(stat -c%s "$COMBINED_PEM_PATH") bytes"

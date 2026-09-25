@@ -161,6 +161,34 @@ function Set-FilePrivate {
     }
 }
 
+function Test-PemMarker {
+    <#
+      Returns $true if $Path is an existing file whose content contains $Marker
+      (e.g. 'BEGIN CERTIFICATE' or 'PRIVATE KEY'). Used to confirm that a file
+      picked by extension really holds what we expect, and to find files by
+      content when the delivery format uses unexpected extensions.
+    #>
+    param(
+        [string]$Path,
+        [string]$Marker
+    )
+    try {
+        if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+        if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+        $text = [System.IO.File]::ReadAllText($Path)
+        return ($text -match $Marker)
+    } catch {
+        return $false
+    }
+}
+
+function Join-CertPath {
+    param([string]$Folder, [string]$Name)
+    if ([string]::IsNullOrWhiteSpace($Name)) { return "" }
+    if ($Folder) { return (Join-Path $Folder $Name) }
+    return $Name
+}
+
 function Invoke-KempApiRequest {
     <#
       Improved API request function specifically for Kemp LoadMaster
@@ -392,33 +420,95 @@ if ($json.PSObject.Properties.Name -contains 'certfolder') {
 }
 Write-Log "Extracted CERT_FOLDER: $CERT_FOLDER"
 
-# Extract the .crt and .key file names using the same approach as the working Cloudflare script
-$CRT_FILE = ""
-$KEY_FILE = ""
+# ----------------------------------------------------------------------------
+# Locate the certificate and private key files.
+#
+# TLM delivery formats differ in what they write to disk (.crt/.key, .cer,
+# .pem, .p7b, ...). Match by extension first, then confirm by PEM content, and
+# fall back to a content scan of every delivered file. Fail fast with a clear
+# message if either file cannot be found - never let an empty file name
+# collapse to the bare folder path.
+# ----------------------------------------------------------------------------
+$PAYLOAD_FILES = @()
 if ($json.PSObject.Properties.Name -contains 'files') {
-    # Use -like instead of -match for more reliable matching
-    $CRT_FILE = $json.files | Where-Object { $_ -like "*.crt" } | Select-Object -First 1
-    $KEY_FILE = $json.files | Where-Object { $_ -like "*.key" } | Select-Object -First 1
-    
-    # Ensure they are strings
-    if ($CRT_FILE) { $CRT_FILE = [string]$CRT_FILE }
-    if ($KEY_FILE) { $KEY_FILE = [string]$KEY_FILE }
+    $PAYLOAD_FILES = @($json.files | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+}
+Write-Log ("Files listed in payload ({0}): {1}" -f $PAYLOAD_FILES.Count, $(if ($PAYLOAD_FILES.Count) { $PAYLOAD_FILES -join ', ' } else { '<none>' }))
+
+# Add anything on disk in the certificate folder that the payload did not list
+$FOLDER_FILES = @()
+if ($CERT_FOLDER -and (Test-Path -LiteralPath $CERT_FOLDER -PathType Container)) {
+    try {
+        $FOLDER_FILES = @(Get-ChildItem -LiteralPath $CERT_FOLDER -File -ErrorAction Stop | Select-Object -ExpandProperty Name)
+        Write-Log ("Files present in certificate folder ({0}): {1}" -f $FOLDER_FILES.Count, $(if ($FOLDER_FILES.Count) { $FOLDER_FILES -join ', ' } else { '<none>' }))
+    } catch {
+        Write-Log "WARNING: Could not list certificate folder: $_"
+    }
+} else {
+    Write-Log "WARNING: Certificate folder does not exist or was not provided: '$CERT_FOLDER'"
+}
+$CANDIDATE_FILES = @($PAYLOAD_FILES + $FOLDER_FILES | Select-Object -Unique)
+
+# Names that indicate a chain / intermediate file rather than the leaf certificate
+$CHAIN_NAME_PATTERN = '(?i)_ica\.|chain|intermediate|\bca\.'
+
+# --- Private key: prefer *.key, otherwise any candidate containing a PRIVATE KEY block
+$KEY_FILE = ""
+foreach ($f in @($CANDIDATE_FILES | Where-Object { $_ -like '*.key' })) {
+    if (Test-PemMarker -Path (Join-CertPath $CERT_FOLDER $f) -Marker 'PRIVATE KEY') { $KEY_FILE = $f; break }
+}
+if (-not $KEY_FILE) {
+    foreach ($f in $CANDIDATE_FILES) {
+        if (Test-PemMarker -Path (Join-CertPath $CERT_FOLDER $f) -Marker 'PRIVATE KEY') {
+            $KEY_FILE = $f
+            Write-Log "Private key located by content (no *.key match): $f"
+            break
+        }
+    }
+}
+
+# --- Certificate: prefer *.crt, then *.cer, then *.pem; skip chain files and the key file
+$CRT_FILE = ""
+foreach ($pattern in @('*.crt', '*.cer', '*.pem')) {
+    foreach ($f in @($CANDIDATE_FILES | Where-Object { $_ -like $pattern -and $_ -notmatch $CHAIN_NAME_PATTERN -and $_ -ne $KEY_FILE })) {
+        if (Test-PemMarker -Path (Join-CertPath $CERT_FOLDER $f) -Marker 'BEGIN CERTIFICATE') { $CRT_FILE = $f; break }
+    }
+    if ($CRT_FILE) { break }
+}
+if (-not $CRT_FILE) {
+    # Content fallback: any non-chain file with a certificate block. A combined
+    # .pem holding both cert and key is acceptable here (same file as KEY_FILE).
+    foreach ($f in @($CANDIDATE_FILES | Where-Object { $_ -notmatch $CHAIN_NAME_PATTERN })) {
+        if (Test-PemMarker -Path (Join-CertPath $CERT_FOLDER $f) -Marker 'BEGIN CERTIFICATE') {
+            $CRT_FILE = $f
+            Write-Log "Certificate located by content (no *.crt/*.cer/*.pem match): $f"
+            break
+        }
+    }
 }
 
 Write-Log "Extracted CRT_FILE: $CRT_FILE"
 Write-Log "Extracted KEY_FILE: $KEY_FILE"
 
-# Build full paths - handle both forward slash and backslash
-$CRT_FILE_PATH = if ($CERT_FOLDER) { 
-    Join-Path $CERT_FOLDER $CRT_FILE 
-} else { 
-    $CRT_FILE 
+if ([string]::IsNullOrWhiteSpace($CRT_FILE) -or [string]::IsNullOrWhiteSpace($KEY_FILE)) {
+    Write-Log "ERROR: Could not locate the PEM certificate and/or private key among the delivered files."
+    Write-Log ("  Certificate file: {0}" -f $(if ($CRT_FILE) { $CRT_FILE } else { '<not found>' }))
+    Write-Log ("  Private key file: {0}" -f $(if ($KEY_FILE) { $KEY_FILE } else { '<not found>' }))
+    Write-Log ("  Files available:  {0}" -f $(if ($CANDIDATE_FILES.Count) { $CANDIDATE_FILES -join ', ' } else { '<none>' }))
+    if (@($CANDIDATE_FILES | Where-Object { $_ -like '*.p7b' -or $_ -like '*.pfx' -or $_ -like '*.p12' }).Count -gt 0) {
+        Write-Log "  A PKCS#7 (.p7b) or PKCS#12 (.pfx/.p12) file was delivered. This script requires PEM output and does not convert containers."
+    }
+    Write-Log "  Files are matched by PEM content; a file with the right extension that is empty or not PEM-encoded is ignored."
+    Write-Log "  Set the TLM delivery format to PEM with a separate certificate and private key file, and make sure private key export is enabled."
+    Write-Log "=========================================="
+    exit 1
 }
 
-$KEY_FILE_PATH = if ($CERT_FOLDER) { 
-    Join-Path $CERT_FOLDER $KEY_FILE 
-} else { 
-    $KEY_FILE 
+# Build full paths
+$CRT_FILE_PATH = Join-CertPath $CERT_FOLDER $CRT_FILE
+$KEY_FILE_PATH = Join-CertPath $CERT_FOLDER $KEY_FILE
+if ($CRT_FILE_PATH -eq $KEY_FILE_PATH) {
+    Write-Log "Certificate and private key are in the same file (combined PEM)."
 }
 
 Write-Log "=========================================="
@@ -440,24 +530,24 @@ Write-Log "  Private key path: $KEY_FILE_PATH"
 Write-Log ""
 
 # Check if files exist & basic metadata
-if (Test-Path -LiteralPath $CRT_FILE_PATH) {
+if (Test-Path -LiteralPath $CRT_FILE_PATH -PathType Leaf) {
     $crtItem = Get-Item -LiteralPath $CRT_FILE_PATH
     Write-Log "Certificate file exists: $CRT_FILE_PATH"
     Write-Log ("Certificate file size: {0} bytes" -f $crtItem.Length)
     try {
-        $certCount = (Select-String -Path $CRT_FILE_PATH -Pattern 'BEGIN CERTIFICATE' | Measure-Object).Count
+        $certCount = ([regex]::Matches([System.IO.File]::ReadAllText($CRT_FILE_PATH), 'BEGIN CERTIFICATE')).Count
         Write-Log "Total certificates in file: $certCount"
     } catch { Write-Log "WARNING: Unable to count certificates in $CRT_FILE_PATH" }
 } else {
     Write-Log "WARNING: Certificate file not found: $CRT_FILE_PATH"
 }
 
-if (Test-Path -LiteralPath $KEY_FILE_PATH) {
+if (Test-Path -LiteralPath $KEY_FILE_PATH -PathType Leaf) {
     $keyItem = Get-Item -LiteralPath $KEY_FILE_PATH
     Write-Log "Private key file exists: $KEY_FILE_PATH"
     Write-Log ("Private key file size: {0} bytes" -f $keyItem.Length)
     try {
-        $keyText = Get-Content -LiteralPath $KEY_FILE_PATH -Raw
+        $keyText = [string](Get-Content -LiteralPath $KEY_FILE_PATH -Raw)
         if ($keyText -match 'BEGIN RSA PRIVATE KEY') {
             Write-Log "Key type: RSA (BEGIN RSA PRIVATE KEY found)"
         } elseif ($keyText -match 'BEGIN EC PRIVATE KEY') {
@@ -516,6 +606,9 @@ if (Test-Path -LiteralPath $KEY_FILE_PATH) {
 # NOTE:
 # - The combined PEM should contain your full server cert plus private key.
 #   If your .crt already includes the intermediate chain, it will be preserved.
+# - The certificate file may be named .crt, .cer or .pem and the key .key;
+#   files are confirmed by PEM content. PKCS#7 (.p7b) and PKCS#12 (.pfx/.p12)
+#   containers are not supported - use a PEM delivery format in TLM.
 # - The REST API is typically XML-based and must be enabled on the LoadMaster.
 #   See official docs for enabling and using the API.
 # ============================================================================
@@ -547,27 +640,37 @@ $COMBINED_PEM_PATH = if ($CERT_FOLDER) {
     "$CERT_NAME.pem" 
 }
 
-if ((Test-Path -LiteralPath $CRT_FILE_PATH) -and (Test-Path -LiteralPath $KEY_FILE_PATH)) {
+if ((Test-Path -LiteralPath $CRT_FILE_PATH -PathType Leaf) -and (Test-Path -LiteralPath $KEY_FILE_PATH -PathType Leaf)) {
     Write-Log "Combining certificate and key into PEM..."
     try {
-        # Read files as text to ensure proper PEM format
-        $certContent = Get-Content -LiteralPath $CRT_FILE_PATH -Raw -Encoding UTF8
-        $keyContent = Get-Content -LiteralPath $KEY_FILE_PATH -Raw -Encoding UTF8
-        
+        # Read files as text. Cast to [string] so an empty/unreadable file yields ""
+        # rather than $null (which -replace turns into an empty Object[] on PS 5.1).
+        $certContent = [string](Get-Content -LiteralPath $CRT_FILE_PATH -Raw -Encoding UTF8)
+        $keyContent  = [string](Get-Content -LiteralPath $KEY_FILE_PATH -Raw -Encoding UTF8)
+
+        if ([string]::IsNullOrWhiteSpace($certContent)) { throw "Certificate file is empty: $CRT_FILE_PATH" }
+        if ([string]::IsNullOrWhiteSpace($keyContent))  { throw "Private key file is empty: $KEY_FILE_PATH" }
+        if ($certContent -notmatch 'BEGIN CERTIFICATE') { throw "Certificate file does not contain a PEM certificate block: $CRT_FILE_PATH" }
+        if ($keyContent -notmatch 'PRIVATE KEY')        { throw "Private key file does not contain a PEM private key block: $KEY_FILE_PATH" }
+
         # Ensure proper line endings (Unix-style)
         $certContent = $certContent -replace "`r`n", "`n"
-        $keyContent = $keyContent -replace "`r`n", "`n"
-        
+        $keyContent  = $keyContent  -replace "`r`n", "`n"
+
         # Ensure content ends with newline
         if (-not $certContent.EndsWith("`n")) { $certContent += "`n" }
-        if (-not $keyContent.EndsWith("`n")) { $keyContent += "`n" }
-        
-        # Combine and write with UTF8 encoding (no BOM)
-        $combinedContent = $certContent + $keyContent
-      #  [System.IO.File]::WriteAllText($COMBINED_PEM_PATH, $combinedContent, [System.Text.UTF8Encoding]::new($false))
+        if (-not $keyContent.EndsWith("`n"))  { $keyContent  += "`n" }
+
+        # Combine and write with UTF8 encoding (no BOM).
+        # If cert and key were delivered in one file, do not duplicate the content.
+        if ($CRT_FILE_PATH -eq $KEY_FILE_PATH) {
+            $combinedContent = $certContent
+        } else {
+            $combinedContent = $certContent + $keyContent
+        }
         $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
         [System.IO.File]::WriteAllText($COMBINED_PEM_PATH, $combinedContent, $utf8NoBom)
-      
+
 
         Set-FilePrivate -Path $COMBINED_PEM_PATH
         $pemSize = (Get-Item -LiteralPath $COMBINED_PEM_PATH).Length
