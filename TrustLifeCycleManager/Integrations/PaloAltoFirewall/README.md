@@ -2,13 +2,14 @@
 
 ## Overview
 
-This collection of scripts automates SSL/TLS certificate lifecycle management on Palo Alto Networks PAN-OS firewalls using the DigiCert Trust Lifecycle Manager (TLM) platform and the DigiCert mPKI REST API. Three scripts are provided, covering different deployment scenarios and operating systems.
+This collection of scripts automates SSL/TLS certificate lifecycle management on Palo Alto Networks PAN-OS firewalls using the DigiCert Trust Lifecycle Manager (TLM) platform and the DigiCert mPKI REST API. Four scripts are provided, covering different deployment scenarios and operating systems.
 
 | Script | Type | Platform | Use Case |
 |--------|------|----------|----------|
 | `csr_in_digicert_paloalto-awr.sh` | AWR post-enrollment | Linux (bash) | Automated certificate deployment triggered by TLM Agent after enrollment/renewal |
 | `csr_in_digicert_paloalto-awr.ps1` | AWR post-enrollment | Windows (PowerShell) | Same workflow as above, for Windows-based TLM Agent deployments |
 | `csr_in_paloalto-api.sh` | Standalone interactive | Linux (bash) | End-to-end CSR generation on PAN-OS, submission to DigiCert mPKI, and signed certificate import — all from a single interactive session |
+| `csr_in_paloalto-api.ps1` | Standalone interactive | Windows (PowerShell 5.1+) | End-to-end CSR generation on PAN-OS, submission to DigiCert mPKI, and signed certificate import — all from a single interactive session |
 
 ## Architecture
 
@@ -23,7 +24,7 @@ These scripts are designed to run as **Admin Web Request (AWR) post-enrollment h
 5. The private key is uploaded separately, associated with the same certificate name.
 6. Optionally, a configuration commit is issued to activate the new certificate.
 
-### Standalone Script (`csr_in_paloalto-api.sh`)
+### Standalone Scripts (`csr_in_paloalto-api.sh` and `csr_in_paloalto-api.ps1`)
 
 This interactive script performs the full certificate lifecycle in a single session with guided prompts:
 
@@ -41,7 +42,7 @@ This interactive script performs the full certificate lifecycle in a single sess
 - **Palo Alto PAN-OS firewall** with XML API access enabled
 - **PAN-OS API key** with sufficient privileges for certificate import and (optionally) commit operations
 - **Network connectivity** from the script host to the firewall management interface
-- `curl` and `openssl` available on the system PATH
+- `curl` and `openssl` available on the system PATH for shell scripts that use them
 
 ### AWR Scripts Only
 
@@ -53,10 +54,11 @@ This interactive script performs the full certificate lifecycle in a single sess
 - **Windows PowerShell 5.1** or **PowerShell 7+**
 - OpenSSL on the system PATH (required for the `common_name` certificate naming method and for encrypting the private key before upload; without it the script aborts rather than upload the key unencrypted)
 
-### Standalone Script Only
+### Standalone Scripts Only
 
 - **DigiCert ONE mPKI API key** and a configured certificate profile
-- `jq` (optional, recommended for reliable JSON parsing; the script falls back to `grep`/`sed` if unavailable)
+- **Windows PowerShell 5.1 or later** for the PowerShell standalone script
+- `jq` is optional for the Linux standalone script; it falls back to `grep`/`sed` if unavailable
 
 ## Configuration
 
@@ -90,7 +92,7 @@ Edit the configuration block at the top of the script:
 
 The log directory is created automatically if it does not exist.
 
-### Standalone Script — `csr_in_paloalto-api.sh`
+### Standalone Scripts — `csr_in_paloalto-api.sh` / `csr_in_paloalto-api.ps1`
 
 All configuration is collected interactively at runtime via prompted inputs with sensible defaults. The prompts cover firewall connectivity, certificate subject fields (CN, O, L, ST, C), DigiCert API credentials, and output directory.
 
@@ -195,7 +197,7 @@ Connection errors are captured and logged with detail:
 - **Bash:** curl errors (DNS resolution failures, connection refused, TLS handshake errors) are captured separately from the HTTP status code and logged explicitly.
 - **PowerShell:** exception messages and inner exceptions are logged when `Invoke-WebRequest` calls fail.
 
-### Standalone Script
+### Standalone Scripts
 
 Progress is written directly to stdout with status indicators at each step.
 
