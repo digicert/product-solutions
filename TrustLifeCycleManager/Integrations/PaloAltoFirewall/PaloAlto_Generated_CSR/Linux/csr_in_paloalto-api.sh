@@ -257,7 +257,7 @@ fi
 # Step 3: Submit CSR to DigiCert and get signed certificate
 echo ""
 echo "Step 3: Submitting CSR to DigiCert..."
-DIGICERT_RESPONSE=$(curl --location -s 'https://demo.one.digicert.com/mpki/api/v1/certificate' \
+DIGICERT_RESPONSE=$(curl --location -s 'https://one.digicert.com/mpki/api/v1/certificate' \
 --header 'Content-Type: application/json' \
 --header "x-api-key: $DIGICERT_API_KEY" \
 --data "{
