@@ -8,7 +8,7 @@
 #>
 
 $DigiCertOneHost = 'one.digicert.com'
-$TrustAllCertificates = $true
+$TrustAllCertificates = $false
 
 function Write-SectionSeparator {
     Write-Host ('-' * 64)
