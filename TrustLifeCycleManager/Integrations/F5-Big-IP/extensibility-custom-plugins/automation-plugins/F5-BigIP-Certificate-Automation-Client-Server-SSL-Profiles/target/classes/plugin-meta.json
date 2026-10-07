@@ -1,0 +1,29 @@
+{
+    "plugin": {
+      "name": "f5-automation-plugin",
+      "version": "1.0.0",
+      "executions": [
+        {
+          "os": "windows",
+          "type": "exe",
+          "exe": "java",
+          "args": [
+            "-jar",
+            "f5-automation-plugin-1.0.0.jar"
+          ],
+          "env": ["JAVA_HOME=${TG_JAVA_HOME}","Path=${JAVA_HOME}\\bin;${Path}","MAX_CHUNK=15","PROCESS_TIMEOUT=30m"]
+        },
+        {
+          "os": "linux",
+          "type": "exe",
+          "exe": "java",
+          "args": [
+            "-jar",
+            "f5-automation-plugin-1.0.0.jar"
+          ],
+          "env": ["JAVA_HOME=${TG_JAVA_HOME}","PATH=${JAVA_HOME}/bin:${PATH}","MAX_CHUNK=15","PROCESS_TIMEOUT=30m"]
+        }
+      ]
+    }
+  }
+  

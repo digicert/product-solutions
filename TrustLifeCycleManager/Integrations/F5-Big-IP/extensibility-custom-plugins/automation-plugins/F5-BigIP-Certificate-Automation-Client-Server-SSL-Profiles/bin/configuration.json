@@ -1,0 +1,100 @@
+{
+  "metadata": {
+    "author": "John Doe",
+    "email": "John.Doe@digicert.com"
+  },
+  "core_settings": [
+    {
+      "name": "core_attributes.sensor_id",
+      "label": "sensor_id",
+      "type": "select",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "alphaNumericRule"
+        }
+      ],
+      "options_provider": "Sensors",
+      "required": true
+    }
+  ],
+  "config_settings": [
+    {
+      "name": "config_attributes.userName",
+      "label": "username",
+      "type": "input",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    },
+    {
+      "name": "config_attributes.password",
+      "label": "password",
+      "type": "password",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    },
+    {
+      "name": "config_attributes.managementIp",
+      "label": "managementIp",
+      "type": "input",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    },
+    {
+      "name": "config_attributes.managementPort",
+      "label": "managementPort",
+      "type": "input",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    }
+  ],
+  "additional_settings": [],
+  "credential_sets": [
+    {
+      "name": "sensitive",
+      "fields": [
+        {
+          "name": "config_attributes.password"
+        }
+      ]
+    },
+    {
+      "name": "unique",
+      "fields": [
+        {
+          "name": "config_attributes.managementIp"
+        }
+      ]
+    }
+  ]
+}
