@@ -1,0 +1,156 @@
+{
+  "metadata": {
+    "author": "John Doe",
+    "email": "John.Doe@digicert.com"
+  },
+  "core_settings": [
+    {
+      "name": "core_attributes.sensor_id",
+      "label": "sensor_id",
+      "type": "select",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "alphaNumericRule"
+        }
+      ],
+      "options_provider": "Sensors",
+      "required": true
+    }
+  ],
+  "config_settings": [
+    {
+      "name": "config_attributes.userName",
+      "label": "username",
+      "type": "input",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    },
+    {
+      "name": "config_attributes.password",
+      "label": "password",
+      "type": "password",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    },
+    {
+      "name": "config_attributes.managementIp",
+      "label": "managementIp",
+      "type": "input",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    },
+    {
+      "name": "config_attributes.managementPort",
+      "label": "managementPort",
+      "type": "input",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    },
+    {
+      "name": "config_attributes.clientSslProfileMode",
+      "label": "Client-ssl profile handling",
+      "type": "select",
+      "description": "How the client-ssl profile bound to the virtual server is handled when a certificate is renewed. 'Update existing profile' (default) replaces the certificate, key and chain inside the profile that is already bound, so profile names and all other settings stay as they are. 'Create new profile' copies the bound profile to a new one named after the new key, binds the copy and unbinds the original.",
+      "options": [
+        {
+          "key": "update",
+          "value": "update",
+          "label": "Update existing profile"
+        },
+        {
+          "key": "create",
+          "value": "create",
+          "label": "Create new profile"
+        }
+      ],
+      "value": "update",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    },
+    {
+      "name": "config_attributes.updateServerSslProfile",
+      "label": "Update server-ssl profiles",
+      "type": "select",
+      "description": "When the virtual server also has a server-ssl profile (re-encryption to pool members) that presents the certificate being replaced, repoint it to the new certificate in the same transaction as the client-ssl profile. 'Yes' (default) keeps both sides in step; 'No' leaves server-ssl profiles untouched. server-ssl profiles carrying a different certificate are never modified.",
+      "options": [
+        {
+          "key": "true",
+          "value": "true",
+          "label": "Yes"
+        },
+        {
+          "key": "false",
+          "value": "false",
+          "label": "No"
+        }
+      ],
+      "value": "true",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    }
+  ],
+  "additional_settings": [],
+  "credential_sets": [
+    {
+      "name": "sensitive",
+      "fields": [
+        {
+          "name": "config_attributes.password"
+        }
+      ]
+    },
+    {
+      "name": "unique",
+      "fields": [
+        {
+          "name": "config_attributes.managementIp"
+        }
+      ]
+    }
+  ]
+}
