@@ -4,25 +4,15 @@ Automated certificate lifecycle management for VMware (Broadcom) Avi Load Balanc
 
 | Script | Purpose | Trigger |
 |--------|---------|---------|
-| `vmware_avi_loadbalancer_control_script.py` | Certificate Management Profile — requests and renews certificates from DigiCert via ACME with EAB | Avi Controller (built-in certificate management) |
 | `vmware_avi_loadbalancer_awr.sh` | AWR Post-Enrollment Script — uploads renewed certificates to Avi via REST API | DigiCert TLM Agent (post-enrollment hook) |
-
+| `vmware_avi_loadbalancer_control_script.py` | Certificate Management Profile — requests and renews certificates from DigiCert via ACME with EAB | Avi Controller (built-in certificate management) |
 ---
 
 ## Architecture Overview
 
 There are two distinct integration patterns depending on your environment:
 
-### Option A — Avi Certificate Management Profile (Control Script)
-
-Avi Controller natively manages the certificate lifecycle using the Python control script as a **Certificate Management Profile**. When a certificate is created or nears expiry, Avi generates a CSR and invokes the script, which handles the full ACME flow against DigiCert — including account registration with External Account Binding (EAB), order creation, and certificate download. The signed certificate is returned directly to the Avi Controller.
-
-```
-Avi Controller ──CSR──▶ Control Script ──ACME──▶ DigiCert
-                ◀──cert──                        (CertCentral / TLM)
-```
-
-### Option B — TLM Agent AWR Post-Enrollment (AWR Script)
+### Option A — TLM Agent AWR Post-Enrollment (AWR Script)
 
 The DigiCert TLM Agent manages the certificate lifecycle externally. After enrollment or renewal, the agent executes the AWR (Admin Web Request) post-enrollment script, which authenticates to the Avi Controller REST API and uploads (or updates) the certificate and private key.
 
@@ -30,6 +20,15 @@ The DigiCert TLM Agent manages the certificate lifecycle externally. After enrol
 TLM Agent ──enroll/renew──▶ DigiCert
      │
      └──post-enrollment──▶ AWR Script ──REST API──▶ Avi Controller
+```
+
+### Option B — Avi Certificate Management Profile (Control Script)
+
+Avi Controller natively manages the certificate lifecycle using the Python control script as a **Certificate Management Profile**. When a certificate is created or nears expiry, Avi generates a CSR and invokes the script, which handles the full ACME flow against DigiCert — including account registration with External Account Binding (EAB), order creation, and certificate download. The signed certificate is returned directly to the Avi Controller.
+
+```
+Avi Controller ──CSR──▶ Control Script ──ACME──▶ DigiCert
+                ◀──cert──                        (CertCentral / TLM)
 ```
 
 ---
@@ -42,7 +41,13 @@ TLM Agent ──enroll/renew──▶ DigiCert
 - Avi Controller admin credentials
 - DigiCert account (CertCentral or TLM)
 
-### Control Script (Option A)
+### AWR Script (Option A)
+
+- DigiCert TLM Agent (v3.1.2+) installed and configured
+- `curl`, `jq`, `openssl` available on the agent host
+- Network connectivity from the agent host to the Avi Controller (HTTPS)
+
+### Control Script (Option B)
 
 - Python 2.7+ or 3.x (runs within Avi Controller's Python environment)
 - OpenSSL CLI available on the Avi Controller
@@ -51,12 +56,6 @@ TLM Agent ──enroll/renew──▶ DigiCert
   - EAB Key ID (`eab_kid`)
   - EAB HMAC Key (`eab_hmac_key`)
 - Pre-validated domains in DigiCert (for OV/EV certificates)
-
-### AWR Script (Option B)
-
-- DigiCert TLM Agent (v3.1.2+) installed and configured
-- `curl`, `jq`, `openssl` available on the agent host
-- Network connectivity from the agent host to the Avi Controller (HTTPS)
 
 ---
 
@@ -83,6 +82,86 @@ The AWR script verifies all three are present at startup and exits with an error
 | macOS (Homebrew) | `brew install jq` |
 
 > If your host has no internet access, download the standalone `jq` binary from the [official releases](https://github.com/jqlang/jq/releases), place it on the `PATH` (e.g. `/usr/local/bin/jq`), and mark it executable with `chmod +x`.
+
+---
+
+## Setup — TLM Agent AWR Post-Enrollment (AWR Script)
+
+### 1. Configure the AWR Script
+
+Edit `vmware_avi_loadbalancer_awr.sh` and set the following:
+
+```bash
+# Accept the legal notice to enable script execution
+LEGAL_NOTICE_ACCEPT="true"
+
+# Set the log file path (the parent directory is created automatically if missing)
+LOGFILE="/AWR/logs/avi-upload.log"
+
+# Set the Avi API version to match your controller (e.g. 22.1.3) — no default is set
+AVI_API_VERSION="22.1.3"
+```
+
+### 2. Configure TLM Agent AWR
+
+In the DigiCert TLM console, configure the AWR post-enrollment script with the following arguments:
+
+| Argument | Value | Description |
+|----------|-------|-------------|
+| `ARGUMENT_1` | e.g. `alb.example.com` | Avi Controller hostname or IP |
+| `ARGUMENT_2` | e.g. `admin` | Avi Controller username |
+| `ARGUMENT_3` | e.g. `P@ssw0rd` | Avi Controller password |
+
+These are passed via the `DC1_POST_SCRIPT_DATA` environment variable as a base64-encoded JSON payload containing the arguments and certificate file paths.
+
+### 3. Certificate Format to Request
+
+> **Select as Cert Delivery Format: `CRT`**
+
+In the TLM AWR configuration, set the certificate delivery format to **CRT**. This delivers the certificate as a `.crt` file and the private key as a separate, unencrypted `.key` file, which is what the script expects.
+
+Do **not** select the other delivery formats. They deliver a password-protected key or a container file that the script cannot read, and the upload will fail.
+
+| Requirement | Detail |
+|-------------|--------|
+| Cert Delivery Format | `CRT` |
+| Key algorithm | RSA or ECDSA — both are accepted by Avi. |
+| Common Name | Must be set. The CN becomes the certificate object name in Avi and is used to find an existing entry on renewal. |
+
+The `.crt` content is uploaded to Avi as-is. Avi builds the chain from CA certificates already imported on the controller, so import the DigiCert root and intermediate CA certificates under **Templates → Security → SSL/TLS Certificates → Create → Root/Intermediate CA Certificate** if they are not already present.
+
+### 4. Avi Authentication
+
+The script uses **session-based (cookie + CSRF token) authentication** against the Avi Controller REST API with a **local username and password** (`ARGUMENT_2` / `ARGUMENT_3`). HTTP Basic Auth, API tokens and client certificates are not used.
+
+1. `POST https://<controller>/login` with a JSON body `{"username": "...", "password": "..."}`.
+2. The controller returns `sessionid` and `csrftoken` cookies, which are stored in a temporary cookie jar.
+3. Every subsequent API call sends the session cookie plus the `X-CSRFToken`, `Referer` and `X-Avi-Version` headers.
+4. The cookie jar is deleted when the script exits.
+
+The Avi account needs write access to **SSL/TLS Certificates** (`sslkeyandcertificate`) in the tenant where the certificate should be created. A dedicated service account with a custom role limited to that permission is recommended over `admin`.
+
+> TLS verification of the Avi Controller is disabled (`curl -k`). See [Security Considerations](#security-considerations).
+
+### 5. Deploy the Script
+
+Place the script in a location accessible to the TLM Agent and ensure it is executable:
+
+```bash
+chmod +x vmware_avi_loadbalancer_awr.sh
+```
+
+### How It Works
+
+When the TLM Agent completes a certificate enrollment or renewal:
+
+1. The agent sets the `DC1_POST_SCRIPT_DATA` environment variable containing base64-encoded JSON with the certificate file paths and configured arguments.
+2. The script decodes the JSON to extract the Avi Controller address, credentials, and certificate/key file locations.
+3. It derives the certificate name from the certificate's Common Name (CN).
+4. It authenticates to the Avi Controller REST API with username/password (`POST /login`) and uses the returned session cookie and CSRF token for the remaining calls (see [Avi Authentication](#4-avi-authentication)).
+5. It uploads the certificate and private key via `POST /api/sslkeyandcertificate`.
+6. If a certificate with the same name already exists, it automatically falls back to a `PUT` update using the existing certificate's UUID.
+7. The certificate is then available in Avi under **Templates → Security → SSL/TLS Certificates** for assignment to Virtual Services.
 
 ---
 
@@ -141,62 +220,7 @@ The control script performs the following steps:
 
 ---
 
-## Setup — TLM Agent AWR Post-Enrollment (AWR Script)
-
-### 1. Configure the AWR Script
-
-Edit `vmware_avi_loadbalancer_awr.sh` and set the following:
-
-```bash
-# Accept the legal notice to enable script execution
-LEGAL_NOTICE_ACCEPT="true"
-
-# Set the log file path (the parent directory is created automatically if missing)
-LOGFILE="/AWR/logs/avi-upload.log"
-
-# Set the Avi API version to match your controller (e.g. 22.1.3) — no default is set
-AVI_API_VERSION="22.1.3"
-```
-
-### 2. Configure TLM Agent AWR
-
-In the DigiCert TLM console, configure the AWR post-enrollment script with the following arguments:
-
-| Argument | Value | Description |
-|----------|-------|-------------|
-| `ARGUMENT_1` | e.g. `alb.example.com` | Avi Controller hostname or IP |
-| `ARGUMENT_2` | e.g. `admin` | Avi Controller username |
-| `ARGUMENT_3` | e.g. `P@ssw0rd` | Avi Controller password |
-
-These are passed via the `DC1_POST_SCRIPT_DATA` environment variable as a base64-encoded JSON payload containing the arguments and certificate file paths.
-
-### 3. Deploy the Script
-
-Place the script in a location accessible to the TLM Agent and ensure it is executable:
-
-```bash
-chmod +x vmware_avi_loadbalancer_awr.sh
-```
-
-### How It Works
-
-When the TLM Agent completes a certificate enrollment or renewal:
-
-1. The agent sets the `DC1_POST_SCRIPT_DATA` environment variable containing base64-encoded JSON with the certificate file paths and configured arguments.
-2. The script decodes the JSON to extract the Avi Controller address, credentials, and certificate/key file locations.
-3. It derives the certificate name from the certificate's Common Name (CN).
-4. It authenticates to the Avi Controller REST API using cookie-based authentication and obtains a CSRF token.
-5. It uploads the certificate and private key via `POST /api/sslkeyandcertificate`.
-6. If a certificate with the same name already exists, it automatically falls back to a `PUT` update using the existing certificate's UUID.
-7. The certificate is then available in Avi under **Templates → Security → SSL/TLS Certificates** for assignment to Virtual Services.
-
----
-
 ## Logging
-
-### Control Script
-
-Output is printed to stdout/stderr and captured by the Avi Controller's certificate management logs. Set the `debug` parameter to `true` for additional detail.
 
 ### AWR Script
 
@@ -212,6 +236,10 @@ All operations are logged to the configured `LOGFILE` with timestamps. Example l
 [2026-03-16 10:30:03]   UUID: sslkeyandcertificate-abc123
 ```
 
+### Control Script
+
+Output is printed to stdout/stderr and captured by the Avi Controller's certificate management logs. Set the `debug` parameter to `true` for additional detail.
+
 ---
 
 ## Troubleshooting
@@ -219,6 +247,8 @@ All operations are logged to the configured `LOGFILE` with timestamps. Example l
 | Symptom | Cause | Resolution |
 |---------|-------|------------|
 | `ERROR: Legal notice not accepted` | `LEGAL_NOTICE_ACCEPT` is not set to `true` | Set `LEGAL_NOTICE_ACCEPT="true"` in the AWR script |
+| `Certificate file not found` / `Private key file not found` | Cert Delivery Format is not `CRT` | Set the Cert Delivery Format to `CRT` — see [Certificate Format to Request](#3-certificate-format-to-request) |
+| Avi rejects the key / `Failed to upload certificate` | Private key delivered password-protected (wrong Cert Delivery Format) | Set the Cert Delivery Format to `CRT` |
 | `ERROR: Authentication failed (HTTP 401)` | Invalid Avi credentials | Verify username and password; check the account is not locked |
 | `ERROR: Failed to obtain CSRF token` | Authentication succeeded but CSRF cookie missing | Verify Avi API version matches the controller version |
 | `Domain requires validation` | Domain not pre-validated in DigiCert | Complete domain validation in the DigiCert console |
@@ -246,4 +276,5 @@ Copyright © 2026 DigiCert. All rights reserved. See the embedded legal notice i
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.0.1 | 2026-10 | README: AWR documented first; added Cert Delivery Format (`CRT`) and Avi authentication details |
 | 1.0.0 | 2024 | Initial release — ACME control script and AWR post-enrollment script |
