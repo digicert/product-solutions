@@ -10,8 +10,8 @@ These scripts are designed to run as **automation scripts** within the DigiCert 
 
 | Script | Target Product | Platform | Purpose |
 |--------|---------------|----------|---------|
-| [FortiGATE/Linux/fortigate-awr.sh](FortiGATE/Linux/fortigate-awr.sh) | Fortinet FortiGate | Linux | Import cert + reassign SSL-VPN / Admin / IPsec references |
-| [FortiGATE/Windows/fortigate-awr.ps1](FortiGATE/Windows/fortigate-awr.ps1) | Fortinet FortiGate | Windows | Import cert + reassign SSL-VPN / Admin / IPsec references |
+| [FortiGATE/Linux/fortigate-awr.sh](FortiGATE/Linux/fortigate-awr.sh) | Fortinet FortiGate | Linux | Import cert + reassign SSL-VPN / Admin / IPsec / Firewall VIP references |
+| [FortiGATE/Windows/fortigate-awr.ps1](FortiGATE/Windows/fortigate-awr.ps1) | Fortinet FortiGate | Windows | Import cert + reassign SSL-VPN / Admin / IPsec / Firewall VIP references |
 | [FortiWEB/fortiweb-awr.sh](FortiWEB/fortiweb-awr.sh) | Fortinet FortiWeb | Linux | Upload cert under a unique name + rotate all references (policy / SNI / multi-cert), then delete the old cert |
 | [FortiWEB/fortiweb-discovery.sh](FortiWEB/fortiweb-discovery.sh) | Fortinet FortiWeb | Linux | Read-only inspection helper for setup and debugging (manual use only — not run by TLM) |
 | [FortiNAC/fortinac-awr.sh](FortiNAC/fortinac-awr.sh) | Fortinet FortiNAC | Linux | Upload cert to RADIUS/RadSec/Portal/Agent/Admin UI + restart service |
@@ -84,7 +84,9 @@ The `DC1_POST_SCRIPT_DATA` variable contains a Base64-encoded JSON object with t
 
 ### Overview
 
-Imports a certificate into FortiGate and optionally reassigns all existing references to the old certificate (SSL-VPN, Admin HTTPS, IPsec Phase1) to the newly imported one. Supports automatic cleanup of old certificates after reassignment.
+Imports a certificate into FortiGate and optionally reassigns all existing references to the old certificate (SSL-VPN, Admin HTTPS, IPsec Phase1, Firewall VIP SSL offloading) to the newly imported one. Supports automatic cleanup of old certificates after reassignment.
+
+FortiOS cannot overwrite a local certificate in place through the REST API: importing under an existing name is rejected, and a certificate that is referenced by any object cannot be deleted. Every renewal is therefore a **rotation** — the new certificate is imported under a new name, every reference is repointed, and the old certificate is optionally deleted.
 
 Two script variants are provided — identical in behavior and argument structure, differing only in runtime platform:
 
@@ -108,23 +110,31 @@ Edit these variables at the top of the script before deploying:
 | Position | Variable | Required | Description |
 |----------|----------|----------|-------------|
 | 1 | `FORTIGATE_URL` | Yes | FortiGate hostname or IP (no `https://` prefix) |
-| 2 | `CERT_BASE_NAME` | Yes | Base name used to identify the certificate. Should match, or be a prefix of, the name of the certificate already bound to the selected setting(s). Ex: if the old cert is named `mydomain.com` or `mydomain.com-2025`, use `mydomain.com` as the base name. New certs would be named as `<base>-YYYYMMDD-HHmmss`. |
+| 2 | `CERT_BASE_NAME` | Yes | Base name used to identify the certificate and to name the new one. A reference matches if its value equals the base name or starts with `<base>-` (a name produced by an earlier run). Ex: if the old cert is named `mydomain.com` or `mydomain.com-20250101-120000`, use `mydomain.com`. New certs are named `<base>-YYYYMMDD-HHmmss`. **Max 19 characters**: FortiOS caps certificate names at 35 characters and the suffix uses 16; the script aborts before importing if the new name would be longer. |
 | 3 | `BEARER_TOKEN` | Yes | FortiGate API Bearer token |
 | 4 | `DELETE_MODE` | No | `delete_old` — delete previously matched certs after reassignment. `keep_old` (default) — leave old certs in place |
-| 5 | `ASSIGN_MODE` | No | Assignment strategy. One of:<br>`assign_refs` (default) — reassign all references to the new cert<br>`import_only` — only import, skip reassignment<br>Comma-separated selectors (e.g., `ssl_vpn,admin_https`) — reassign only the specified features:<br>&nbsp;&nbsp;• `ssl_vpn` — SSL-VPN settings<br>&nbsp;&nbsp;• `admin_https` — Admin HTTPS certificate<br>&nbsp;&nbsp;• `admin_https_fallback` — Admin HTTPS certificate fallback<br>&nbsp;&nbsp;• `ipsec_phase1_interface` — IPsec phase1-interface table<br>&nbsp;&nbsp;• `ipsec_phase1` — IPsec phase1 table |
+| 5 | `ASSIGN_MODE` | No | Assignment strategy. One of:<br>`assign_refs` (default) — reassign all references to the new cert<br>`import_only` — only import, skip reassignment<br>Comma-separated selectors (e.g., `ssl_vpn,admin_https`) — reassign only the specified features:<br>&nbsp;&nbsp;• `ssl_vpn` — SSL-VPN settings<br>&nbsp;&nbsp;• `admin_https` — Admin HTTPS certificate<br>&nbsp;&nbsp;• `admin_https_fallback` — Admin HTTPS certificate fallback<br>&nbsp;&nbsp;• `ipsec_phase1_interface` — IPsec phase1-interface table<br>&nbsp;&nbsp;• `ipsec_phase1` — IPsec phase1 table<br>&nbsp;&nbsp;• `firewall_vip` — Firewall virtual servers / VIPs with SSL offloading (`ssl-certificate` list) |
+| 6 | `OLD_CERT_NAME` | No | Exact name of the certificate currently bound on the FortiGate. When set, **only this exact name** is matched and the prefix rule of argument 2 is not used. Use it to take over a certificate that was not named by this script (e.g. one uploaded manually or by the FortiGate automation plugin, such as `paolo-2909_digicert-de_39bc349182d8`). Leave empty on subsequent renewals so the prefix rule picks up the name this script created. |
 
 ### Flow
 
 ```
 1. Validate legal notice acceptance and DC1_POST_SCRIPT_DATA
 2. Decode JSON, extract file paths and arguments
-3. Base64-encode cert + key → POST to /api/v2/monitor/vpn-certificate/local/import
+3. Abort if "<base>-YYYYMMDD-HHmmss" would exceed 35 characters (FortiOS name limit)
+   Base64-encode cert + key → POST to /api/v2/monitor/vpn-certificate/local/import
 4. If ASSIGN_MODE != import_only, perform selective reassignment:
    a. If ssl_vpn enabled: GET SSL-VPN settings → if referencing old cert, PUT new cert name
    b. If admin_https enabled: GET system/global (admin-server-cert) → if referencing old cert, PUT new cert name
    c. If admin_https_fallback enabled: GET system/global (admin-server-certname) → if referencing old cert, PUT new cert name
    d. If ipsec_phase1_interface enabled: GET vpn.ipsec/phase1-interface → for each entry referencing old cert, PUT new cert name
    e. If ipsec_phase1 enabled: GET vpn.ipsec/phase1 → for each entry referencing old cert, PUT new cert name
+   f. If firewall_vip enabled: GET firewall/vip → for each VIP whose ssl-certificate list contains the old cert,
+      PUT the list back with only that member swapped (other certificates in the list are preserved)
+
+   Reference matching:
+   - OLD_CERT_NAME set: a reference matches only if it equals OLD_CERT_NAME exactly
+   - otherwise: a reference matches if it equals CERT_BASE_NAME or starts with "CERT_BASE_NAME-"
 
    Feature selection rules:
    - assign_refs (default): all features enabled
@@ -140,14 +150,35 @@ The following table shows practical examples of ASSIGN_MODE values and their eff
 
 | ASSIGN_MODE Value | Effect |
 |-------------------|--------|
-| `assign_refs` or empty | Reassign all features: SSL-VPN, Admin HTTPS, Admin HTTPS fallback, IPsec phase1-interface, and IPsec phase1 |
+| `assign_refs` or empty | Reassign all features: SSL-VPN, Admin HTTPS, Admin HTTPS fallback, IPsec phase1-interface, IPsec phase1 and Firewall VIP |
 | `import_only` | Import certificate only; skip all reassignments |
 | `ssl_vpn` | Reassign SSL-VPN settings only |
 | `admin_https` | Reassign Admin HTTPS certificate only |
-| `ssl_vpn,admin_https` | Reassign SSL-VPN and Admin HTTPS; skip Admin fallback and IPsec |
+| `firewall_vip` | Reassign firewall VIP / virtual server SSL offloading certificates only |
+| `ssl_vpn,admin_https` | Reassign SSL-VPN and Admin HTTPS; skip Admin fallback, IPsec and VIPs |
 | `admin_https,admin_https_fallback` | Reassign both Admin HTTPS references |
-| `ipsec_phase1_interface,ipsec_phase1` | Reassign IPsec configurations only; skip VPN/Admin references |
-| `ssl_vpn,admin_https,ipsec_phase1` | Reassign SSL-VPN, Admin HTTPS, and IPsec phase1 (skip Admin fallback and phase1-interface) |
+| `ipsec_phase1_interface,ipsec_phase1` | Reassign IPsec configurations only; skip VPN/Admin/VIP references |
+| `ssl_vpn,admin_https,ipsec_phase1` | Reassign SSL-VPN, Admin HTTPS, and IPsec phase1 (skip Admin fallback, phase1-interface and VIPs) |
+
+### Example: replacing a certificate bound to a virtual server (SSL offloading)
+
+A FortiGate has `paolo-2909_digicert-de_39bc349182d8` bound to a virtual server under *Policy & Objects → Virtual Servers* (a `firewall/vip` entry with `ssl-certificate`). That name was created by the FortiGate automation plugin, is 35 characters long, and does not follow this script's `<base>-<timestamp>` pattern, so the prefix rule cannot match it and the base name cannot be reused.
+
+First renewal — take over the existing name with argument 6:
+
+```json
+"args": ["fgt.example.com", "paolo-vip", "<api-token>", "delete_old", "firewall_vip", "paolo-2909_digicert-de_39bc349182d8"]
+```
+
+The script imports the certificate as `paolo-vip-20261009-101500`, rewrites the VIP's `ssl-certificate` list so that member becomes the new name (any other certificates in the list are kept), and deletes `paolo-2909_digicert-de_39bc349182d8`.
+
+Subsequent renewals — drop argument 6 so the prefix rule matches `paolo-vip-*`:
+
+```json
+"args": ["fgt.example.com", "paolo-vip", "<api-token>", "delete_old", "firewall_vip"]
+```
+
+Use `assign_refs` instead of `firewall_vip` if the same certificate is also bound to SSL-VPN, admin HTTPS or IPsec.
 
 ### FortiGate API Permissions Required
 
@@ -157,21 +188,8 @@ The API token must have read/write access to:
 - `system/global` (read, write)
 - `vpn.ipsec/phase1-interface` (read, write)
 - `vpn.ipsec/phase1` (read, write)
+- `firewall/vip` (read, write)
 
-### ASSIGN_MODE Examples
-
-The following table shows practical examples of ASSIGN_MODE values and their effects:
-
-| ASSIGN_MODE Value | Effect |
-|-------------------|--------|
-| `assign_refs` or empty | Reassign all features: SSL-VPN, Admin HTTPS, Admin HTTPS fallback, IPsec phase1-interface, and IPsec phase1 |
-| `import_only` | Import certificate only; skip all reassignments |
-| `ssl_vpn` | Reassign SSL-VPN settings only |
-| `admin_https` | Reassign Admin HTTPS certificate only |
-| `ssl_vpn,admin_https` | Reassign SSL-VPN and Admin HTTPS; skip Admin fallback and IPsec |
-| `admin_https,admin_https_fallback` | Reassign both Admin HTTPS references |
-| `ipsec_phase1_interface,ipsec_phase1` | Reassign IPsec configurations only; skip VPN/Admin references |
-| `ssl_vpn,admin_https,ipsec_phase1` | Reassign SSL-VPN, Admin HTTPS, and IPsec phase1 (skip Admin fallback and phase1-interface) |
 
 ---
 
