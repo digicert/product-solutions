@@ -1,372 +1,173 @@
-# DigiCert TLM Agent — AWR Post-Enrollment Scripts
+# DigiCert TLM — Google Cloud Apigee X
 
-Automated certificate deployment to Fortinet appliances and Google Cloud Apigee X using DigiCert Trust Lifecycle Manager (TLM) Agent Admin Web Request (AWR) post-enrollment scripts.
+`google_apigee-awr.sh` deploys a certificate issued by **DigiCert Trust Lifecycle Manager (TLM)** to a **Google Cloud Apigee X** environment through the Apigee Management API. It runs as an **Admin Web Request (AWR) post-enrollment automation script** inside the TLM Agent after a certificate is issued or renewed, and handles renewal as a **zero-downtime rotation**: a new keystore is created, the certificate is uploaded into it, and the environment *reference* that the virtual host uses is swung to the new keystore.
 
-These bash scripts run automatically after the TLM Agent enrolls or renews a certificate, pushing the resulting certificate and private key directly to target platforms via their REST APIs. Each script handles initial imports, renewals, comprehensive error handling, and detailed logging.
+| Script | Platform | Location |
+|--------|----------|----------|
+| `google_apigee-awr.sh` | Linux (Bash) | [google_apigee-awr.sh](google_apigee-awr.sh) |
+
+The equivalent scripts for Fortinet appliances live in [../../Fortinet/](../../Fortinet/README.md).
 
 ---
 
 ## Contents
 
-- [Overview](#overview)
+- [How it works](#how-it-works)
 - [Prerequisites](#prerequisites)
-- [How AWR Post-Enrollment Scripts Work](#how-awr-post-enrollment-scripts-work)
-- [FortiGate](#fortigate)
-- [FortiWeb](#fortiweb)
-- [FortiNAC](#fortinac)
-- [Google Cloud Apigee X](#google-cloud-apigee-x)
-- [Common Configuration](#common-configuration)
+- [How it is triggered](#how-it-is-triggered)
+- [Arguments](#arguments)
+- [Configuration](#configuration)
+- [Authentication](#authentication)
+- [Deployment modes](#deployment-modes)
+- [API endpoints](#api-endpoints)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
 ---
 
-## Overview
+## How it works
 
-| Script | Target Platform | API Used | Auth Method | Key Use Cases |
-|---|---|---|---|---|
-| `fortigate-awr.sh` | FortiGate NGFW | REST API v2 | Bearer Token | VPN certificates, HTTPS admin, SSL inspection |
-| `fortiweb-awr.sh` | FortiWeb WAF | REST API v2.0 | Authorization Token | WAF server certificates, reverse proxy SSL |
-| `fortinac-awr.sh` | FortiNAC | REST API v2 | Bearer Token | RADIUS (EAP), RadSec, Portal, Agent, Admin UI |
-| `apigee-awr.sh` | Google Cloud Apigee X | Apigee Management API v1 | GCP Service Account (OAuth) | API gateway TLS, keystore rotation, virtual host certs |
+Apigee X does not allow a certificate inside an existing keystore alias to be updated in place. Virtual hosts therefore do not point at a keystore directly but at an environment **reference**, and the reference is what gets repointed. Every renewal is a rotation:
 
-All scripts follow the same general pattern:
+```
+TLM issues / renews certificate
+        │
+        ▼
+TLM Agent writes cert + key to disk and sets DC1_POST_SCRIPT_DATA
+        │
+        ▼
+google_apigee-awr.sh
+        ├── activates the GCP service account and obtains an OAuth access token
+        ├── creates a keystore            (Argument 1, must be a new, unique name)
+        ├── uploads cert + key as an alias (Argument 2)
+        └── new:    creates the reference  (Argument 3) → keystore
+            rotate: updates the reference  (Argument 3) → keystore
+```
 
-1. Decode the `DC1_POST_SCRIPT_DATA` environment variable (base64-encoded JSON) provided by the TLM Agent
-2. Extract certificate files, private key, and user-defined arguments
-3. Check if a certificate with the same name already exists on the target (renewal detection)
-4. Delete the existing certificate if found, then import the new one
-5. Log every step to a configurable log file
+Because the virtual host follows the reference, updating the reference switches traffic to the new certificate atomically. The old keystore is left in place and can be removed manually once the switch is confirmed.
 
 ---
 
 ## Prerequisites
 
-- **DigiCert TLM Agent** (v3.0.15+) installed on a Linux host
-- **bash**, **curl**, **base64**, **grep** with PCRE (`-P`) support
-- **openssl** (required by the FortiWeb script for CN extraction)
-- **gcloud CLI** (required by the Apigee script for service account authentication)
-- Network connectivity from the TLM Agent host to the target platform
-- An API token / bearer token with appropriate permissions on each appliance, or a GCP service account key for Apigee
-- A TLM certificate template configured with AWR post-enrollment script and the required arguments
+- **DigiCert TLM Agent** (v3.0.15 or later) on a Linux host with post-enrollment script execution enabled
+- **Bash** 4.0 or later, **curl**, **base64**, and **grep** with PCRE support (`grep -P`)
+- **gcloud CLI** installed and in the TLM Agent's `PATH`
+- Outbound HTTPS from the TLM Agent host to `apigee.googleapis.com` and the Google OAuth endpoints
+- A **GCP service account** JSON key with the **Apigee Environment Admin** role (or a custom role with permissions on keystores, aliases and references) on the target project
+- A TLM certificate profile configured with the script as its AWR post-enrollment automation and the arguments listed below
+- `LEGAL_NOTICE_ACCEPT="true"` set inside the script
 
 ---
 
-## How AWR Post-Enrollment Scripts Work
+## How it is triggered
 
-When a TLM certificate template is configured with an AWR post-enrollment script, the TLM Agent executes the script after each successful enrollment or renewal. The agent passes certificate metadata via the `DC1_POST_SCRIPT_DATA` environment variable as a base64-encoded JSON payload containing:
+The TLM Agent sets the `DC1_POST_SCRIPT_DATA` environment variable to a Base64-encoded JSON payload and executes the script. The payload contains:
 
-- **`certfolder`** — Path to the directory containing the certificate files
-- **`files`** — Array of filenames (`.crt` and `.key`)
-- **`args`** — Array of user-defined arguments configured in the certificate template (appliance URL, certificate name, API token, etc.)
+- **`certfolder`**: the directory the Agent wrote the certificate files to
+- **`files`**: the file names, one `.crt` and one `.key`
+- **`args`**: the arguments configured on the TLM profile, in order
 
-Each script decodes this payload, extracts the relevant fields, and uses them to drive the API calls.
+The script decodes the payload, resolves the `.crt` and `.key` paths, and reads its four arguments from `args`. The payload structure is the same for every TLM AWR script; see the [FortiGate script README](../../Fortinet/FortiGATE/admin-webrequest-post-script/README.md#how-it-is-triggered) for a worked example.
+
+> **Note:** arguments are split on commas, so none of the values below may contain a comma.
 
 ---
 
-## FortiGate
+## Arguments
 
-**Script:** `fortigate-awr.sh`
+| Position | Name | Required | Description | Example |
+|----------|------|----------|-------------|---------|
+| 1 | `KEYSTORE` | yes | Name of the keystore to **create**. Must not already exist in the environment. | `web-keystore-2026-03` |
+| 2 | `ALIAS` | yes | Alias name for the certificate inside that keystore | `web-cert` |
+| 3 | `REFERENCE` | yes | Name of the environment reference the virtual host uses | `web-tls-ref` |
+| 4 | `DEPLOY` | yes | Deployment mode, `new` or `rotate` (see [Deployment modes](#deployment-modes)) | `rotate` |
 
-Imports certificates to a FortiGate firewall via the REST API. Supports both initial import and renewal (automatic delete-and-reimport). Imported certificates can be used for HTTPS admin access, SSL VPN, IPsec VPN, SSL/TLS inspection, and any other FortiGate feature that references local certificates.
+Because the keystore is always created, **Argument 1 must be unique per run**. Put a date or version in the name and keep the reference name (Argument 3) constant across rotations.
 
-### FortiGate API Endpoints
+> Argument 4 is listed as optional in the script's comments, but in the current version omitting it only logs a message and exits without creating anything. Always set it explicitly.
 
-| Operation | Method | Endpoint |
-|---|---|---|
-| Check existing cert | `GET` | `/api/v2/cmdb/vpn.certificate/local/{certname}` |
-| Delete existing cert | `DELETE` | `/api/v2/cmdb/vpn.certificate/local/{certname}` |
-| Import certificate | `POST` | `/api/v2/monitor/vpn-certificate/local/import` |
+---
 
-### FortiGate Template Arguments
+## Configuration
 
-Configure these in the TLM certificate template AWR arguments:
-
-| Argument | Description | Example |
-|---|---|---|
-| Argument 1 | FortiGate hostname or IP (without `https://`) | `fortigate.example.com` |
-| Argument 2 | Certificate name on FortiGate | `web-server-cert` |
-| Argument 3 | API Bearer Token | `your-api-token` |
-
-### FortiGate Configuration
-
-Edit the script header:
+Edit the header of the script before first use:
 
 ```bash
-LEGAL_NOTICE_ACCEPT="true"   # Must be set to "true" to run
-LOGFILE="/opt/digicert/tlm_agent_3.1.9_linux64/log/fortigate.log"
-```
-
-### FortiGate — Generating an API Token
-
-1. Navigate to **System → Administrators** and create a new REST API Admin
-2. Assign an admin profile with read/write access to **VPN → Certificate**
-3. Optionally restrict trusted hosts to the TLM Agent IP
-4. Copy the generated API token — this is your **Argument 3**
-
-### FortiGate — Renewal Behaviour
-
-On renewal, the script checks whether a certificate with the configured name already exists:
-
-- **Exists (HTTP 200):** Deletes the existing certificate, waits 2 seconds, then imports the new one
-- **Does not exist (HTTP 404):** Proceeds directly with import
-- **In use (HTTP 424 on delete):** Exits with an error — the certificate is bound to a FortiGate object (e.g., HTTPS admin, VPN) and cannot be replaced via delete. Unbind it first or use a different certificate name
-
----
-
-## FortiWeb
-
-**Script:** `fortiweb-awr.sh`
-
-Imports certificates to a FortiWeb Web Application Firewall via the REST API on port 8443. Automatically detects renewals by extracting the Common Name (CN) from the certificate using `openssl` and checking the existing certificate list on the appliance. Uploaded certificates can be bound to server policies for WAF-protected web applications.
-
-### FortiWeb API Endpoints
-
-| Operation | Method | Endpoint |
-|---|---|---|
-| List certificates | `GET` | `/api/v2.0/system/certificate.local` |
-| Delete existing cert | `DELETE` | `/api/v2.0/cmdb/system/certificate.local?mkey={cn}` |
-| Import certificate | `POST` | `/api/v2.0/system/certificate.local.import_certificate` |
-
-### FortiWeb Template Arguments
-
-| Argument | Description | Example |
-|---|---|---|
-| Argument 1 | FortiWeb hostname or IP (without `https://`) | `fortiweb.example.com` |
-| Argument 2 | Authorization Token | `your-auth-token` |
-
-### FortiWeb Configuration
-
-```bash
-LEGAL_NOTICE_ACCEPT="true"
-LOGFILE="/opt/digicert/tlm_agent_3.1.9_linux64/log/fortiweb.log"
-```
-
-### FortiWeb — Renewal Behaviour
-
-FortiWeb names imported certificates based on the CN in the certificate. The script:
-
-1. Extracts the CN from the new certificate using `openssl x509 -noout -subject`
-2. Lists all certificates on the FortiWeb and searches for a matching name
-3. If found, deletes the existing certificate via the CMDB endpoint, waits 2 seconds, then uploads the new one
-4. If not found, proceeds directly with import
-
-### FortiWeb — Important Notes
-
-- FortiWeb uses port **8443** for API access (not the standard 443)
-- Certificate names on FortiWeb are derived from the CN — dots in the CN (e.g., `tls.guru`) can cause issues with direct GET-by-name, which is why the script lists all certificates and searches the response
-- Certificates bound to an active server policy may fail to delete — unbind them first if you encounter errors
-
----
-
-## FortiNAC
-
-**Script:** `fortinac-awr.sh`
-
-The most feature-rich of the three scripts. Manages certificates for FortiNAC's multiple service types via the REST API on port 8443. Supports uploading to existing certificate targets or creating new RADIUS targets via CSR generation, with optional automatic service restart after upload.
-
-### FortiNAC Supported Certificate Types
-
-| `CERT_TYPE` | Service | Default Alias | Description |
-|---|---|---|---|
-| `RADIUS` | Local RADIUS Server (EAP) | `radius` | 802.1X EAP authentication |
-| `RADSEC` | Local RADIUS Server (RadSec) | `radsec` | TLS-secured RADIUS transport |
-| `PORTAL` | Portal | `portal` | Captive portal / guest access |
-| `AGENT` | Persistent Agent | `agent` | Endpoint agent communication |
-| `TOMCAT` | Admin UI | `tomcat` | FortiNAC management web interface |
-
-### FortiNAC API Endpoints
-
-| Operation | Method | Endpoint |
-|---|---|---|
-| Generate CSR / create target | `POST` | `/api/v2/settings/security/certificate-server/csr/generate` |
-| Upload cert + key | `POST` | `/api/v2/settings/security/certificate-server/{target}` |
-| Restart service | `POST` | `/api/v2/settings/security/certificate-server/restart` |
-
-### FortiNAC Template Arguments
-
-| Argument | Description | Example |
-|---|---|---|
-| Argument 1 | FortiNAC hostname or IP (without `https://`) | `fortinac.example.com` |
-| Argument 2 | API Bearer Token | `your-bearer-token` |
-
-### FortiNAC Configuration
-
-The script has a detailed configuration section at the top:
-
-```bash
-LEGAL_NOTICE_ACCEPT="true"
-LOGFILE="/home/ubuntu/fortinac.log"
-
-# Certificate type: RADIUS | RADSEC | PORTAL | AGENT | TOMCAT
-CERT_TYPE="RADIUS"
-
-# Target configuration
-USE_EXISTING_TARGET="true"       # "true" to use existing, "false" to create new (RADIUS only)
-EXISTING_TARGET_ALIAS="default"  # Used when USE_EXISTING_TARGET="true"
-NEW_TARGET_ALIAS="custom_alias"  # Used when USE_EXISTING_TARGET="false"
-
-# Restart the relevant service after upload
-RESTART_SERVICE="true"
-
-# CSR parameters (only used when creating a new target)
-CSR_KEY_LENGTH="2048"
-CSR_COUNTRY="US"
-CSR_STATE="Utah"
-CSR_CITY="Lehi"
-CSR_ORG="DigiCert"
-CSR_OU="Product"
-CSR_CN="fortinac-temporary-csr"
-```
-
-### FortiNAC — Target Modes
-
-**Using an existing target** (`USE_EXISTING_TARGET="true"`):
-
-- Set `EXISTING_TARGET_ALIAS` to `"default"` to use the factory-default target for the chosen `CERT_TYPE`
-- Set it to a custom alias name (e.g., `"my_radius"`) for custom RADIUS targets previously created via CSR
-
-**Creating a new RADIUS target** (`USE_EXISTING_TARGET="false"`):
-
-- Only supported when `CERT_TYPE="RADIUS"` — the FortiNAC CSR API exclusively creates Local RADIUS Server (EAP) targets
-- The script generates a CSR on FortiNAC (creating the target), then immediately uploads the TLM-issued certificate and key to replace the CSR-generated placeholder
-- `NEW_TARGET_ALIAS` must contain only alphanumeric characters and underscores
-
-### FortiNAC — Workflow
-
-1. **Target creation** (optional) — If `USE_EXISTING_TARGET="false"`, generates a CSR on FortiNAC to create a new RADIUS target
-2. **Certificate upload** — Uploads the certificate and private key to the target via multipart form POST
-3. **Service restart** (optional) — If `RESTART_SERVICE="true"`, restarts the relevant service to apply the new certificate
-
----
-
-## Google Cloud Apigee X
-
-**Script:** `apigee-awr.sh`
-
-Manages TLS certificates for Google Cloud Apigee X API gateways. Supports two deployment modes: **new** (creates a keystore, uploads the certificate, and creates a reference) and **rotate** (creates a new keystore, uploads the certificate, and updates an existing reference to point to the new keystore). This enables zero-downtime certificate rotation for Apigee virtual hosts and target endpoints.
-
-### Apigee X API Endpoints
-
-| Operation | Method | Endpoint |
-|---|---|---|
-| Create keystore | `POST` | `/v1/organizations/{org}/environments/{env}/keystores` |
-| Upload cert + key | `POST` | `/v1/organizations/{org}/environments/{env}/keystores/{keystore}/aliases?alias={alias}&format=keycertfile` |
-| Create reference | `POST` | `/v1/organizations/{org}/environments/{env}/references` |
-| Update reference | `PUT` | `/v1/organizations/{org}/environments/{env}/references/{reference}` |
-
-All endpoints are prefixed with `https://apigee.googleapis.com`.
-
-### Apigee Template Arguments
-
-| Argument | Description | Example |
-|---|---|---|
-| Argument 1 | Keystore name | `my-keystore-2025` |
-| Argument 2 | Alias name within the keystore | `my-cert-alias` |
-| Argument 3 | Reference name | `my-tls-reference` |
-| Argument 4 | Deployment mode: `new` or `rotate` | `rotate` |
-
-### Apigee Configuration
-
-Edit the script header:
-
-```bash
-LEGAL_NOTICE_ACCEPT="true"
+LEGAL_NOTICE_ACCEPT="true"                                   # must be "true" or the script exits
 LOGFILE="/home/ubuntu/tlm_agent_3.0.15_linux64/log/apigee.log"
-PROJECT_ID="your-gcp-project-id"
-ENVIRONMENT="your-apigee-environment"
+PROJECT_ID="< YOUR_PROJECT_ID >"                             # GCP project = Apigee organization
+ENVIRONMENT="< YOUR_ENVIRONMENT >"                           # Apigee environment, e.g. prod
 SA_KEY_PATH="/home/ubuntu/tlm_agent_3.0.15_linux64/user-scripts/service-account-key.json"
 ```
 
-### Apigee — Authentication
-
-Unlike the Fortinet scripts which use static API tokens, the Apigee script authenticates via a **GCP service account**:
-
-1. Place your service account JSON key file on the TLM Agent host
-2. Set `SA_KEY_PATH` to the full path of the key file
-3. The script activates the service account with `gcloud auth activate-service-account` and obtains a short-lived OAuth access token via `gcloud auth print-access-token`
-
-The service account needs the **Apigee Environment Admin** role (or equivalent custom role with permissions on keystores and references) on the target GCP project.
-
-### Apigee — Deployment Modes
-
-**`new` — Initial installation:**
-
-1. Creates a new keystore with the name from Argument 1
-2. Uploads the certificate and private key as an alias (Argument 2)
-3. Creates a new reference (Argument 3) pointing to the keystore
-
-Use this mode the first time you set up TLS for a virtual host or target endpoint.
-
-**`rotate` — Certificate rotation (zero-downtime):**
-
-1. Creates a new keystore with the name from Argument 1 (use a unique name per rotation, e.g., `keystore-2025-03`)
-2. Uploads the certificate and private key as an alias
-3. Updates the existing reference (Argument 3) to point to the new keystore
-
-Use this mode for renewals. Because Apigee virtual hosts reference a _reference_ (not a keystore directly), updating the reference atomically switches traffic to the new certificate.
-
-> **Tip:** For rotation, include a timestamp or version in the keystore name (Argument 1) since Apigee keystore names must be unique. The reference name (Argument 3) stays constant across rotations.
-
-### Apigee — Important Notes
-
-- The `gcloud` CLI must be installed and available in the TLM Agent's `PATH`
-- If Argument 4 (`DEPLOY`) is omitted, the script defaults to `new` mode
-- Apigee X does not support in-place certificate updates within an existing keystore — this is why the rotate mode creates a new keystore and swings the reference
+The TLM Agent user needs write access to the `LOGFILE` directory and read access to `SA_KEY_PATH`.
 
 ---
 
-## Common Configuration
+## Authentication
 
-### Legal Notice Acceptance
+The script authenticates with a GCP service account rather than a static API token:
 
-All scripts contain a DigiCert legal notice. You must explicitly accept it by setting the following in each script before first use:
+1. Place the service account JSON key on the TLM Agent host and restrict its permissions to the Agent user.
+2. Set `SA_KEY_PATH` to its full path.
+3. On every run the script calls `gcloud auth activate-service-account --key-file` and then `gcloud auth print-access-token` to obtain a short-lived OAuth bearer token, which it sends on each Apigee API call.
 
-```bash
-LEGAL_NOTICE_ACCEPT="true"
-```
+All calls go to `https://apigee.googleapis.com` over standard, verified TLS.
 
-The scripts will exit immediately if this is not set.
+---
 
-### Log File Location
+## Deployment modes
 
-Each script writes detailed timestamped logs. Configure the path via the `LOGFILE` variable. Ensure the TLM Agent user has write permissions to the log directory.
+### `new` — first installation
 
-### TLS Verification
+1. Creates keystore **Argument 1**
+2. Uploads the certificate and key as alias **Argument 2** (`format=keycertfile`)
+3. Creates reference **Argument 3** with `resourceType: KeyStore` pointing at the keystore
 
-The Fortinet scripts use `curl -k` to skip TLS certificate verification when connecting to the appliances. This is typical in environments where the appliances use self-signed certificates. If your appliances have trusted certificates, you can remove the `-k` flag and optionally specify a CA bundle with `--cacert`. The Apigee script connects to `apigee.googleapis.com` over standard TLS and does not skip verification.
+Use this once per virtual host or target endpoint, then point the virtual host at the reference in the Apigee console.
 
-### Key Type Support
+### `rotate` — renewal
 
-All scripts support RSA, ECC, and PKCS#8 private keys. The key type is auto-detected from the PEM header and logged for debugging purposes.
+1. Creates keystore **Argument 1** (a new, unique name)
+2. Uploads the certificate and key as alias **Argument 2**
+3. Updates existing reference **Argument 3** so that `refers` is the new keystore
+
+Use this for every renewal. The reference name never changes, so nothing on the virtual host needs editing.
+
+---
+
+## API endpoints
+
+All paths are relative to `https://apigee.googleapis.com/v1/organizations/{PROJECT_ID}/environments/{ENVIRONMENT}`.
+
+| Operation | Method | Path | Mode |
+|-----------|--------|------|------|
+| Create keystore | `POST` | `/keystores` | new, rotate |
+| Upload cert + key | `POST` | `/keystores/{KEYSTORE}/aliases?alias={ALIAS}&format=keycertfile` (multipart: `certFile`, `keyFile`) | new, rotate |
+| Create reference | `POST` | `/references` | new |
+| Update reference | `PUT` | `/references/{REFERENCE}` | rotate |
 
 ---
 
 ## Troubleshooting
 
-| Symptom | Likely Cause | Resolution |
-|---|---|---|
-| Script exits with "Legal notice not accepted" | `LEGAL_NOTICE_ACCEPT` is not `"true"` | Set `LEGAL_NOTICE_ACCEPT="true"` in the script |
-| `DC1_POST_SCRIPT_DATA` not set | Script not being executed by TLM Agent | Verify the script is configured as an AWR post-enrollment script in the certificate template |
-| HTTP 401 Unauthorized | Invalid or expired API token | Regenerate the API token on the appliance |
-| HTTP 403 Forbidden | Token lacks required permissions | Check the admin profile / API permissions |
-| HTTP 424 (FortiGate) | Certificate is bound to a configuration object | Unbind the certificate before renewal, or use a different name |
-| Delete fails on FortiWeb | Certificate bound to a server policy | Unbind from the server policy before renewal |
-| FortiNAC target creation fails | Using `USE_EXISTING_TARGET="false"` with non-RADIUS type | Only `CERT_TYPE="RADIUS"` supports new target creation |
-| Connection refused | Wrong hostname, port, or network issue | Verify connectivity from the TLM Agent host to the appliance |
-| Alias validation error (FortiNAC) | Special characters in alias | Use only alphanumeric characters and underscores |
-| `gcloud` command not found (Apigee) | gcloud CLI not installed or not in PATH | Install the Google Cloud SDK and ensure `gcloud` is in the TLM Agent's PATH |
-| Service account activation fails (Apigee) | Invalid or missing key file | Verify `SA_KEY_PATH` points to a valid service account JSON key |
-| Keystore creation fails with HTTP 409 (Apigee) | Keystore name already exists | Use a unique keystore name (e.g., include a timestamp) for each rotation |
+| Symptom | Likely cause | Resolution |
+|---------|--------------|------------|
+| "You must accept the legal notice" | `LEGAL_NOTICE_ACCEPT` is not `"true"` | Set it in the script header |
+| "DC1_POST_SCRIPT_DATA environment variable is not set" | Script was run by hand, not by the TLM Agent | Configure it as the AWR post-enrollment automation on the TLM profile |
+| "Failed to extract KEYSTORE / ALIAS / REFERENCE" | Fewer than three arguments on the profile, or a value contains a comma | Check the argument list on the TLM profile |
+| Script logs "defaulting to new installation" and nothing is created | Argument 4 (`DEPLOY`) is empty | Set Argument 4 to `new` or `rotate` |
+| "Invalid DEPLOY value" | Argument 4 is something other than `new` or `rotate` | Correct the value; it is case-sensitive |
+| "Service account key file not found" / "Failed to activate service account" | Wrong `SA_KEY_PATH`, unreadable file, or invalid key | Verify the path, file permissions and that the key is not revoked |
+| `gcloud: command not found` | gcloud CLI not installed or not in the Agent's `PATH` | Install the Google Cloud SDK and make it available to the TLM Agent user |
+| Keystore creation returns HTTP 409 | Keystore name already exists | Use a unique name per run (include a date or version) |
+| Reference update returns HTTP 404 (`rotate`) | Reference does not exist yet | Run once with `new`, or create the reference in the console first |
+| HTTP 403 on any call | Service account lacks the Apigee Environment Admin role on the project | Grant the role or an equivalent custom role |
 
-### Reading the Logs
-
-All scripts produce detailed logs. To follow a script execution in real time:
+To follow a run in real time:
 
 ```bash
-tail -f /opt/digicert/tlm_agent_3.1.9_linux64/log/fortigate.log
-tail -f /opt/digicert/tlm_agent_3.1.9_linux64/log/fortiweb.log
-tail -f /home/ubuntu/fortinac.log
 tail -f /home/ubuntu/tlm_agent_3.0.15_linux64/log/apigee.log
 ```
 
@@ -374,4 +175,4 @@ tail -f /home/ubuntu/tlm_agent_3.0.15_linux64/log/apigee.log
 
 ## License
 
-Copyright © 2026 DigiCert, Inc. All rights reserved. These scripts are provided under the terms of the DigiCert software license. See the legal notice within each script for full details.
+Copyright © 2026 DigiCert, Inc. All rights reserved. This script is provided under the terms of the DigiCert software license. See the legal notice within the script for full details.
