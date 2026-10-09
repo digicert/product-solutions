@@ -114,7 +114,7 @@ Edit these variables at the top of the script before deploying:
 | 3 | `BEARER_TOKEN` | Yes | FortiGate API Bearer token |
 | 4 | `DELETE_MODE` | No | `delete_old` — delete previously matched certs after reassignment. `keep_old` (default) — leave old certs in place |
 | 5 | `ASSIGN_MODE` | No | Assignment strategy. One of:<br>`assign_refs` (default) — reassign all references to the new cert<br>`import_only` — only import, skip reassignment<br>Comma-separated selectors (e.g., `ssl_vpn,admin_https`) — reassign only the specified features:<br>&nbsp;&nbsp;• `ssl_vpn` — SSL-VPN settings<br>&nbsp;&nbsp;• `admin_https` — Admin HTTPS certificate<br>&nbsp;&nbsp;• `admin_https_fallback` — Admin HTTPS certificate fallback<br>&nbsp;&nbsp;• `ipsec_phase1_interface` — IPsec phase1-interface table<br>&nbsp;&nbsp;• `ipsec_phase1` — IPsec phase1 table<br>&nbsp;&nbsp;• `firewall_vip` — Firewall virtual servers / VIPs with SSL offloading (`ssl-certificate` list) |
-| 6 | `OLD_CERT_NAME` | No | Exact name of the certificate currently bound on the FortiGate. When set, **only this exact name** is matched and the prefix rule of argument 2 is not used. Use it to take over a certificate that was not named by this script (e.g. one uploaded manually or by the FortiGate automation plugin, such as `paolo-2909_digicert-de_39bc349182d8`). Leave empty on subsequent renewals so the prefix rule picks up the name this script created. |
+| 6 | `OLD_CERT_NAME` | No | Exact name of a certificate to take over that was not named by this script (e.g. one uploaded manually or by the FortiGate automation plugin, such as `paolo-2909_digicert-de_39bc349182d8`). It is matched **in addition to** the prefix rule of argument 2, so the same arguments keep working on later renewals: the first run matches this name, later runs match the `<base>-*` name the script created, and the stale value is simply ignored. |
 
 ### Flow
 
@@ -132,9 +132,9 @@ Edit these variables at the top of the script before deploying:
    f. If firewall_vip enabled: GET firewall/vip → for each VIP whose ssl-certificate list contains the old cert,
       PUT the list back with only that member swapped (other certificates in the list are preserved)
 
-   Reference matching:
-   - OLD_CERT_NAME set: a reference matches only if it equals OLD_CERT_NAME exactly
-   - otherwise: a reference matches if it equals CERT_BASE_NAME or starts with "CERT_BASE_NAME-"
+   Reference matching (a reference matches if any rule applies):
+   - it equals CERT_BASE_NAME or starts with "CERT_BASE_NAME-" (a name this script created earlier)
+   - it equals OLD_CERT_NAME (argument 6) exactly
 
    Feature selection rules:
    - assign_refs (default): all features enabled
@@ -164,19 +164,15 @@ The following table shows practical examples of ASSIGN_MODE values and their eff
 
 A FortiGate has `paolo-2909_digicert-de_39bc349182d8` bound to a virtual server under *Policy & Objects → Virtual Servers* (a `firewall/vip` entry with `ssl-certificate`). That name was created by the FortiGate automation plugin, is 35 characters long, and does not follow this script's `<base>-<timestamp>` pattern, so the prefix rule cannot match it and the base name cannot be reused.
 
-First renewal — take over the existing name with argument 6:
+Name the existing certificate in argument 6:
 
 ```json
 "args": ["fgt.example.com", "paolo-vip", "<api-token>", "delete_old", "firewall_vip", "paolo-2909_digicert-de_39bc349182d8"]
 ```
 
-The script imports the certificate as `paolo-vip-20261009-101500`, rewrites the VIP's `ssl-certificate` list so that member becomes the new name (any other certificates in the list are kept), and deletes `paolo-2909_digicert-de_39bc349182d8`.
+First run: the script imports the certificate as `paolo-vip-20261009-101500`, rewrites the VIP's `ssl-certificate` list so that member becomes the new name (any other certificates in the list are kept), and deletes `paolo-2909_digicert-de_39bc349182d8`.
 
-Subsequent renewals — drop argument 6 so the prefix rule matches `paolo-vip-*`:
-
-```json
-"args": ["fgt.example.com", "paolo-vip", "<api-token>", "delete_old", "firewall_vip"]
-```
+Later renewals with the **same arguments**: argument 6 no longer matches anything (that certificate is gone), but the prefix rule matches `paolo-vip-20261009-101500`, so the rotation continues normally. Argument 6 can stay in the TLM profile indefinitely or be removed, either works.
 
 Use `assign_refs` instead of `firewall_vip` if the same certificate is also bound to SSL-VPN, admin HTTPS or IPsec.
 

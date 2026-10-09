@@ -227,9 +227,10 @@ print(json.dumps({sys.argv[1]: sys.argv[2]}))
 ' "$1" "$2"
 }
 
-# Reference matching: when OLD_CERT_NAME (argument 6) is set only that exact name
-# matches; otherwise a value matches if it equals CERT_BASE_NAME or starts with
-# "CERT_BASE_NAME-" (i.e. a name produced by an earlier run of this script).
+# Reference matching: a value matches if it equals CERT_BASE_NAME, starts with
+# "CERT_BASE_NAME-" (a name produced by an earlier run of this script), or equals
+# OLD_CERT_NAME (argument 6) exactly. Argument 6 is additive, not exclusive, so the
+# same TLM arguments keep working after the first rotation has replaced that name.
 find_matching_singleton_field_value() {
     FIELD="$1"
     BASE="$2"
@@ -244,8 +245,8 @@ exact = sys.argv[3]
 body = sys.stdin.read()
 
 def matches(v):
-    if exact:
-        return v == exact
+    if exact and v == exact:
+        return True
     return v == base or v.startswith(base + "-")
 
 try:
@@ -284,8 +285,8 @@ def unwrap(v):
     return vals
 
 def matches(v):
-    if exact:
-        return v == exact
+    if exact and v == exact:
+        return True
     return v == base or v.startswith(base + "-")
 
 try:
@@ -447,7 +448,7 @@ log_message "  FortiGate URL: $FORTIGATE_URL"
 log_message "  Certificate Base Name: $CERT_BASE_NAME"
 log_message "  New Certificate Name: $NEW_CERT_NAME"
 if [ -n "$OLD_CERT_NAME" ]; then
-    log_message "  Old Certificate Name (exact match): $OLD_CERT_NAME"
+    log_message "  Old Certificate Name: matching '$OLD_CERT_NAME' exactly, plus '$CERT_BASE_NAME' or '$CERT_BASE_NAME-*'"
 else
     log_message "  Old Certificate Name: <not set - matching '$CERT_BASE_NAME' or '$CERT_BASE_NAME-*'>"
 fi

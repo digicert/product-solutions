@@ -284,9 +284,10 @@ function Write-ImportErrorDetails {
     Write-Log -Message "Response: $Body" -Level "ERROR"
 }
 
-# Reference matching: when OLD_CERT_NAME (argument 6) is set only that exact name matches;
-# otherwise a value matches if it equals CERT_BASE_NAME or starts with "CERT_BASE_NAME-"
-# (i.e. a name produced by an earlier run of this script).
+# Reference matching: a value matches if it equals CERT_BASE_NAME, starts with "CERT_BASE_NAME-"
+# (a name produced by an earlier run of this script), or equals OLD_CERT_NAME (argument 6) exactly.
+# Argument 6 is additive, not exclusive, so the same TLM arguments keep working after the first
+# rotation has replaced that name.
 function Test-CertificateNameMatch {
     param(
         [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Candidate,
@@ -297,8 +298,8 @@ function Test-CertificateNameMatch {
     if ([string]::IsNullOrWhiteSpace($Candidate)) {
         return $false
     }
-    if (-not [string]::IsNullOrWhiteSpace($ExactName)) {
-        return ($Candidate -ceq $ExactName)
+    if (-not [string]::IsNullOrWhiteSpace($ExactName) -and $Candidate -ceq $ExactName) {
+        return $true
     }
     return ($Candidate -ceq $BaseName -or $Candidate.StartsWith("$BaseName-", [System.StringComparison]::Ordinal))
 }
@@ -834,7 +835,7 @@ function Main {
         if ([string]::IsNullOrWhiteSpace($state.OldCertName)) {
             Write-Log -Message "  Old Certificate Name: <not set - matching '$($state.CertBaseName)' or '$($state.CertBaseName)-*'>" -Level "INFO"
         } else {
-            Write-Log -Message "  Old Certificate Name (exact match): $($state.OldCertName)" -Level "INFO"
+            Write-Log -Message "  Old Certificate Name: matching '$($state.OldCertName)' exactly, plus '$($state.CertBaseName)' or '$($state.CertBaseName)-*'" -Level "INFO"
         }
         Write-Log -Message "  Bearer Token: [REDACTED - $($state.BearerToken.Length) characters]" -Level "INFO"
         Write-Log -Message "  Delete Mode: $deleteMode" -Level "INFO"
