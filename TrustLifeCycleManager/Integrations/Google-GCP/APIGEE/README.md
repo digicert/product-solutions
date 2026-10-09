@@ -6,8 +6,6 @@
 |--------|----------|----------|
 | `google_apigee-awr.sh` | Linux (Bash) | [google_apigee-awr.sh](google_apigee-awr.sh) |
 
-The equivalent scripts for Fortinet appliances live in [../../Fortinet/](../../Fortinet/README.md).
-
 ---
 
 ## Contents
@@ -51,7 +49,7 @@ Because the virtual host follows the reference, updating the reference switches 
 ## Prerequisites
 
 - **DigiCert TLM Agent** (v3.0.15 or later) on a Linux host with post-enrollment script execution enabled
-- **Bash** 4.0 or later, **curl**, **base64**, and **grep** with PCRE support (`grep -P`)
+- **Bash** 4.0 or later, **curl**, **base64**, **awk**, and **grep** with PCRE support (`grep -P`)
 - **gcloud CLI** installed and in the TLM Agent's `PATH`
 - Outbound HTTPS from the TLM Agent host to `apigee.googleapis.com` and the Google OAuth endpoints
 - A **GCP service account** JSON key with the **Apigee Environment Admin** role (or a custom role with permissions on keystores, aliases and references) on the target project
@@ -68,7 +66,15 @@ The TLM Agent sets the `DC1_POST_SCRIPT_DATA` environment variable to a Base64-e
 - **`files`**: the file names, one `.crt` and one `.key`
 - **`args`**: the arguments configured on the TLM profile, in order
 
-The script decodes the payload, resolves the `.crt` and `.key` paths, and reads its four arguments from `args`. The payload structure is the same for every TLM AWR script; see the [FortiGate script README](../../Fortinet/FortiGATE/admin-webrequest-post-script/README.md#how-it-is-triggered) for a worked example.
+The script decodes the payload, resolves the `.crt` and `.key` paths, and reads its four arguments from `args`. Decoded, the payload looks like this:
+
+```json
+{
+  "certfolder": "/home/ubuntu/tlm_agent_3.0.15_linux64/certs/api.example.com",
+  "files": ["api.example.com.crt", "api.example.com.key"],
+  "args": ["web-keystore-2026-03", "web-cert", "web-tls-ref", "rotate"]
+}
+```
 
 > **Note:** arguments are split on commas, so none of the values below may contain a comma.
 
