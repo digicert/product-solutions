@@ -33,6 +33,7 @@ LEGAL_NOTICE
 # Configuration
 LEGAL_NOTICE_ACCEPT="false"  # Set to "true" to accept the legal notice and proceed with script execution
 LOGFILE="/opt/digicert/fortigate.log"
+MAX_CERT_NAME_LENGTH=35  # FortiOS limit for vpn.certificate.local object names
 
 log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOGFILE"
@@ -226,16 +227,26 @@ print(json.dumps({sys.argv[1]: sys.argv[2]}))
 ' "$1" "$2"
 }
 
+# Reference matching: when OLD_CERT_NAME (argument 6) is set only that exact name
+# matches; otherwise a value matches if it equals CERT_BASE_NAME or starts with
+# "CERT_BASE_NAME-" (i.e. a name produced by an earlier run of this script).
 find_matching_singleton_field_value() {
     FIELD="$1"
     BASE="$2"
+    EXACT="$3"
 
     python3 -c '
 import json, sys
 
 field = sys.argv[1]
 base = sys.argv[2]
+exact = sys.argv[3]
 body = sys.stdin.read()
+
+def matches(v):
+    if exact:
+        return v == exact
+    return v == base or v.startswith(base + "-")
 
 try:
     data = json.loads(body)
@@ -243,11 +254,11 @@ try:
     value = result.get(field, "")
 
     if isinstance(value, str):
-        if value == base or value.startswith(base + "-"):
+        if matches(value):
             print(value)
 except Exception:
     pass
-' "$FIELD" "$BASE"
+' "$FIELD" "$BASE" "$EXACT"
 }
 
 list_matching_table_objects() {
@@ -257,6 +268,7 @@ import json, sys
 body=sys.stdin.read()
 field=sys.argv[1]
 base=sys.argv[2]
+exact=sys.argv[3]
 
 def unwrap(v):
     vals=[]
@@ -272,6 +284,8 @@ def unwrap(v):
     return vals
 
 def matches(v):
+    if exact:
+        return v == exact
     return v == base or v.startswith(base + "-")
 
 try:
@@ -294,7 +308,49 @@ try:
                 print(str(mkey) + "|" + matched)
 except Exception:
     pass
-' "$FIELD" "$BASE"
+' "$1" "$2" "$3"
+}
+
+# Builds the PUT payload for a list-valued certificate field (e.g. firewall/vip
+# ssl-certificate, which is a list of {"name": ...}). Reads the table GET body on
+# stdin, finds the row by mkey and rewrites only the matching member, preserving
+# every other certificate already in the list.
+make_list_field_payload() {
+    python3 -c '
+import json, sys
+
+mkey, field, old, new = sys.argv[1:5]
+body = sys.stdin.read()
+
+members = []
+try:
+    data = json.loads(body)
+    results = data.get("results", [])
+    if isinstance(results, dict):
+        results = [results]
+    for item in results:
+        key = item.get("name") or item.get("q_origin_key") or item.get("mkey") or item.get("id")
+        if str(key) != mkey:
+            continue
+        value = item.get(field)
+        if isinstance(value, str):
+            value = [value]
+        for entry in value or []:
+            name = entry.get("name") if isinstance(entry, dict) else entry
+            if not isinstance(name, str) or not name:
+                continue
+            name = new if name == old else name
+            if name not in members:
+                members.append(name)
+        break
+except Exception:
+    members = []
+
+if not members:
+    members = [new]
+
+print(json.dumps({field: [{"name": m} for m in members]}))
+' "$1" "$2" "$3" "$4"
 }
 
 log_message "=========================================="
@@ -358,6 +414,10 @@ ASSIGN_MODE=$(json_get_arg 4 | tr -d '[:space:]')
 log_message "ARGUMENT_5 (Assign Mode) extracted: '$ASSIGN_MODE'"
 log_message "ARGUMENT_5 length: ${#ASSIGN_MODE}"
 
+OLD_CERT_NAME=$(json_get_arg 5 | tr -d '[:space:]')
+log_message "ARGUMENT_6 (Old Certificate Name, optional) extracted: '$OLD_CERT_NAME'"
+log_message "ARGUMENT_6 length: ${#OLD_CERT_NAME}"
+
 [ -z "$DELETE_MODE" ] && DELETE_MODE="keep_old"
 [ -z "$ASSIGN_MODE" ] && ASSIGN_MODE="assign_refs"
 
@@ -386,6 +446,11 @@ log_message "FortiGate Configuration:"
 log_message "  FortiGate URL: $FORTIGATE_URL"
 log_message "  Certificate Base Name: $CERT_BASE_NAME"
 log_message "  New Certificate Name: $NEW_CERT_NAME"
+if [ -n "$OLD_CERT_NAME" ]; then
+    log_message "  Old Certificate Name (exact match): $OLD_CERT_NAME"
+else
+    log_message "  Old Certificate Name: <not set - matching '$CERT_BASE_NAME' or '$CERT_BASE_NAME-*'>"
+fi
 log_message "  Bearer Token: [REDACTED - ${#BEARER_TOKEN} characters]"
 log_message "  Delete Mode: $DELETE_MODE"
 log_message "  Assign Mode: $ASSIGN_MODE"
@@ -412,6 +477,7 @@ log_message "=========================================="
 [ -z "$BEARER_TOKEN" ] && fail "Argument 3 bearer token is empty"
 [ ! -f "$CRT_FILE_PATH" ] && fail "Certificate file does not exist: $CRT_FILE_PATH"
 [ ! -f "$KEY_FILE_PATH" ] && fail "Private key file does not exist: $KEY_FILE_PATH"
+[ "${#NEW_CERT_NAME}" -gt "$MAX_CERT_NAME_LENGTH" ] && fail "New certificate name '$NEW_CERT_NAME' is ${#NEW_CERT_NAME} characters but FortiOS allows at most $MAX_CERT_NAME_LENGTH. Use a CERT_BASE_NAME (argument 2) of $((MAX_CERT_NAME_LENGTH - 16)) characters or fewer; to take over a longer existing name pass it as argument 6 (OLD_CERT_NAME)"
 
 log_message "All validations passed, proceeding with API call..."
 
@@ -508,7 +574,7 @@ except Exception:
 
     log_message "$LABEL raw $FIELD value: $RAW_VALUE"
 
-    MATCHED_VALUE=$(echo "$BODY" | find_matching_singleton_field_value "$FIELD" "$CERT_BASE_NAME")
+    MATCHED_VALUE=$(echo "$BODY" | find_matching_singleton_field_value "$FIELD" "$CERT_BASE_NAME" "$OLD_CERT_NAME")
 
     if [ -z "$MATCHED_VALUE" ]; then
         log_message "No matching reference found in $LABEL field $FIELD"
@@ -537,10 +603,14 @@ except Exception:
     fi
 }
 
+# reassign_table <label> <cmdb endpoint> <field> [string|list]
+#   string (default): the field holds one certificate name
+#   list:             the field is a list of {"name": ...} (e.g. firewall/vip ssl-certificate)
 reassign_table() {
     LABEL="$1"
     ENDPOINT="$2"
     FIELD="$3"
+    VALUE_KIND="${4:-string}"
 
     LIST_URL="https://${FORTIGATE_URL}/api/v2/cmdb/${ENDPOINT}"
 
@@ -556,7 +626,7 @@ reassign_table() {
         return
     }
 
-    MATCHES=$(echo "$BODY" | list_matching_table_objects "$FIELD" "$CERT_BASE_NAME")
+    MATCHES=$(echo "$BODY" | list_matching_table_objects "$FIELD" "$CERT_BASE_NAME" "$OLD_CERT_NAME")
 
     [ -z "$MATCHES" ] && {
         log_message "No matching references found in $LABEL"
@@ -573,7 +643,12 @@ reassign_table() {
 
         ENCODED_MKEY=$(urlencode "$MKEY")
         UPDATE_URL="https://${FORTIGATE_URL}/api/v2/cmdb/${ENDPOINT}/${ENCODED_MKEY}"
-        PAYLOAD=$(make_single_field_payload "$FIELD" "$NEW_CERT_NAME")
+        if [ "$VALUE_KIND" = "list" ]; then
+            PAYLOAD=$(echo "$BODY" | make_list_field_payload "$MKEY" "$FIELD" "$MATCHED_VALUE" "$NEW_CERT_NAME")
+        else
+            PAYLOAD=$(make_single_field_payload "$FIELD" "$NEW_CERT_NAME")
+        fi
+        log_message "$LABEL '$MKEY' payload: $PAYLOAD"
 
         log_message "PUT $UPDATE_URL"
         UPDATE_RESP=$(api_call PUT "$UPDATE_URL" "$PAYLOAD")
@@ -600,6 +675,7 @@ is_feature_enabled "admin_https_fallback" && reassign_singleton "Admin HTTPS cer
 
 is_feature_enabled "ipsec_phase1_interface" && reassign_table "IPsec phase1-interface" "vpn.ipsec/phase1-interface" "certificate"
 is_feature_enabled "ipsec_phase1" && reassign_table "IPsec phase1" "vpn.ipsec/phase1" "certificate"
+is_feature_enabled "firewall_vip" && reassign_table "Firewall VIP SSL certificate" "firewall/vip" "ssl-certificate" list
 
 log_message "=========================================="
 log_message "References reassigned: $REFERENCE_COUNT"

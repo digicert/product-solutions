@@ -46,7 +46,8 @@
 # =====================================================================
 $LEGAL_NOTICE_ACCEPT = "false"
 $LOG_PATH = "C:\Program Files\DigiCert\TLM Agent\log\fortigate-awr.log"
-$SCRIPT_VERSION = "1.0.0"
+$SCRIPT_VERSION = "1.1.0"
+$MAX_CERT_NAME_LENGTH = 35  # FortiOS limit for vpn.certificate.local object names
 $SKIP_CERTIFICATE_CHECK = $false
 
 function Write-Log {
@@ -283,11 +284,31 @@ function Write-ImportErrorDetails {
     Write-Log -Message "Response: $Body" -Level "ERROR"
 }
 
+# Reference matching: when OLD_CERT_NAME (argument 6) is set only that exact name matches;
+# otherwise a value matches if it equals CERT_BASE_NAME or starts with "CERT_BASE_NAME-"
+# (i.e. a name produced by an earlier run of this script).
+function Test-CertificateNameMatch {
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Candidate,
+        [Parameter(Mandatory = $true)][string]$BaseName,
+        [string]$ExactName = ""
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Candidate)) {
+        return $false
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ExactName)) {
+        return ($Candidate -ceq $ExactName)
+    }
+    return ($Candidate -ceq $BaseName -or $Candidate.StartsWith("$BaseName-", [System.StringComparison]::Ordinal))
+}
+
 function Get-MatchingSingletonFieldValue {
     param(
         [Parameter(Mandatory = $true)]$BodyObject,
         [Parameter(Mandatory = $true)][string]$Field,
-        [Parameter(Mandatory = $true)][string]$BaseName
+        [Parameter(Mandatory = $true)][string]$BaseName,
+        [string]$ExactName = ""
     )
 
     $result = $BodyObject.results
@@ -300,7 +321,7 @@ function Get-MatchingSingletonFieldValue {
         return ""
     }
 
-    if ($value -eq $BaseName -or $value.StartsWith("$BaseName-")) {
+    if (Test-CertificateNameMatch -Candidate $value -BaseName $BaseName -ExactName $ExactName) {
         return $value
     }
 
@@ -318,6 +339,17 @@ function Get-UnwrappedStringValues {
 
     if ($Value -is [string]) {
         $values.Add($Value)
+        return $values
+    }
+
+    # ConvertFrom-Json yields PSCustomObject entries (e.g. {"name": "cert"}), not dictionaries
+    if ($Value -is [System.Management.Automation.PSCustomObject]) {
+        foreach ($k in @("name", "q_origin_key", "mkey", "value")) {
+            $prop = $Value.PSObject.Properties[$k]
+            if ($prop -and $prop.Value -is [string]) {
+                $values.Add([string]$prop.Value)
+            }
+        }
         return $values
     }
 
@@ -346,7 +378,8 @@ function Get-MatchingTableObjects {
     param(
         [Parameter(Mandatory = $true)]$BodyObject,
         [Parameter(Mandatory = $true)][string]$Field,
-        [Parameter(Mandatory = $true)][string]$BaseName
+        [Parameter(Mandatory = $true)][string]$BaseName,
+        [string]$ExactName = ""
     )
 
     $tableRows = @()
@@ -361,7 +394,7 @@ function Get-MatchingTableObjects {
         $matchedValue = ""
 
         foreach ($candidate in $candidates) {
-            if ($candidate -eq $BaseName -or $candidate.StartsWith("$BaseName-")) {
+            if (Test-CertificateNameMatch -Candidate $candidate -BaseName $BaseName -ExactName $ExactName) {
                 $matchedValue = $candidate
                 break
             }
@@ -423,6 +456,54 @@ function New-SingleFieldPayload {
     return (ConvertTo-JsonString -Value @{ $Field = $Value })
 }
 
+# Builds the PUT payload for a list-valued certificate field (e.g. firewall/vip ssl-certificate,
+# a list of {"name": ...}). Finds the row by mkey in the table GET body and rewrites only the
+# matching member, preserving every other certificate already in the list.
+function New-ListFieldPayload {
+    param(
+        [Parameter(Mandatory = $true)]$BodyObject,
+        [Parameter(Mandatory = $true)][string]$Mkey,
+        [Parameter(Mandatory = $true)][string]$Field,
+        [Parameter(Mandatory = $true)][string]$OldValue,
+        [Parameter(Mandatory = $true)][string]$NewValue
+    )
+
+    $members = [System.Collections.Generic.List[string]]::new()
+    $results = $BodyObject.results
+    if ($results -is [System.Collections.IDictionary] -or ($results -and $results -isnot [System.Collections.IEnumerable])) {
+        $results = @($results)
+    }
+
+    foreach ($item in $results) {
+        $key = $item.name
+        if ([string]::IsNullOrWhiteSpace([string]$key)) { $key = $item.q_origin_key }
+        if ([string]::IsNullOrWhiteSpace([string]$key)) { $key = $item.mkey }
+        if ([string]::IsNullOrWhiteSpace([string]$key)) { $key = $item.id }
+        if ([string]$key -cne $Mkey) {
+            continue
+        }
+
+        foreach ($name in (Get-UnwrappedStringValues -Value $item.$Field)) {
+            if ([string]::IsNullOrWhiteSpace($name)) { continue }
+            $resolved = if ($name -ceq $OldValue) { $NewValue } else { $name }
+            if (-not $members.Contains($resolved)) {
+                $members.Add($resolved)
+            }
+        }
+        break
+    }
+
+    if ($members.Count -eq 0) {
+        $members.Add($NewValue)
+    }
+
+    $list = @()
+    foreach ($m in $members) {
+        $list += @{ name = $m }
+    }
+    return (ConvertTo-JsonString -Value @{ $Field = $list })
+}
+
 function Add-OldCertificateMatch {
     param(
         [Parameter(Mandatory = $true)][hashtable]$State,
@@ -472,7 +553,7 @@ function Invoke-ReassignSingleton {
     }
     Write-Log -Message "$Label raw $Field value: $rawValue" -Level "INFO"
 
-    $matchedValue = Get-MatchingSingletonFieldValue -BodyObject $bodyObject -Field $Field -BaseName $State.CertBaseName
+    $matchedValue = Get-MatchingSingletonFieldValue -BodyObject $bodyObject -Field $Field -BaseName $State.CertBaseName -ExactName $State.OldCertName
     if ([string]::IsNullOrWhiteSpace($matchedValue)) {
         Write-Log -Message "No matching reference found in $Label field $Field" -Level "INFO"
         return
@@ -497,12 +578,15 @@ function Invoke-ReassignSingleton {
     }
 }
 
+# Invoke-ReassignTable: -ListValued when the field is a list of {"name": ...}
+# (e.g. firewall/vip ssl-certificate) rather than a single certificate name.
 function Invoke-ReassignTable {
     param(
         [Parameter(Mandatory = $true)][hashtable]$State,
         [Parameter(Mandatory = $true)][string]$Label,
         [Parameter(Mandatory = $true)][string]$Endpoint,
-        [Parameter(Mandatory = $true)][string]$Field
+        [Parameter(Mandatory = $true)][string]$Field,
+        [switch]$ListValued
     )
 
     $listUrl = "$($State.FortiGateBaseUrl)/api/v2/cmdb/$Endpoint"
@@ -523,7 +607,7 @@ function Invoke-ReassignTable {
         return
     }
 
-    $tableRows = Get-MatchingTableObjects -BodyObject $bodyObject -Field $Field -BaseName $State.CertBaseName
+    $tableRows = Get-MatchingTableObjects -BodyObject $bodyObject -Field $Field -BaseName $State.CertBaseName -ExactName $State.OldCertName
     if (-not $tableRows -or $tableRows.Count -eq 0) {
         Write-Log -Message "No matching references found in $Label" -Level "INFO"
         return
@@ -538,9 +622,14 @@ function Invoke-ReassignTable {
 
         $encodedMkey = [uri]::EscapeDataString([string]$match.Mkey)
         $updateUrl = "$($State.FortiGateBaseUrl)/api/v2/cmdb/$Endpoint/$encodedMkey"
-        $payload = New-SingleFieldPayload -Field $Field -Value $State.NewCertName
+        if ($ListValued) {
+            $payload = New-ListFieldPayload -BodyObject $bodyObject -Mkey $match.Mkey -Field $Field -OldValue $match.MatchedValue -NewValue $State.NewCertName
+        } else {
+            $payload = New-SingleFieldPayload -Field $Field -Value $State.NewCertName
+        }
 
         Write-Log -Message "PUT $updateUrl" -Level "INFO"
+        Write-Log -Message "$Label '$($match.Mkey)' payload: $payload" -Level "INFO"
 
         $updateResponse = Invoke-FortiGateApi -Method "PUT" -Uri $updateUrl -BearerToken $State.BearerToken -Body $payload
         Write-Log -Message "$Label '$($match.Mkey)' update HTTP: $($updateResponse.StatusCode)" -Level "INFO"
@@ -626,6 +715,7 @@ function Get-AssignModeConfig {
         ReassignAdminHttpsFallback = $false
         ReassignIpsecPhase1Interface = $false
         ReassignIpsecPhase1 = $false
+        ReassignFirewallVip = $false
         UnknownOptions = @()
     }
 
@@ -649,6 +739,7 @@ function Get-AssignModeConfig {
         $config.ReassignAdminHttpsFallback = $true
         $config.ReassignIpsecPhase1Interface = $true
         $config.ReassignIpsecPhase1 = $true
+        $config.ReassignFirewallVip = $true
         return $config
     }
 
@@ -668,6 +759,9 @@ function Get-AssignModeConfig {
             }
             { $_ -in @("ipsec_phase1") } {
                 $config.ReassignIpsecPhase1 = $true
+            }
+            { $_ -in @("firewall_vip") } {
+                $config.ReassignFirewallVip = $true
             }
             default {
                 $config.UnknownOptions += $option
@@ -695,6 +789,7 @@ function Main {
         $bearerToken = Get-ArgumentAtIndex -JsonObject $jsonObject -Index 2
         $deleteMode = Get-ArgumentAtIndex -JsonObject $jsonObject -Index 3
         $assignMode = Get-ArgumentAtIndex -JsonObject $jsonObject -Index 4
+        $oldCertName = Get-ArgumentAtIndex -JsonObject $jsonObject -Index 5
 
         if ([string]::IsNullOrWhiteSpace($deleteMode)) { $deleteMode = "keep_old" }
         if ([string]::IsNullOrWhiteSpace($assignMode)) { $assignMode = "assign_refs" }
@@ -713,6 +808,7 @@ function Main {
         $state = @{
             BearerToken = $bearerToken
             CertBaseName = $certBaseName
+            OldCertName = $oldCertName
             NewCertName = $newCertName
             FortiGateBaseUrl = $fortiGateBaseUrl
             MatchedOldCerts = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
@@ -721,7 +817,7 @@ function Main {
         }
 
         $sanitizedArgs = @()
-        for ($i = 0; $i -lt 5; $i++) {
+        for ($i = 0; $i -lt 6; $i++) {
             $argValue = Get-ArgumentAtIndex -JsonObject $jsonObject -Index $i
             if ($i -eq 2 -and -not [string]::IsNullOrWhiteSpace($argValue)) {
                 $sanitizedArgs += "[REDACTED]"
@@ -735,6 +831,11 @@ function Main {
         Write-Log -Message "  Base URL: $($state.FortiGateBaseUrl)" -Level "INFO"
         Write-Log -Message "  Certificate Base Name: $($state.CertBaseName)" -Level "INFO"
         Write-Log -Message "  New Certificate Name: $($state.NewCertName)" -Level "INFO"
+        if ([string]::IsNullOrWhiteSpace($state.OldCertName)) {
+            Write-Log -Message "  Old Certificate Name: <not set - matching '$($state.CertBaseName)' or '$($state.CertBaseName)-*'>" -Level "INFO"
+        } else {
+            Write-Log -Message "  Old Certificate Name (exact match): $($state.OldCertName)" -Level "INFO"
+        }
         Write-Log -Message "  Bearer Token: [REDACTED - $($state.BearerToken.Length) characters]" -Level "INFO"
         Write-Log -Message "  Delete Mode: $deleteMode" -Level "INFO"
         Write-Log -Message "  Assign Mode: $assignMode" -Level "INFO"
@@ -756,6 +857,9 @@ function Main {
         if ([string]::IsNullOrWhiteSpace($keyFile)) { Stop-Script -Message "No .key file found in DC1_POST_SCRIPT_DATA files array" }
         if (-not (Test-Path -Path $crtPath -PathType Leaf)) { Stop-Script -Message "Certificate file does not exist: $crtPath" }
         if (-not (Test-Path -Path $keyPath -PathType Leaf)) { Stop-Script -Message "Private key file does not exist: $keyPath" }
+        if ($state.NewCertName.Length -gt $MAX_CERT_NAME_LENGTH) {
+            Stop-Script -Message "New certificate name '$($state.NewCertName)' is $($state.NewCertName.Length) characters but FortiOS allows at most $MAX_CERT_NAME_LENGTH. Use a CERT_BASE_NAME (argument 2) of $($MAX_CERT_NAME_LENGTH - 16) characters or fewer; to take over a longer existing name pass it as argument 6 (OLD_CERT_NAME)"
+        }
 
         Write-CertificateFileDetails -Path $crtPath
         Write-PrivateKeyFileDetails -Path $keyPath
@@ -793,6 +897,9 @@ function Main {
         }
         if ($assignConfig.ReassignIpsecPhase1) {
             Invoke-ReassignTable -State $state -Label "IPsec phase1" -Endpoint "vpn.ipsec/phase1" -Field "certificate"
+        }
+        if ($assignConfig.ReassignFirewallVip) {
+            Invoke-ReassignTable -State $state -Label "Firewall VIP SSL certificate" -Endpoint "firewall/vip" -Field "ssl-certificate" -ListValued
         }
 
         Write-Log -Message "References reassigned: $($state.ReferenceCount)" -Level "INFO"

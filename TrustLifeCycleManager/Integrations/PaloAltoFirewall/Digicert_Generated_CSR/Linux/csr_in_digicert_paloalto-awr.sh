@@ -89,18 +89,89 @@ urlencode() {
     done
 }
 
-# Function to generate a random alphanumeric passphrase.
-# Reads the kernel CSPRNG directly so the passphrase does not depend on OpenSSL being installed;
-# openssl rand is only used as a secondary source if /dev/urandom is unavailable.
+# Function to validate a generated passphrase: at least 32 characters, alphanumeric only
+passphrase_is_valid() {
+    case "$1" in
+        ''|*[!A-Za-z0-9]*) return 1 ;;
+    esac
+    [ ${#1} -ge 32 ]
+}
+
+# Function to generate a random one-time passphrase (48 hex characters = 192 bits of entropy).
+# On success it sets GENERATED_PASSPHRASE and returns 0. On failure it returns 1 and leaves a
+# description of every attempted source in GENERATE_PASSPHRASE_DIAG so the caller can log it.
+# The function deliberately writes to variables rather than stdout so it runs in the main shell
+# and the diagnostics survive. Sources, in order:
+#   1. /dev/urandom read through od. This is a bounded 24-byte read, so an ignored SIGPIPE or a
+#      non-terminating pipeline can never hang the script, and there is no dependency on OpenSSL.
+#   2. openssl rand -hex. Modern OpenSSL uses the getrandom(2) syscall, so this works even when the
+#      process is not permitted to open /dev/urandom (device cgroup, SELinux/AppArmor, hardened /dev).
+#   3. python3 secrets module, if python3 is installed.
+GENERATED_PASSPHRASE=""
+GENERATE_PASSPHRASE_DIAG=""
 generate_passphrase() {
-    local passphrase=""
-    if [ -r /dev/urandom ]; then
-        passphrase=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
+    local candidate="" errfile errtext
+    GENERATED_PASSPHRASE=""
+    GENERATE_PASSPHRASE_DIAG=""
+    errfile=$(mktemp 2>/dev/null) || errfile=""
+
+    # 1. /dev/urandom via od (bounded read)
+    if [ -n "$errfile" ]; then
+        candidate=$(od -An -N24 -tx1 /dev/urandom 2>"$errfile" | tr -d ' \n')
+        errtext=$(tr '\n' ' ' < "$errfile")
+    else
+        candidate=$(od -An -N24 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n')
+        errtext=""
     fi
-    if [ ${#passphrase} -lt 32 ] && command -v openssl >/dev/null 2>&1; then
-        passphrase=$(openssl rand -base64 48 2>/dev/null | tr -dc 'A-Za-z0-9' | head -c 32)
+    if passphrase_is_valid "$candidate"; then
+        GENERATED_PASSPHRASE="$candidate"
+    else
+        GENERATE_PASSPHRASE_DIAG="${GENERATE_PASSPHRASE_DIAG}[/dev/urandom via od: ${#candidate} chars${errtext:+; $errtext}] "
     fi
-    printf '%s' "$passphrase"
+
+    # 2. openssl rand -hex
+    if [ -z "$GENERATED_PASSPHRASE" ]; then
+        if command -v openssl >/dev/null 2>&1; then
+            if [ -n "$errfile" ]; then
+                candidate=$(openssl rand -hex 24 2>"$errfile")
+                errtext=$(tr '\n' ' ' < "$errfile")
+            else
+                candidate=$(openssl rand -hex 24 2>/dev/null)
+                errtext=""
+            fi
+            if passphrase_is_valid "$candidate"; then
+                GENERATED_PASSPHRASE="$candidate"
+            else
+                GENERATE_PASSPHRASE_DIAG="${GENERATE_PASSPHRASE_DIAG}[openssl rand -hex: ${#candidate} chars${errtext:+; $errtext}] "
+            fi
+        else
+            GENERATE_PASSPHRASE_DIAG="${GENERATE_PASSPHRASE_DIAG}[openssl: not found on PATH] "
+        fi
+    fi
+
+    # 3. python3 secrets module
+    if [ -z "$GENERATED_PASSPHRASE" ]; then
+        if command -v python3 >/dev/null 2>&1; then
+            if [ -n "$errfile" ]; then
+                candidate=$(python3 -c 'import secrets; print(secrets.token_hex(24))' 2>"$errfile")
+                errtext=$(tr '\n' ' ' < "$errfile")
+            else
+                candidate=$(python3 -c 'import secrets; print(secrets.token_hex(24))' 2>/dev/null)
+                errtext=""
+            fi
+            if passphrase_is_valid "$candidate"; then
+                GENERATED_PASSPHRASE="$candidate"
+            else
+                GENERATE_PASSPHRASE_DIAG="${GENERATE_PASSPHRASE_DIAG}[python3 secrets: ${#candidate} chars${errtext:+; $errtext}] "
+            fi
+        else
+            GENERATE_PASSPHRASE_DIAG="${GENERATE_PASSPHRASE_DIAG}[python3: not found on PATH] "
+        fi
+    fi
+
+    [ -n "$errfile" ] && rm -f "$errfile"
+    candidate=""
+    [ -n "$GENERATED_PASSPHRASE" ]
 }
 
 # Function to extract the status attribute ("success" / "error") from a PAN-OS XML API response
@@ -495,13 +566,16 @@ if grep -q -e "ENCRYPTED PRIVATE KEY" -e "Proc-Type: *4, *ENCRYPTED" "$KEY_FILE_
 else
     log_message "Private key file is unencrypted"
     if [ -z "$PRIVATE_KEY_PASSPHRASE" ]; then
-        IMPORT_PASSPHRASE=$(generate_passphrase)
-        if [ ${#IMPORT_PASSPHRASE} -lt 32 ]; then
+        if ! generate_passphrase; then
             log_message "ERROR: Could not generate a one-time passphrase (no usable random source)"
+            log_message "Random source diagnostics: ${GENERATE_PASSPHRASE_DIAG}"
+            log_message "Environment: user=$(id -un 2>/dev/null) uid=$(id -u 2>/dev/null) shell=$BASH_VERSION urandom=[$(ls -l /dev/urandom 2>&1)] openssl=[$(openssl version 2>&1 | head -n 1)] python3=[$(command -v python3 2>/dev/null || echo none)]"
             log_message "Certificate '$CERT_NAME' was imported without its key; candidate configuration was not committed"
             cleanup_temp_files
             exit 1
         fi
+        IMPORT_PASSPHRASE="$GENERATED_PASSPHRASE"
+        GENERATED_PASSPHRASE=""
         log_message "Generated one-time passphrase for key import"
     else
         IMPORT_PASSPHRASE="$PRIVATE_KEY_PASSPHRASE"
