@@ -1,0 +1,228 @@
+{
+  "metadata": {
+    "author": "DigiCert",
+    "email": "support@digicert.com"
+  },
+  "core_settings": [
+    {
+      "name": "core_attributes.sensor_id",
+      "label": "Managing sensor",
+      "type": "select",
+      "description": "Sensor that runs the integration against the FortiWeb appliance.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "options_provider": "Sensors",
+      "validation": [
+        {
+          "rule": "alphaNumericRule"
+        }
+      ]
+    }
+  ],
+  "config_settings": [
+    {
+      "name": "config_attributes.host",
+      "label": "FortiWeb host (FQDN or IP)",
+      "type": "input",
+      "description": "Management address of the FortiWeb appliance, without scheme or port (e.g. fortiweb.example.com).",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.port",
+      "label": "FortiWeb REST API port",
+      "type": "input",
+      "description": "HTTPS port of the FortiWeb management interface / REST API. Defaults to 443 when left blank.",
+      "value": "443",
+      "size": "l",
+      "editable": true,
+      "optional": true
+    },
+    {
+      "name": "config_attributes.userName",
+      "label": "FortiWeb username",
+      "type": "input",
+      "description": "FortiWeb administrator account with REST API access to certificates and server policies.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.authentication_method",
+      "label": "authentication_method",
+      "type": "select",
+      "description": "How the FortiWeb password is supplied: typed directly into TLM, or resolved at runtime from an external Secrets Manager (PAM) connector.",
+      "options": [
+        {
+          "key": "Self authentication",
+          "value": "Self authentication",
+          "label": "Self-authentication (Direct input)"
+        },
+        {
+          "key": "Self authentication secrets manager",
+          "value": "Self authentication secrets manager",
+          "label": "Self-authentication (Secrets manager)"
+        }
+      ],
+      "value": "Self authentication",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.password",
+      "label": "FortiWeb password",
+      "type": "password",
+      "description": "Password of the FortiWeb administrator account.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true,
+      "conditional_group": {
+        "name": "authentication_method",
+        "value": "Self authentication",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.pam_connector_id",
+      "label": "secrets_manager_connector",
+      "type": "select",
+      "description": "Registered Secrets Manager (PAM) connector that resolves the FortiWeb password at runtime.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "alphaNumericRule"
+        }
+      ],
+      "options_provider": "PamConnectors",
+      "required": true,
+      "conditional_banners": [
+        {
+          "value": "BeyondTrust",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the format systemName slash accountName to reference the FortiWeb password from BeyondTrust vaults",
+          "banner_type": "info",
+          "dismissible": false
+        },
+        {
+          "value": "CyberArk",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the object or secret name to reference the FortiWeb password from CyberArk vaults",
+          "banner_type": "info",
+          "dismissible": false
+        },
+        {
+          "value": "Delinea",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the numeric secret id optionally followed by slash field slug to reference the FortiWeb password from Delinea secrets",
+          "banner_type": "info",
+          "dismissible": false
+        }
+      ],
+      "conditional_group": {
+        "name": "authentication_method",
+        "value": "Self authentication secrets manager",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.password",
+      "label": "FortiWeb password (PAM vault reference)",
+      "type": "input",
+      "description": "Enter the PAM vault reference that holds the FortiWeb password, not the password itself. BeyondTrust: SystemName/AccountName. CyberArk: object name. Delinea: secretId or secretId/fieldSlug.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true,
+      "conditional_group": {
+        "name": "authentication_method",
+        "value": "Self authentication secrets manager",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.vdom",
+      "label": "FortiWeb ADOM",
+      "type": "input",
+      "description": "Administrative domain the account logs in to (sent as 'vdom' in the API token). Leave blank for 'root'.",
+      "value": "root",
+      "size": "l",
+      "editable": true,
+      "optional": true
+    },
+    {
+      "name": "config_attributes.sshPort",
+      "label": "FortiWeb SSH port (certificate discovery)",
+      "type": "input",
+      "description": "SSH port of the management interface (default 22). The plugin logs in with the same username/password and runs the read-only CLI command 'show system certificate local' to read certificate bodies, which the REST API does not return. Enter 0 to disable SSH (discovered certificates then show metadata only and cannot be selected in TLM).",
+      "value": "22",
+      "size": "l",
+      "editable": true,
+      "optional": true
+    },
+    {
+      "name": "config_attributes.keepReplacedCertificate",
+      "label": "Keep the replaced certificate on FortiWeb after rotation",
+      "type": "checkbox",
+      "description": "By default the previous certificate is deleted once every server policy / SNI member / multi-cert group has been repointed to the new one and FortiWeb reports it as unreferenced. Tick to leave it in place for manual clean-up.",
+      "size": "l",
+      "editable": true,
+      "optional": true
+    }
+  ],
+  "additional_settings": [],
+  "credential_sets": [
+    {
+      "name": "sensitive",
+      "fields": [
+        {
+          "name": "config_attributes.password"
+        }
+      ]
+    },
+    {
+      "name": "unique",
+      "fields": [
+        {
+          "name": "config_attributes.host"
+        },
+        {
+          "name": "config_attributes.port"
+        }
+      ]
+    }
+  ]
+}
