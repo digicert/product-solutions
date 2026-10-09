@@ -136,7 +136,7 @@ export GITHUB_TOKEN=<token-with-read:packages>
 
 `plugin-meta.json` tells the sensor how to launch the plugin on Linux and Windows (`java -jar …`, `JAVA_HOME` from the sensor's `TG_JAVA_HOME`, `PROCESS_TIMEOUT=30m`). The TLM `SdkRuntime` eagerly loads every class in the JAR at start-up, so re-verify the shaded JAR loads cleanly after any dependency change.
 
-`target/` and `plugin-dist/` are git-ignored build outputs.
+`target/` is a git-ignored build output. `plugin-dist/` is committed so the ZIP and its checksum can be downloaded directly from the repository without a build environment; rebuild and recommit it whenever the plugin source changes.
 
 ---
 
