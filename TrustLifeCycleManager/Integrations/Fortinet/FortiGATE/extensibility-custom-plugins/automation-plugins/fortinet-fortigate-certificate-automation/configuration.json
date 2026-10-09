@@ -1,0 +1,262 @@
+{
+  "metadata": {
+    "author": "DigiCert",
+    "email": "support@digicert.com"
+  },
+  "core_settings": [
+    {
+      "name": "core_attributes.sensor_id",
+      "label": "Managing sensor",
+      "type": "select",
+      "description": "Sensor that runs the integration against the FortiGate.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "options_provider": "Sensors",
+      "validation": [
+        {
+          "rule": "alphaNumericRule"
+        }
+      ]
+    }
+  ],
+  "config_settings": [
+    {
+      "name": "config_attributes.host",
+      "label": "FortiGate host (FQDN or IP)",
+      "type": "input",
+      "description": "Management address of the FortiGate, without scheme or port (e.g. fortigate.example.com).",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.port",
+      "label": "FortiGate HTTPS admin / REST API port (not SSH)",
+      "type": "input",
+      "description": "HTTPS administrative-access port used by the REST API, usually 443. Do not enter the SSH port here; SSH has its own field further down.",
+      "value": "443",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.authentication_method",
+      "label": "authentication_method",
+      "type": "select",
+      "description": "How the FortiGate REST API token is supplied: typed directly into TLM, or resolved at runtime from an external Secrets Manager (PAM) connector.",
+      "options": [
+        {
+          "key": "Self authentication",
+          "value": "Self authentication",
+          "label": "Self-authentication (Direct input)"
+        },
+        {
+          "key": "Self authentication secrets manager",
+          "value": "Self authentication secrets manager",
+          "label": "Self-authentication (Secrets manager)"
+        }
+      ],
+      "value": "Self authentication",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.password",
+      "label": "FortiGate REST API token",
+      "type": "password",
+      "description": "Token of a FortiGate REST API administrator (System > Administrators > Create New > REST API Admin) whose profile grants read-write on System (certificates), VPN and Firewall, and whose trusted hosts include the sensor.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true,
+      "conditional_group": {
+        "name": "authentication_method",
+        "value": "Self authentication",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.pam_connector_id",
+      "label": "secrets_manager_connector",
+      "type": "select",
+      "description": "Registered Secrets Manager (PAM) connector that resolves the FortiGate REST API token at runtime.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "alphaNumericRule"
+        }
+      ],
+      "options_provider": "PamConnectors",
+      "required": true,
+      "conditional_banners": [
+        {
+          "value": "BeyondTrust",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the format systemName slash accountName to reference the FortiGate API token from BeyondTrust vaults",
+          "banner_type": "info",
+          "dismissible": false
+        },
+        {
+          "value": "CyberArk",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the object or secret name to reference the FortiGate API token from CyberArk vaults",
+          "banner_type": "info",
+          "dismissible": false
+        },
+        {
+          "value": "Delinea",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the numeric secret id optionally followed by slash field slug to reference the FortiGate API token from Delinea secrets",
+          "banner_type": "info",
+          "dismissible": false
+        }
+      ],
+      "conditional_group": {
+        "name": "authentication_method",
+        "value": "Self authentication secrets manager",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.password",
+      "label": "FortiGate REST API token (PAM vault reference)",
+      "type": "input",
+      "description": "Enter the PAM vault reference that holds the FortiGate REST API token, not the token itself. BeyondTrust: SystemName/AccountName. CyberArk: object name. Delinea: secretId or secretId/fieldSlug.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true,
+      "conditional_group": {
+        "name": "authentication_method",
+        "value": "Self authentication secrets manager",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.vdom",
+      "label": "FortiGate VDOM",
+      "type": "input",
+      "description": "VDOM whose SSL-VPN / admin / IPsec / VIP objects are scanned and repointed. Default root.",
+      "value": "root",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.certificateScope",
+      "label": "Certificate scope",
+      "type": "select",
+      "description": "Where the managed certificates live. 'global' (default) covers certificates imported through the GUI or with scope=global; 'vdom' covers certificates that belong to the VDOM above.",
+      "options": [
+        {
+          "key": "global",
+          "value": "global",
+          "label": "Global"
+        },
+        {
+          "key": "vdom",
+          "value": "vdom",
+          "label": "VDOM"
+        }
+      ],
+      "value": "global",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.keepReplacedCertificate",
+      "label": "Replaced certificate after rotation",
+      "type": "select",
+      "description": "What happens to the previous certificate once every SSL-VPN / admin / IPsec / VIP reference has been repointed to the new one and FortiOS reports it as unreferenced. 'Delete' (default) removes it; 'Keep' leaves it in place for manual clean-up. Built-in certificates are never deleted.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "value": "delete",
+      "options": [
+        {
+          "key": "delete",
+          "value": "delete",
+          "label": "Delete the replaced certificate (default)"
+        },
+        {
+          "key": "keep",
+          "value": "keep",
+          "label": "Keep the replaced certificate"
+        }
+      ]
+    }
+  ],
+  "additional_settings": [],
+  "credential_sets": [
+    {
+      "name": "sensitive",
+      "fields": [
+        {
+          "name": "config_attributes.password"
+        }
+      ]
+    },
+    {
+      "name": "unique",
+      "fields": [
+        {
+          "name": "config_attributes.host"
+        },
+        {
+          "name": "config_attributes.port"
+        },
+        {
+          "name": "config_attributes.vdom"
+        }
+      ]
+    }
+  ]
+}

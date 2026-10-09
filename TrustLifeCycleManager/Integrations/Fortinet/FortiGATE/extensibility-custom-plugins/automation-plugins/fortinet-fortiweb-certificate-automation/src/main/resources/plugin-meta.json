@@ -1,0 +1,28 @@
+{
+    "plugin": {
+      "name": "${project.artifactId}",
+      "version": "${project.version}",
+      "executions": [
+        {
+          "os": "windows",
+          "type": "exe",
+          "exe": "java",
+          "args": [
+            "-jar",
+            "${project.artifactId}-${project.version}.jar"
+          ],
+          "env": ["JAVA_HOME=${TG_JAVA_HOME}","Path=${JAVA_HOME}\\bin;${Path}","MAX_CHUNK=15","PROCESS_TIMEOUT=30m"]
+        },
+        {
+          "os": "linux",
+          "type": "exe",
+          "exe": "java",
+          "args": [
+            "-jar",
+            "${project.artifactId}-${project.version}.jar"
+          ],
+          "env": ["JAVA_HOME=${TG_JAVA_HOME}","PATH=${JAVA_HOME}/bin:${PATH}","MAX_CHUNK=15","PROCESS_TIMEOUT=30m"]
+        }
+      ]
+    }
+  }
