@@ -31,8 +31,8 @@ The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
 # Configuration
-LEGAL_NOTICE_ACCEPT="true"  # Set to "true" to accept the legal notice and proceed with script execution
-LOGFILE="/home/ubuntu/tlm_agent_3.1.16_linux64/awr-logs/fortigate.log"
+LEGAL_NOTICE_ACCEPT="false"  # Set to "true" to accept the legal notice and proceed with script execution
+LOGFILE="//opt/digicert/logs/fortigate.log"
 MAX_CERT_NAME_LENGTH=35  # FortiOS limit for vpn.certificate.local object names
 
 log_message() {
