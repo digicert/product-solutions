@@ -19,9 +19,7 @@ Automated certificate deployment to F5 BIG-IP load balancers using DigiCert Trus
 |------|----------|-------|---------|-------------------------|
 | `Linux/f5_big_ip-awr-both-server-client.sh` | Linux | Bash | BIG-IP Server SSL + Client SSL | `/Common/<Argument 3>` (overwritten on renewal) |
 | `Windows/f5_big_ip-awr-both-server-client.ps1` | Windows | PowerShell 6+ (5.1 fallback) | BIG-IP Server SSL + Client SSL | `/Common/<Argument 3>` (overwritten on renewal) |
-| `Linux/Multi-endpoints-IIS-F5-fixed-Final.ps1` | **Windows** (needs IIS) | PowerShell 7 recommended | BIG-IP Client SSL + Server SSL **and** local IIS | `/Common/<Argument 3>_expYYYYMMDD` (new object per renewal, old ones pruned) |
-
-> `Multi-endpoints-IIS-F5-fixed-Final.ps1` is stored under `Linux/` but is a Windows-only script: it imports into `Cert:\LocalMachine\My` and uses the `WebAdministration` module.
+| `Windows/Multi-endpoints-IIS-F5-fixed-Final.ps1` | **Windows** (needs IIS) | PowerShell 7 recommended | BIG-IP Client SSL + Server SSL **and** local IIS | `/Common/<Argument 3>_expYYYYMMDD` (new object per renewal, old ones pruned) |
 
 The Bash and PowerShell `f5_big_ip-awr-both-server-client` scripts do the same thing and follow the same six-step workflow. The multi-endpoint script is a separate design with different naming, error handling and extra steps. It is described in [its own section](#script-3-multi-endpoints-iis-f5-powershell-f5--iis).
 
@@ -235,7 +233,7 @@ The scripts detect and log the key type: RSA (`BEGIN RSA PRIVATE KEY`), ECC (`BE
 
 ## Script 3: Multi-endpoints-IIS-F5 (PowerShell, F5 + IIS)
 
-`Linux/Multi-endpoints-IIS-F5-fixed-Final.ps1` deploys one TLM-issued certificate to two targets in a single AWR run:
+`Windows/Multi-endpoints-IIS-F5-fixed-Final.ps1` deploys one TLM-issued certificate to two targets in a single AWR run:
 
 1. **F5 BIG-IP:** native iControl REST only, with a new expiry-stamped object per renewal.
 2. **Windows IIS on the agent host:** imports into `Cert:\LocalMachine\My` and creates or updates an SNI HTTPS binding.
