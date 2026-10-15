@@ -1,0 +1,227 @@
+{
+  "metadata": {
+    "author": "John Doe",
+    "email": "John.Doe@digicert.com"
+  },
+  "core_settings": [
+    {
+      "name": "core_attributes.sensor_id",
+      "label": "sensor_id",
+      "type": "select",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "alphaNumericRule"
+        }
+      ],
+      "options_provider": "Sensors",
+      "required": true
+    }
+  ],
+  "config_settings": [
+    {
+      "name": "config_attributes.userName",
+      "label": "username",
+      "type": "input",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    },
+    {
+      "name": "config_attributes.password",
+      "label": "password",
+      "type": "password",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    },
+    {
+      "name": "config_attributes.managementIp",
+      "label": "managementIp",
+      "type": "input",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    },
+    {
+      "name": "config_attributes.managementPort",
+      "label": "managementPort (iControl REST)",
+      "type": "input",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true,
+      "description": "iControl REST port on the management address: 443, or 8443 on single-NIC deployments. Not used when the authentication mode is 'SSH only', but the field is still required by the form; enter 443."
+    },
+    {
+      "name": "config_attributes.authMode",
+      "label": "Authentication mode",
+      "type": "select",
+      "description": "How the credentials map onto the BIG-IP. 'Shared credentials' (default) uses the username/password above for both iControl REST and SSH. 'Separate REST and SSH credentials' uses the username/password above for REST and the SSH username/password below for SSH (for example admin for the API and root for the CLI). 'SSH only' skips REST entirely and uses the username/password above for SSH, or the SSH username/password below when both are set. All lifecycle operations run over SSH; REST is only used by Test Connection. RADIUS/TACACS/LDAP accounts are entered as a normal username/password and must be mapped to the Administrator role with Advanced shell terminal access.",
+      "options": [
+        {
+          "key": "shared",
+          "value": "shared",
+          "label": "Shared credentials (REST + SSH)"
+        },
+        {
+          "key": "separate",
+          "value": "separate",
+          "label": "Separate REST and SSH credentials"
+        },
+        {
+          "key": "ssh_only",
+          "value": "ssh_only",
+          "label": "SSH only (no REST)"
+        }
+      ],
+      "value": "shared",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    },
+    {
+      "name": "config_attributes.sshUserName",
+      "label": "SSH username",
+      "type": "input",
+      "description": "SSH login used for all lifecycle operations when the authentication mode is 'Separate REST and SSH credentials' (required) or 'SSH only' (optional, falls back to the username above). Needs Advanced shell (bash) terminal access. Ignored in 'Shared credentials' mode.",
+      "size": "l",
+      "editable": true,
+      "optional": true,
+      "validation": [],
+      "required": false
+    },
+    {
+      "name": "config_attributes.sshPassword",
+      "label": "SSH password",
+      "type": "password",
+      "description": "Password for the SSH username. Same rules as the SSH username.",
+      "size": "l",
+      "editable": true,
+      "optional": true,
+      "validation": [],
+      "required": false
+    },
+    {
+      "name": "config_attributes.sshPort",
+      "label": "SSH port",
+      "type": "input",
+      "description": "SSH port on the management address. Leave blank for 22.",
+      "value": "22",
+      "size": "l",
+      "editable": true,
+      "optional": true,
+      "validation": [],
+      "required": false
+    },
+    {
+      "name": "config_attributes.clientSslProfileMode",
+      "label": "Client-ssl profile handling",
+      "type": "select",
+      "description": "How the client-ssl profile bound to the virtual server is handled when a certificate is renewed. 'Update existing profile' (default) replaces the certificate, key and chain inside the profile that is already bound, so profile names and all other settings stay as they are. 'Create new profile' copies the bound profile to a new one named after the new key, binds the copy and unbinds the original.",
+      "options": [
+        {
+          "key": "update",
+          "value": "update",
+          "label": "Update existing profile"
+        },
+        {
+          "key": "create",
+          "value": "create",
+          "label": "Create new profile"
+        }
+      ],
+      "value": "update",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    },
+    {
+      "name": "config_attributes.updateServerSslProfile",
+      "label": "Update server-ssl profiles",
+      "type": "select",
+      "description": "When the virtual server also has a server-ssl profile (re-encryption to pool members) that presents the certificate being replaced, repoint it to the new certificate in the same transaction as the client-ssl profile. 'Yes' (default) keeps both sides in step; 'No' leaves server-ssl profiles untouched. server-ssl profiles carrying a different certificate are never modified.",
+      "options": [
+        {
+          "key": "true",
+          "value": "true",
+          "label": "Yes"
+        },
+        {
+          "key": "false",
+          "value": "false",
+          "label": "No"
+        }
+      ],
+      "value": "true",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true
+    }
+  ],
+  "additional_settings": [],
+  "credential_sets": [
+    {
+      "name": "sensitive",
+      "fields": [
+        {
+          "name": "config_attributes.password"
+        },
+        {
+          "name": "config_attributes.sshPassword"
+        }
+      ]
+    },
+    {
+      "name": "unique",
+      "fields": [
+        {
+          "name": "config_attributes.managementIp"
+        }
+      ]
+    }
+  ]
+}

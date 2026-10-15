@@ -1,6 +1,6 @@
-# DigiCert TLM — F5 BIG-IP Custom Automation Plugin
+# DigiCert TLM — F5 BIG-IP Custom Automation Plugins
 
-A Trust Lifecycle Manager (TLM) **automation plugin** for F5 BIG-IP, built on the DigiCert TLM Plugin SDK. Once it is uploaded to TLM and assigned to a sensor, TLM can manage BIG-IP virtual servers as automation targets:
+Trust Lifecycle Manager (TLM) **automation plugins** for F5 BIG-IP, built on the DigiCert TLM Plugin SDK. Once a plugin is uploaded to TLM and assigned to a sensor, TLM can manage BIG-IP virtual servers as automation targets:
 
 - discover them
 - generate the private key and CSR **on the BIG-IP**
@@ -8,20 +8,39 @@ A Trust Lifecycle Manager (TLM) **automation plugin** for F5 BIG-IP, built on th
 - validate the result
 - renew
 
-| | |
-|---|---|
-| Project | [automation-plugins/F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles/](automation-plugins/F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles/) |
-| Artifact | `plugin-dist/f5-automation-plugin-1.0.0.zip` (contains `f5-automation-plugin-1.0.0.jar` + `plugin-meta.json`) |
-| Checksum | `plugin-dist/checksums` (SHA-256 of the ZIP) |
-| Workflow entry point | `F5AutomationPlugin` (`com.example.automation`) |
-| Language / runtime | Java 17 on the sensor. The device-side scripts run on the BIG-IP's Python |
-| Tested with | BIG-IP 17.5.1.9 Build 0.174.12, single-NIC VE in AWS, standalone (2026-10-02 to 2026-10-05) |
+## Plugin variants
 
+There are two builds of the same plugin. They share the same lifecycle logic: the Python scripts under `src/main/resources/ssh-scripts/` are byte-for-byte identical. They differ **only in how the connector's credentials reach the BIG-IP**.
+
+| | Standard | MultiAuth |
+|---|---|---|
+| Project | [F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles/](automation-plugins/F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles/) | [F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles-MultiAuth/](automation-plugins/F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles-MultiAuth/) |
+| Artifact (`plugin-dist/`) | `f5-automation-plugin-1.0.0.zip` | `f5-automation-plugin-multiauth-1.0.0.zip` |
+| Credentials | One username/password for both REST and SSH | Choose an [authentication mode](#authentication-modes-multiauth-only): shared, separate REST and SSH accounts, or SSH only |
+| SSH port | Fixed at 22 | Configurable (`sshPort`, default 22) |
+| SSH check in Test connection | `tmsh -a list auth user <user>`, which works for **local** accounts only | `python -c … && tmsh show sys version`, which works for local, `root` and RADIUS/TACACS+/LDAP accounts |
+| REST check in Test connection | Always | Skipped in *SSH only* mode |
+| Configuration errors | Appear as SSH or REST failures | Reported up front as `CONFIGURATION_ERROR`, for example when an SSH user is missing in separate mode |
+| Status | Tested end to end on BIG-IP 17.5.1.9 (single-NIC VE in AWS, standalone, 2026-10-02 to 2026-10-05) | Compiled but **not yet tested against a live BIG-IP** |
+
+**Which one to use:**
+
+- Use **Standard** when a single **local** BIG-IP account with Advanced shell can do everything.
+- Use **MultiAuth** in any of these cases:
+  - the service account is remote (RADIUS/TACACS+/LDAP)
+  - the REST and CLI accounts are different, for example `admin` for the API and `root` for SSH
+  - the REST port is not reachable
+  - SSH runs on a port other than 22
+
+Both variants use the same workflow entry point, `F5AutomationPlugin` (`com.example.automation`). They run on Java 17 on the sensor, and the device-side scripts run on the BIG-IP's Python. Unless a section says otherwise, everything below applies to both.
+
+- [Plugin variants](#plugin-variants)
 - [Architecture](#architecture)
 - [Lifecycle operations](#lifecycle-operations)
 - [Install behaviour in detail](#install-behaviour-in-detail)
 - [Requirements](#requirements)
 - [Connector configuration](#connector-configuration)
+- [Authentication modes (MultiAuth only)](#authentication-modes-multiauth-only)
 - [Building](#building)
 - [Deploying to TLM](#deploying-to-tlm)
 - [Project layout](#project-layout)
@@ -35,12 +54,12 @@ A Trust Lifecycle Manager (TLM) **automation plugin** for F5 BIG-IP, built on th
 ```
 ┌──────────────────────┐   job (JSON)   ┌───────────────────────────────────────────┐
 │  DigiCert TLM        │ ─────────────▶ │  DigiCert sensor                          │
-│  connector config    │                │  java -jar f5-automation-plugin-1.0.0.jar │
+│  connector config    │                │  java -jar f5-automation-plugin[-multiauth]│
 │  automation flows    │ ◀───────────── │                                           │
 └──────────────────────┘   response     │  F5AutomationPlugin (SDK workflow)        │
                                         │   ├── F5iControlRestAdapter ──────────────┼──▶ HTTPS :managementPort
                                         │   │     GET /mgmt/tm/sys/version          │    (test connection only)
-                                        │   └── F5SshAdapter ───────────────────────┼──▶ SSH :22
+                                        │   └── F5SshAdapter ───────────────────────┼──▶ SSH :22 (MultiAuth: sshPort)
                                         │         SSHClient (Apache MINA SSHD)      │    "python - <args>"
                                         │         streams embedded *.py on stdin    │    script piped on stdin
                                         └───────────────────────────────────────────┘
@@ -60,18 +79,18 @@ A Trust Lifecycle Manager (TLM) **automation plugin** for F5 BIG-IP, built on th
 
 - **Thin Java, smart device scripts.** The SDK calls one of five lifecycle methods on `F5AutomationPlugin`. The plugin unwraps the request, builds a deterministic object name, and hands off to an adapter. All tmsh parsing and configuration changes are done by four Python scripts that are embedded in the JAR (`src/main/resources/ssh-scripts/`). They are streamed over SSH to `python -` on the BIG-IP, so **nothing is copied to or left installed on the device**, apart from short-lived temp files in `/var/tmp`.
 - **Two transports.**
-  - **iControl REST** checks the credentials cheaply during *Test connection*. A wrong password fails fast with `UNAUTHORIZED`.
+  - **iControl REST** checks the credentials cheaply during *Test connection*. A wrong password fails fast with `UNAUTHORIZED`. REST is never used by lifecycle operations, which is why MultiAuth can switch it off (*SSH only*) or give it a different account.
   - **SSH** carries every lifecycle operation, because multi-step tmsh transactions and config-sync are only reliable from the shell.
 - **Typed results.**
   - Each script prints JSON on stdout. On success that is a payload. On failure it is `{"error": "...", "code": "..."}` with a non-zero exit code.
   - The adapter turns this into `Result<T>`, and the plugin maps it onto the SDK response, so failures appear as `PluginError` entries in TLM.
-- **One connector per BIG-IP.** `managementIp` is the connector's unique key. The sensor connects to that address on SSH port 22 and on `managementPort` for REST.
+- **One connector per BIG-IP.** `managementIp` is the connector's unique key. The sensor connects to that address over SSH (port 22, or `sshPort` in MultiAuth) and on `managementPort` for REST.
 
 ## Lifecycle operations
 
 | TLM operation | Java method | Device script | What happens on the BIG-IP |
 |---------------|-------------|---------------|----------------------------|
-| **Test connection** | `testConnection` | *(inline)* | 1. REST `GET /mgmt/tm/sys/version` with basic auth.<br>2. SSH `tmsh -a list auth user <user>`.<br>Active only if both succeed. |
+| **Test connection** | `testConnection` | *(inline)* | 1. REST `GET /mgmt/tm/sys/version` with basic auth (MultiAuth: skipped in *SSH only* mode).<br>2. SSH probe. Standard runs `tmsh -a list auth user <user>`. MultiAuth runs `python -c "print('python-ok')" && tmsh show sys version`.<br>Active only if every probe that ran succeeded. MultiAuth prefixes each error with the transport and identity, for example `SSH (root@10.0.0.1:22): …`. |
 | **Refresh configuration** | `refreshConfiguration` | `get-configuration-info.py` | Inventory: hostname, product and version, virtual servers (IP, port, partition, SSL state), certificates bound through Client SSL profiles (with SNI flag and cipher/protocol discovery), HA peers with failover state, and partitions. Mapped to the SDK's `AutomationInfo`, `DataIpInfo` and `Certificate` shapes. |
 | **Generate CSR** | `generateCsr` | `generate-csr.py` | 1. `tmsh create sys crypto key <partition>/<keyName>.key … gen-csr` in the virtual server's partition, with CN, SANs (`DNS:` list) and subject fields (O, OU, C, ST, L, email).<br>2. Saves the config and config-syncs if the device is in HA.<br>The key never leaves the BIG-IP. |
 | **Install certificate** | `installCertificate` | `install-certificate.py` | Installs the end-entity cert and ICA, then updates or creates the Client SSL profile and repoints matching Server SSL profiles, all in one tmsh CLI transaction. Then saves the config and config-syncs. See [Install behaviour](#install-behaviour-in-detail). |
@@ -150,8 +169,8 @@ install-certificate.py <vip> <currentThumbprint|null> <keyName> <updateSame> <us
 
 | From | To | Port | Purpose |
 |------|----|------|---------|
-| Sensor | BIG-IP management IP | `managementPort` (443, or 8443 on single-NIC VE) | iControl REST, test connection |
-| Sensor | BIG-IP management IP | **22** (fixed in `SSHClient`) | All lifecycle operations |
+| Sensor | BIG-IP management IP | `managementPort` (443, or 8443 on single-NIC VE) | iControl REST, test connection only. Not needed in MultiAuth *SSH only* mode |
+| Sensor | BIG-IP management IP | **22** (Standard, fixed) or `sshPort` (MultiAuth, default 22) | All lifecycle operations |
 
 ### BIG-IP
 
@@ -162,14 +181,14 @@ install-certificate.py <vip> <currentThumbprint|null> <keyName> <updateSame> <us
 
 ### BIG-IP account
 
-The plugin streams scripts to `python -`, so the account must have **Terminal Access = Advanced shell (bash)**. On BIG-IP only the **Administrator** and **Resource Administrator** roles can have advanced shell.
+The plugin streams scripts to `python -`, so the account used for **SSH** must have **Terminal Access = Advanced shell (bash)**. In MultiAuth *separate* mode this applies to the SSH account. The REST account only needs to be able to log in to iControl REST. On BIG-IP only the **Administrator** and **Resource Administrator** roles can have advanced shell.
 
 | Setting | Value |
 |---------|-------|
 | Role | **Administrator** (recommended) or Resource Administrator |
 | Terminal access | **Advanced shell (bash)** |
 | Partition access | `All`, or every partition that holds managed virtual servers |
-| Authentication | Local account preferred. A remote account takes its shell from `auth remote-user remote-console-access` |
+| Authentication | **Standard:** local account. Its SSH check lists the user with `tmsh -a list auth user`, which fails for remote accounts.<br>**MultiAuth:** local, `root`, or a remote (RADIUS/TACACS+/LDAP) account. See [Remote-auth accounts](#remote-auth-accounts-radius--tacacs--ldap) |
 
 ```bash
 tmsh create auth user digicert-tlm \
@@ -183,19 +202,28 @@ The account runs key generation, cert install, profile and virtual server change
 
 ## Connector configuration
 
-The connector form is defined in `configuration.json` and maps onto `MyPluginConfiguration`.
+The connector form is defined in `configuration.json` and maps onto `MyPluginConfiguration`. The first table covers both variants. MultiAuth adds the fields in the [second table](#additional-fields-multiauth-only).
 
 | Field (`config_attributes.*`) | UI label | Required | Default | Description |
 |-------------------------------|----------|----------|---------|-------------|
 | `core_attributes.sensor_id` | sensor_id | Yes | — | Sensor that runs the plugin and reaches the BIG-IP |
-| `userName` | username | Yes | — | BIG-IP account with advanced shell |
+| `userName` | username | Yes | — | BIG-IP account. Standard uses it for REST and SSH. MultiAuth uses it according to `authMode` |
 | `password` | password | Yes | — | Stored as a sensitive credential. TLM delivers it Base64-encoded, and `decodePassword()` decodes it. A value that is not valid Base64 is used as-is |
 | `managementIp` | managementIp | Yes | — | BIG-IP management IP or hostname, used for REST and SSH. Unique per connector |
-| `managementPort` | managementPort | Yes | — | iControl REST port (443, or 8443 on single-NIC VE). Not used for SSH |
+| `managementPort` | managementPort (MultiAuth: "managementPort (iControl REST)") | Yes | — | iControl REST port (443, or 8443 on single-NIC VE). Not used for SSH. In *SSH only* mode it is ignored but still required by the form, so enter 443 |
 | `clientSslProfileMode` | Client-ssl profile handling | Yes | `update` | `update`: replace cert/key/chain inside the profile already bound to the virtual server, keeping names and settings. `create`: copy the bound profile to a new profile named after the new key, bind the copy and unbind the original |
 | `updateServerSslProfile` | Update server-ssl profiles | Yes | `true` | `true`: also repoint Server SSL profiles on the same virtual server that present the certificate being replaced. `false`: leave all Server SSL profiles untouched |
 
 Connectors saved before the two select fields existed have them blank. Blank is treated as `update` / `true`. The selects are declared non-optional with a default value because optional selects break the connector add/edit form.
+
+### Additional fields (MultiAuth only)
+
+| Field (`config_attributes.*`) | UI label | Required | Default | Description |
+|-------------------------------|----------|----------|---------|-------------|
+| `authMode` | Authentication mode | Yes | `shared` | `shared`, `separate` or `ssh_only`. See [Authentication modes](#authentication-modes-multiauth-only). Blank resolves to `shared`, so connectors created with the Standard plugin keep working |
+| `sshUserName` | SSH username | Only in `separate` | — | SSH account for all lifecycle operations. Needs Advanced shell. Ignored in `shared` mode |
+| `sshPassword` | SSH password | Only in `separate` | — | Stored in the `sensitive` credential set and delivered Base64-encoded, like `password` |
+| `sshPort` | SSH port | No | `22` | SSH port on the management address. Blank, non-numeric or out-of-range values fall back to 22 |
 
 ### Per-request fields sent by TLM
 
@@ -209,12 +237,44 @@ The extended request DTOs in `extended/request/` carry F5-specific context that 
 
 `useCommonIca=true` installs the issuing CA once as `ica-digicert-<serial hex>.crt` and shares it across virtual servers. With `false`, each flow gets its own `ica_<keyName>.crt`.
 
+## Authentication modes (MultiAuth only)
+
+iControl REST is used only by *Test connection*, and every lifecycle operation runs over SSH. The **SSH identity is the one that needs real rights.** The REST identity is just an early check that fails fast. The resolution logic lives in `adapter/TransportCredentials.java`.
+
+| Mode (`authMode`) | REST identity | SSH identity | Use when |
+|-------------------|---------------|--------------|----------|
+| **Shared credentials** (`shared`, default) | `userName` / `password` | `userName` / `password` | One account does everything: a local admin with Advanced shell, or a remote service account mapped to Administrator with Advanced shell. Behaves like Standard, but with the identity-agnostic SSH check and a configurable port |
+| **Separate REST and SSH credentials** (`separate`) | `userName` / `password` | `sshUserName` / `sshPassword` (required) | The API account cannot log in over SSH or has no bash, so a different account is used for the CLI. Typically `admin` for REST and `root` for SSH |
+| **SSH only** (`ssh_only`) | None, REST is never contacted | `sshUserName` / `sshPassword` when both are set, otherwise `userName` / `password` | The REST port is unreachable or REST is disabled, or only a CLI identity has been provided |
+
+Behaviour:
+
+- **Configuration errors.** In *separate* mode, a missing SSH username or password is reported as `CONFIGURATION_ERROR` on *Test connection* and on every lifecycle operation. The plugin does not attempt an SSH login.
+- **Test connection.**
+  - The SSH probe always runs.
+  - The REST probe runs in every mode except *SSH only*.
+  - Each error names the transport and identity that failed, for example `REST (admin@10.0.0.1:443): …`.
+- **Logging.** The connector summary in the log shows the mode and the `user@host:port` for each transport. Passwords are never logged.
+- **SSH authentication.** It is password-only. Key-based authentication is not implemented.
+
+### Remote-auth accounts (RADIUS / TACACS+ / LDAP)
+
+The plugin treats a remote account as an ordinary username and password. The BIG-IP passes the SSH login (through PAM) and the REST basic auth on to the remote server.
+
+**What the account needs on the BIG-IP:** a **Remote Role Group** that maps it to the **Administrator** role with **Terminal Access = Advanced shell**. Without that, the SSH session lands in tmsh instead of bash and the probe fails.
+
+**Local accounts when remote auth is configured.** The BIG-IP then authenticates only `admin` and `root` locally, so a *new* local account created for TLM will not work. Use one of these instead:
+
+- a remote service account in *shared* mode
+- `admin` for REST paired with `root` for SSH in *separate* mode
+
 ## Building
 
 Prerequisites: JDK 17, Maven 3.6+, and a GitHub token with `read:packages` access to `digicert/tlm-plugins-sdk`. The SDK (`com.digicert.tlm:plugin-sdk:1.1`) is resolved from GitHub Packages through `settings.xml`.
 
 ```bash
-cd automation-plugins/F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles
+cd automation-plugins/F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles            # Standard
+# or: cd automation-plugins/F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles-MultiAuth
 export GITHUB_TOKEN=<token with read:packages>
 export GITHUB_ACTOR=<github username>      # or GITHUB_USER
 ./build.sh
@@ -223,20 +283,21 @@ export GITHUB_ACTOR=<github username>      # or GITHUB_USER
 `build.sh` does the following:
 
 1. Validates the token scopes.
-2. Runs `mvn clean package -s settings.xml -U`, which produces a fat JAR (main class `F5AutomationPluginRunner`) and `plugin-dist/f5-automation-plugin-1.0.0.zip`.
+2. Runs `mvn clean package -s settings.xml -U`, which produces a fat JAR (main class `F5AutomationPluginRunner`) and the plugin ZIP in `plugin-dist/`: `f5-automation-plugin-1.0.0.zip` (Standard) or `f5-automation-plugin-multiauth-1.0.0.zip` (MultiAuth). The two `artifactId`s differ, so both can be uploaded to the same tenant.
 3. Writes the SHA-256 of the ZIP to `plugin-dist/checksums`, using `sha256sum` or, on macOS, `shasum -a 256`.
 
 Build notes:
 
 - **`commons-logging` is excluded from `plugin-sdk`.** Its `ServletContextListener` breaks the SDK's classpath scan at startup (`NoClassDefFoundError: javax/servlet/ServletContextListener`). `jcl-over-slf4j` from `sshd-core` bridges it instead.
 - Main dependencies: `sshd-core 2.13.1`, `eddsa 0.3.0`, `bcpkix-jdk18on 1.78.1`, `jackson-databind 2.18.2`, `lombok 1.18.30`, `slf4j-simple 2.0.9`.
+- The two projects are separate copies. A fix to the shared Java helpers or the Python scripts must be applied to both.
 - To change the version, edit `<version>` in `pom.xml`. The artifact name and `plugin-meta.json` are filled in from it at build time.
 
 ## Deploying to TLM
 
-1. **Upload the plugin.** In TLM, add a custom automation plugin and upload `plugin-dist/f5-automation-plugin-1.0.0.zip`. Use `plugin-dist/checksums` to check the file.
+1. **Upload the plugin.** In TLM, add a custom automation plugin and upload the ZIP for your [variant](#plugin-variants) from its `plugin-dist/` folder. Use `plugin-dist/checksums` to check the file.
 2. **Create a connector** for each BIG-IP (or each HA unit you target). Choose the sensor and enter the fields from [Connector configuration](#connector-configuration).
-3. **Test connection.** Both the REST and SSH checks must pass. A failure lists an error for each transport.
+3. **Test connection.** Every probe that runs must pass: SSH always, and REST unless MultiAuth is in *SSH only* mode. A failure lists an error for each transport.
 4. **Refresh configuration** to import the virtual servers, their SSL state and the certificates currently bound.
 5. **Run an automation** against a virtual server. TLM calls *Generate CSR* (key created on the BIG-IP), issues the certificate, then calls *Install* and *Validate*. Renewals repeat the same sequence and replace the certificate identified by its current thumbprint.
 
@@ -255,11 +316,13 @@ F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles/
     │   ├── F5AutomationPlugin.java        # @WorkflowEntryPoint, 5 SDK lifecycle methods
     │   ├── F5AutomationPluginRunner.java  # main(): SdkRuntime, disables JDK hostname verification
     │   ├── adapter/
-    │   │   ├── AdapterConfig.java         # host / port / username / password
+    │   │   ├── AdapterConfig.java         # host / port / username / password (+ sshPort in MultiAuth)
+    │   │   ├── TransportCredentials.java  # MultiAuth only: maps authMode onto REST/SSH configs
     │   │   ├── F5iControlRestAdapter.java # REST credential check
     │   │   └── F5SshAdapter.java          # runs the Python scripts, parses JSON into models
     │   ├── extended/
     │   │   ├── configuration/MyPluginConfiguration.java   # connector fields + defaults
+    │   │   ├── configuration/AuthMode.java                # MultiAuth only: SHARED / SEPARATE / SSH_ONLY
     │   │   ├── request/My{GenerateCertificate,InstallCertificate,Validate,Refresh}Request.java
     │   │   └── response/MyRefreshResponse.java
     │   ├── helper/
@@ -275,6 +338,8 @@ F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles/
             ├── validate-certificate.py
             └── get-configuration-info.py
 ```
+
+Both projects use this layout. The files marked *MultiAuth only* exist only in the `-MultiAuth` project.
 
 To change device behaviour, edit the Python scripts. To change what TLM sends or shows, edit `configuration.json` together with `MyPluginConfiguration` and the request DTOs. `PLUGIN-DELTA-CONFLUENCE.md` explains how to build a plugin for another device from the same template.
 
@@ -298,7 +363,9 @@ Old keys, certificates and profiles from previous flows are **not** deleted.
 - **Only one intermediate is installed.** When TLM sends the chain inline, `splitChainPem` keeps the first non-leaf certificate as the ICA and drops the rest. Chains with more than one intermediate are incomplete on the BIG-IP.
 - **Server SSL-only certificates** are not discovered or managed. Server SSL profiles are updated only alongside a matching Client SSL profile on the same virtual server.
 - **HA has not been tested on a live pair.** It is supported by design: generate and install both config-sync to the first `sync-failover` device group. If you have several sync-failover groups, the first one listed is used.
-- **SSH port 22 is fixed.** `managementPort` applies only to REST.
+- **Standard: SSH port 22 is fixed, and the SSH check needs a local account.** Use MultiAuth for a different port or a remote account.
+- **MultiAuth has not been tested on a live BIG-IP.** It has only been compiled. Run *Test connection* and a full flow in a lab before using it in production.
+- **SSH key authentication** is not supported by either variant.
 - **No cleanup of superseded objects.** Expect old keys, certs and (in `create` mode) profiles to accumulate. Remove them according to your change process.
 - **Error-path temp files.** If install fails after the temp files are written, they stay in `/var/tmp` until removed.
 
@@ -307,12 +374,13 @@ Old keys, certificates and profiles from previous flows are **not** deleted.
 - **Credentials.**
   - The password is stored by TLM as a sensitive credential set and delivered Base64-encoded to the plugin.
   - It is used for REST basic auth and SSH password authentication.
-  - It is not written to the plugin log. The constructor logs host, port, user and the two select values only.
+  - It is not written to the plugin log. The constructor logs only host, port, user and the select values. MultiAuth logs `user@host:port` per transport.
+  - MultiAuth stores `sshPassword` in the same `sensitive` credential set.
 - **TLS and host verification.**
   - The REST adapter and the certificate download use a trust-all `HttpClient`, and the runner disables JDK hostname verification, so that self-signed management certificates work.
   - The SSH client uses the MINA SSHD default server key handling and does not pin the BIG-IP host key.
   - Restrict the sensor's network path to the BIG-IP management network.
-- **Root-equivalent access.** Advanced shell on Administrator or Resource Administrator is effectively root on the BIG-IP. Use a dedicated local service account, limit *SSH IP Allow* to the sensor, and audit its use.
+- **Root-equivalent access.** Advanced shell on Administrator or Resource Administrator is effectively root on the BIG-IP. Use a dedicated service account, limit *SSH IP Allow* to the sensor, and audit its use.
 - **Inputs passed to the shell.**
   - Virtual server names, object names and PEM blocks are passed to the scripts as command-line arguments and interpolated into tmsh and shell commands.
   - They come from TLM and from the BIG-IP's own inventory.
@@ -324,7 +392,11 @@ Old keys, certificates and profiles from previous flows are **not** deleted.
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
 | Test connection: `UNAUTHORIZED` | Wrong username or password on REST | Check the credentials. Make sure the password was entered as plain text in the connector |
-| Test connection: REST OK, SSH `INTERNAL_ERROR` | SSH blocked or not allowed from the sensor, or the account has no shell | Open port 22, add the sensor to *SSH IP Allow*, set terminal access to **Advanced shell** |
+| Test connection: REST OK, SSH `INTERNAL_ERROR` | SSH blocked or not allowed from the sensor, or the account has no shell | Open the SSH port, add the sensor to *SSH IP Allow*, set terminal access to **Advanced shell** |
+| Standard: SSH check fails for a RADIUS/TACACS+/LDAP account that can log in by hand | The Standard probe lists the user as a local tmsh auth user, and remote users are not listed | Use the MultiAuth variant |
+| MultiAuth: `CONFIGURATION_ERROR` "SSH username is required…" | `authMode=separate` with an empty SSH field | Fill in `sshUserName` and `sshPassword`, or switch to `shared` |
+| MultiAuth: `SSH probe failed (the SSH user needs Advanced shell…)` | SSH login worked but landed in tmsh, or `python` is missing | Give the SSH account Advanced shell (for remote accounts, through the Remote Role Group) |
+| MultiAuth: new local TLM account rejected | A remote auth source is configured, so only `admin` and `root` authenticate locally | Use a remote service account, or `admin` (REST) plus `root` (SSH) in *separate* mode |
 | Test connection: REST timeout | Wrong `managementPort` | Use 8443 on single-NIC VE. Check with `tmsh list sys httpd ssl-port` |
 | `python: command not found` or `SHELL_COMMAND_ERROR` on every call | Account lands in `tmsh` instead of bash, or Appliance Mode is on | Set `shell bash` on the user. Disable Appliance Mode |
 | `NoClassDefFoundError: javax/servlet/ServletContextListener` at plugin start | Rebuilt without the `commons-logging` exclusion | Restore the exclusion in `pom.xml` |
