@@ -284,7 +284,7 @@ Streamline your certificate management with our production-ready integration scr
       <sub>Exchange Server certificate management for secure email services and client connectivity.</sub>
     </td>
     <td align="center" width="25%">
-      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MS_Exchange_Hybrid_Support">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MS_Exchange_HA_Support">
         <img src="https://img.shields.io/badge/Microsoft-Exchange_HA-0078D4?style=for-the-badge&logo=microsoft-exchange&logoColor=white" alt="Microsoft Exchange HA Support">
         <br><br>
         <strong>Microsoft Exchange HA Support</strong>
