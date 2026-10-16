@@ -214,7 +214,7 @@ Streamline your certificate management with our production-ready integration scr
 <!-- Row 7 -->
 <table>
   <tr>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Google-GCP">
         <img src="https://img.shields.io/badge/Google-GCP-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white" alt="Google GCP">
         <br><br>
@@ -223,7 +223,7 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Google Cloud Platform integrations including APIGEE API gateway certificate management.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/HAProxy">
         <img src="https://img.shields.io/badge/HAProxy-Load_Balancer-003399?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0wLTE0Yy0zLjMxIDAtNiAyLjY5LTYgNnMyLjY5IDYgNiA2IDYtMi42OSA2LTYtMi42OS02LTYtNnoiLz48L3N2Zz4=" alt="HAProxy">
         <br><br>
@@ -232,7 +232,16 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>High-availability load balancer certificate deployment for Enterprise and OSS editions with SSL termination.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Websphere">
+        <img src="https://img.shields.io/badge/IBM-WebSphere-052FAD?style=for-the-badge&logo=ibm&logoColor=white" alt="IBM WebSphere">
+        <br><br>
+        <strong>IBM Websphere</strong>
+      </a>
+      <br><br>
+      <sub>Certificate rotation for IBM WebSphere Application Server with automated backup and rollback.</sub>
+    </td>
+    <td align="center" width="25%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Imperva">
         <img src="https://img.shields.io/badge/Imperva-Cloud_WAF-5B9BD5?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0wLTE0Yy0zLjMxIDAtNiAyLjY5LTYgNnMyLjY5IDYgNiA2IDYtMi42OSA2LTYtMi42OS02LTYtNnoiLz48L3N2Zz4=" alt="Imperva">
         <br><br>
@@ -379,7 +388,7 @@ Streamline your certificate management with our production-ready integration scr
 <!-- Row 12 -->
 <table>
   <tr>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Nginx_Mailcow">
         <img src="https://img.shields.io/badge/Nginx-Mailcow-009639?style=for-the-badge&logo=nginx&logoColor=white" alt="Nginx Mailcow">
         <br><br>
@@ -388,7 +397,16 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Docker-based mail server solution with automated certificate deployment for secure email services.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Okta">
+        <img src="https://img.shields.io/badge/Okta-Custom_Domain-007DC1?style=for-the-badge&logo=okta&logoColor=white" alt="Okta">
+        <br><br>
+        <strong>Okta</strong>
+      </a>
+      <br><br>
+      <sub>Custom-domain TLS certificate automation through the Okta Management API.</sub>
+    </td>
+    <td align="center" width="25%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Oracle_Cloud_Infrastructure">
         <img src="https://img.shields.io/badge/Oracle-OCI-F80000?style=for-the-badge&logo=oracle&logoColor=white" alt="Oracle Cloud Infrastructure">
         <br><br>
@@ -397,7 +415,7 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>OCI certificate automation for compartment certificate management and Load Balancer certificate upload and listener binding.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Weblogic">
         <img src="https://img.shields.io/badge/Oracle-WebLogic-F80000?style=for-the-badge&logo=oracle&logoColor=white" alt="Oracle WebLogic">
         <br><br>
