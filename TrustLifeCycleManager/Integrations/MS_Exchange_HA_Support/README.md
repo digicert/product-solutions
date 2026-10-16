@@ -1,4 +1,4 @@
-# DigiCert TLM Agent — Microsoft Exchange Server Hybrid Certificate Automation
+# DigiCert TLM Agent — Microsoft Exchange Server HA Support
 
 ## Overview
 
