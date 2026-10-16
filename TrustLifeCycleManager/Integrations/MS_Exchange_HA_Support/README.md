@@ -89,7 +89,7 @@ Pass six positional values in the Admin Web Request. Use `-` for an unused value
 
 Logs are written to:
 
-- `C:\Program Files\DigiCert\TLM Agent\log\ms-exchange-server-hybrid-support.log`
+- `C:\Program Files\DigiCert\TLM Agent\log\ms-exchange-ha-support.log`
 
 The script writes timestamped progress and a deployment summary to the log and console. Log level is controlled by the `LogLevel` script parameter (`DEBUG` or `INFO`). Logs rotate at 20 MB, retaining up to five rotated files. The PFX password and raw delivery payload are not logged.
 
