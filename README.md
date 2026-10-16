@@ -256,7 +256,7 @@ Streamline your certificate management with our production-ready integration scr
 <!-- Row 8 -->
 <table>
   <tr>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Kemp_Loadbalancer">
         <img src="https://img.shields.io/badge/Kemp-LoadBalancer-00A651?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0wLTE0Yy0zLjMxIDAtNiAyLjY5LTYgNnMyLjY5IDYgNiA2IDYtMi42OSA2LTYtMi42OS02LTYtNnoiLz48L3N2Zz4=" alt="Kemp">
         <br><br>
@@ -265,7 +265,7 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>High-availability load balancer certificate deployment with SSL termination and traffic distribution.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Lightspeed">
         <img src="https://img.shields.io/badge/Lightspeed-Proxy-4A90D9?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0wLTE0Yy0zLjMxIDAtNiAyLjY5LTYgNnMyLjY5IDYgNiA2IDYtMi42OSA2LTYtMi42OS02LTYtNnoiLz48L3N2Zz4=" alt="Lightspeed">
         <br><br>
@@ -274,7 +274,7 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Content filtering proxy certificate management for secure web gateway deployments.</sub>
     </td>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MS_Exchange_2019">
         <img src="https://img.shields.io/badge/Microsoft-Exchange_2019-0078D4?style=for-the-badge&logo=microsoft-exchange&logoColor=white" alt="MS Exchange">
         <br><br>
@@ -282,6 +282,15 @@ Streamline your certificate management with our production-ready integration scr
       </a>
       <br><br>
       <sub>Exchange Server certificate management for secure email services and client connectivity.</sub>
+    </td>
+    <td align="center" width="25%">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MS_Exchange_Hybrid_Support">
+        <img src="https://img.shields.io/badge/Microsoft-Exchange_HA-0078D4?style=for-the-badge&logo=microsoft-exchange&logoColor=white" alt="Microsoft Exchange HA Support">
+        <br><br>
+        <strong>Microsoft Exchange HA Support</strong>
+      </a>
+      <br><br>
+      <sub>Exchange certificate automation for single or HA deployments, with optional hybrid TLS connector and configuration updates.</sub>
     </td>
   </tr>
 </table>
