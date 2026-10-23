@@ -1,0 +1,242 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1280" viewBox="0 0 1700 1280">
+<defs>
+<marker id="arr-0B2545" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0B2545"/></marker>
+<marker id="arr-B45309" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#B45309"/></marker>
+<marker id="arr-0F766E" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0F766E"/></marker>
+<marker id="arr-1553A0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1553A0"/></marker>
+<marker id="arr-0B2545" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0B2545"/></marker>
+<marker id="arr-6D28D9" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6D28D9"/></marker>
+<marker id="arr-0078D4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0078D4"/></marker>
+<marker id="arr-374151" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker>
+<filter id="sh" x="-5%" y="-5%" width="110%" height="115%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0B2545" flood-opacity="0.10"/></filter>
+</defs>
+<rect width="1700" height="1280" fill="#FFFFFF"/>
+<text x="60" y="58" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="30" fill="#0B2545" font-weight="bold" text-anchor="start" >TRANSFER automation script for Azure Key Vault certificates in DigiCert TLM</text>
+<text x="60" y="90" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="16" fill="#5B6573" font-weight="normal" text-anchor="start" >What the script does today, and the ways it can be driven once the manual Common Name entry is replaced by policy</text>
+<line x1="60" y1="108" x2="1640" y2="108" stroke="#9AA4B2" stroke-width="1"/>
+<rect x="60" y="128" width="470" height="32" rx="8" fill="#B45309" stroke="#B45309" stroke-width="1.5" />
+<circle cx="80" cy="144" r="11" fill="#fff"/>
+<text x="80" y="148.5" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#B45309" font-weight="bold" text-anchor="middle" >1</text>
+<text x="100" y="149" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#fff" font-weight="bold" text-anchor="start" >WHO OR WHAT RUNS THE SCRIPT</text>
+<rect x="590" y="128" width="480" height="32" rx="8" fill="#0F766E" stroke="#0F766E" stroke-width="1.5" />
+<circle cx="610" cy="144" r="11" fill="#fff"/>
+<text x="610" y="148.5" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#0F766E" font-weight="bold" text-anchor="middle" >2</text>
+<text x="630" y="149" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#fff" font-weight="bold" text-anchor="start" >SCRIPT FLOW  (bash · curl + jq · TLM ui-api)</text>
+<rect x="1150" y="128" width="490" height="32" rx="8" fill="#1553A0" stroke="#1553A0" stroke-width="1.5" />
+<circle cx="1170" cy="144" r="11" fill="#fff"/>
+<text x="1170" y="148.5" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#1553A0" font-weight="bold" text-anchor="middle" >3</text>
+<text x="1190" y="149" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#fff" font-weight="bold" text-anchor="start" >DIGICERT TLM  →  KEY VAULT CONNECTOR</text>
+<rect x="60" y="175" width="470" height="118" rx="10" fill="#FFF7ED" stroke="#B45309" stroke-width="1.5" filter="url(#sh)"/>
+<circle cx="94" cy="209" r="20" fill="#B45309" opacity="0.12"/>
+<circle cx="94" cy="209" r="20" fill="none" stroke="#B45309" stroke-width="1.5"/>
+<text x="94" y="215" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#B45309" font-weight="bold" text-anchor="middle" >⌨</text>
+<text x="126" y="205" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15" fill="#0B2545" font-weight="bold" text-anchor="start" >Operator (interactive)</text>
+<rect x="441" y="187" width="79" height="23" rx="11" fill="#0F766E" stroke="#0F766E" stroke-width="1.5" />
+<text x="451" y="200" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#fff" font-weight="bold" text-anchor="start" >PoC today</text>
+<text x="126" y="228" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >Runs the bash script from a workstation. Picks a Common</text>
+<text x="126" y="244" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >Name or list number, reviews the payload and confirms.</text>
+<text x="126" y="260" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >Exactly what the script does now.</text>
+<line x1="530" y1="234.0" x2="555" y2="234.0" stroke="#B45309" stroke-width="2"/>
+<circle cx="555" cy="234.0" r="4" fill="#B45309"/>
+<rect x="60" y="315" width="470" height="118" rx="10" fill="#FFF7ED" stroke="#B45309" stroke-width="1.5" filter="url(#sh)"/>
+<circle cx="94" cy="349" r="20" fill="#B45309" opacity="0.12"/>
+<circle cx="94" cy="349" r="20" fill="none" stroke="#B45309" stroke-width="1.5"/>
+<text x="94" y="355" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#B45309" font-weight="bold" text-anchor="middle" >⟳</text>
+<text x="126" y="345" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15" fill="#0B2545" font-weight="bold" text-anchor="start" >CI/CD pipeline</text>
+<rect x="461" y="327" width="59" height="23" rx="11" fill="#B45309" stroke="#B45309" stroke-width="1.5" />
+<text x="471" y="340" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#fff" font-weight="bold" text-anchor="start" >option</text>
+<text x="126" y="368" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >Azure DevOps, GitHub Actions or GitLab job on a schedule or</text>
+<text x="126" y="384" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >on demand. Non-interactive mode, TLM API key from pipeline</text>
+<text x="126" y="400" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >secrets, results in the job log.</text>
+<line x1="530" y1="374.0" x2="555" y2="374.0" stroke="#B45309" stroke-width="2"/>
+<circle cx="555" cy="374.0" r="4" fill="#B45309"/>
+<rect x="60" y="455" width="470" height="118" rx="10" fill="#FFF7ED" stroke="#B45309" stroke-width="1.5" filter="url(#sh)"/>
+<circle cx="94" cy="489" r="20" fill="#B45309" opacity="0.12"/>
+<circle cx="94" cy="489" r="20" fill="none" stroke="#B45309" stroke-width="1.5"/>
+<text x="94" y="495" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#B45309" font-weight="bold" text-anchor="middle" >▣</text>
+<text x="126" y="485" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15" fill="#0B2545" font-weight="bold" text-anchor="start" >Container app</text>
+<rect x="461" y="467" width="59" height="23" rx="11" fill="#B45309" stroke="#B45309" stroke-width="1.5" />
+<text x="471" y="480" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#fff" font-weight="bold" text-anchor="start" >option</text>
+<text x="126" y="508" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >Script packaged as a small image (curl + jq). Azure</text>
+<text x="126" y="524" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >Container Apps job, AKS CronJob or Docker on a schedule.</text>
+<text x="126" y="540" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >Secrets via Key Vault reference or environment.</text>
+<line x1="530" y1="514.0" x2="555" y2="514.0" stroke="#B45309" stroke-width="2"/>
+<circle cx="555" cy="514.0" r="4" fill="#B45309"/>
+<rect x="60" y="595" width="470" height="118" rx="10" fill="#FFF7ED" stroke="#B45309" stroke-width="1.5" filter="url(#sh)"/>
+<circle cx="94" cy="629" r="20" fill="#B45309" opacity="0.12"/>
+<circle cx="94" cy="629" r="20" fill="none" stroke="#B45309" stroke-width="1.5"/>
+<text x="94" y="635" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#B45309" font-weight="bold" text-anchor="middle" >PS</text>
+<text x="126" y="625" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15" fill="#0B2545" font-weight="bold" text-anchor="start" >Azure Automation Runbook</text>
+<rect x="401" y="607" width="119" height="23" rx="11" fill="#B45309" stroke="#B45309" stroke-width="1.5" />
+<text x="411" y="620" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#fff" font-weight="bold" text-anchor="start" >PowerShell port</text>
+<text x="126" y="648" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >Same logic in PowerShell as a scheduled runbook. Managed</text>
+<text x="126" y="664" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >Identity, TLM API key in Key Vault or Automation variables.</text>
+<text x="126" y="680" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >Hybrid worker if TLM is reached privately.</text>
+<line x1="530" y1="654.0" x2="555" y2="654.0" stroke="#B45309" stroke-width="2"/>
+<circle cx="555" cy="654.0" r="4" fill="#B45309"/>
+<rect x="60" y="735" width="470" height="118" rx="10" fill="#FFF7ED" stroke="#B45309" stroke-width="1.5" filter="url(#sh)"/>
+<circle cx="94" cy="769" r="20" fill="#B45309" opacity="0.12"/>
+<circle cx="94" cy="769" r="20" fill="none" stroke="#B45309" stroke-width="1.5"/>
+<text x="94" y="775" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#B45309" font-weight="bold" text-anchor="middle" >◷</text>
+<text x="126" y="765" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15" fill="#0B2545" font-weight="bold" text-anchor="start" >Validity monitor (auto-select)</text>
+<rect x="421" y="747" width="99" height="23" rx="11" fill="#B45309" stroke="#B45309" stroke-width="1.5" />
+<text x="431" y="760" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#fff" font-weight="bold" text-anchor="start" >no manual CN</text>
+<text x="126" y="788" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >Polls the TLM inventory on a schedule and selects by</text>
+<text x="126" y="804" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >policy: expiring in &lt; N days, issuer is not DigiCert, self-</text>
+<text x="126" y="820" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >signed, or tagged. Submits TRANSFER with no CN typed by</text>
+<text x="126" y="836" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >hand.</text>
+<line x1="530" y1="794.0" x2="555" y2="794.0" stroke="#B45309" stroke-width="2"/>
+<circle cx="555" cy="794.0" r="4" fill="#B45309"/>
+<rect x="60" y="875" width="470" height="118" rx="10" fill="#FFF7ED" stroke="#B45309" stroke-width="1.5" filter="url(#sh)"/>
+<circle cx="94" cy="909" r="20" fill="#B45309" opacity="0.12"/>
+<circle cx="94" cy="909" r="20" fill="none" stroke="#B45309" stroke-width="1.5"/>
+<text x="94" y="915" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#B45309" font-weight="bold" text-anchor="middle" >⚡</text>
+<text x="126" y="905" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15" fill="#0B2545" font-weight="bold" text-anchor="start" >Event-driven</text>
+<rect x="461" y="887" width="59" height="23" rx="11" fill="#B45309" stroke="#B45309" stroke-width="1.5" />
+<text x="471" y="900" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#fff" font-weight="bold" text-anchor="start" >option</text>
+<text x="126" y="928" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >Key Vault → Event Grid (CertificateNearExpiry,</text>
+<text x="126" y="944" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >NewVersionCreated) → Azure Function or Logic App → script.</text>
+<text x="126" y="960" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >Notifications to Teams, e-mail or ITSM.</text>
+<line x1="530" y1="934.0" x2="555" y2="934.0" stroke="#B45309" stroke-width="2"/>
+<circle cx="555" cy="934.0" r="4" fill="#B45309"/>
+<line x1="555" y1="234.0" x2="555" y2="934.0" stroke="#B45309" stroke-width="3"/>
+<polyline points="555,225 590,225" fill="none" stroke="#B45309" stroke-width="2.5"  marker-end="url(#arr-B45309)"/>
+<rect x="554.5" y="203.5" width="36" height="18.5" rx="4" fill="#fff" opacity="0.95"/>
+<text x="572.5" y="217" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#B45309" font-weight="bold" text-anchor="middle" >runs</text>
+<polyline points="555,505 590,505" fill="none" stroke="#B45309" stroke-width="2" stroke-dasharray="7,6" marker-end="url(#arr-B45309)"/>
+<text x="598" y="441" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#B45309" font-weight="bold" text-anchor="start" >policy-driven selection</text>
+<rect x="590" y="175" width="480" height="100" rx="10" fill="#ECFDF5" stroke="#0F766E" stroke-width="1.5" filter="url(#sh)"/>
+<circle cx="620" cy="205" r="15" fill="#0F766E"/>
+<text x="620" y="210" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#fff" font-weight="bold" text-anchor="middle" >1</text>
+<text x="646" y="210" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15" fill="#0B2545" font-weight="bold" text-anchor="start" >Discover</text>
+<text x="610" y="233" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >GET /ui-api/v2/inventory/endpoint/automatable, paged with</text>
+<text x="610" y="249" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >limit/offset, pre-filtered to connector = “Azure Keyvault”.</text>
+<polyline points="830.0,275 830.0,315" fill="none" stroke="#0F766E" stroke-width="2.5"  marker-end="url(#arr-0F766E)"/>
+<rect x="590" y="315" width="480" height="100" rx="10" fill="#ECFDF5" stroke="#0F766E" stroke-width="1.5" filter="url(#sh)"/>
+<circle cx="620" cy="345" r="15" fill="#0F766E"/>
+<text x="620" y="350" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#fff" font-weight="bold" text-anchor="middle" >2</text>
+<text x="646" y="350" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15" fill="#0B2545" font-weight="bold" text-anchor="start" >Filter eligible</text>
+<text x="610" y="373" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >Keep only records whose automation_action primary or secondary</text>
+<text x="610" y="389" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >action is TRANSFER, then sort by Common Name.</text>
+<polyline points="830.0,415 830.0,455" fill="none" stroke="#0F766E" stroke-width="2.5"  marker-end="url(#arr-0F766E)"/>
+<rect x="590" y="455" width="480" height="100" rx="10" fill="#ECFDF5" stroke="#0F766E" stroke-width="1.5" filter="url(#sh)"/>
+<circle cx="620" cy="485" r="15" fill="#0F766E"/>
+<text x="620" y="490" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#fff" font-weight="bold" text-anchor="middle" >3</text>
+<text x="646" y="490" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15" fill="#0B2545" font-weight="bold" text-anchor="start" >Select target</text>
+<text x="610" y="513" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >Manual: CN or list number (PoC).  Automatic: policy-driven choice</text>
+<text x="610" y="529" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >fed by the monitor, pipeline or event (expiry, issuer, tags).</text>
+<polyline points="830.0,555 830.0,595" fill="none" stroke="#0F766E" stroke-width="2.5"  marker-end="url(#arr-0F766E)"/>
+<rect x="590" y="595" width="480" height="100" rx="10" fill="#ECFDF5" stroke="#0F766E" stroke-width="1.5" filter="url(#sh)"/>
+<circle cx="620" cy="625" r="15" fill="#0F766E"/>
+<text x="620" y="630" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#fff" font-weight="bold" text-anchor="middle" >4</text>
+<text x="646" y="630" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15" fill="#0B2545" font-weight="bold" text-anchor="start" >Build payload</text>
+<text x="610" y="653" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >action_type TRANSFER · cn · sans (CN removed) · profile_id</text>
+<text x="610" y="669" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >(record’s profile, else default) · run_now 1 · automation_id =</text>
+<text x="610" y="685" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >inventory_id · account_id.</text>
+<polyline points="830.0,695 830.0,735" fill="none" stroke="#0F766E" stroke-width="2.5"  marker-end="url(#arr-0F766E)"/>
+<rect x="590" y="735" width="480" height="100" rx="10" fill="#ECFDF5" stroke="#0F766E" stroke-width="1.5" filter="url(#sh)"/>
+<circle cx="620" cy="765" r="15" fill="#0F766E"/>
+<text x="620" y="770" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#fff" font-weight="bold" text-anchor="middle" >5</text>
+<text x="646" y="770" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15" fill="#0B2545" font-weight="bold" text-anchor="start" >Submit</text>
+<text x="610" y="793" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >POST /ui-api/v1/automation with x-api-key. Confirmation prompt when</text>
+<text x="610" y="809" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >interactive, unattended when automated.</text>
+<polyline points="830.0,835 830.0,875" fill="none" stroke="#0F766E" stroke-width="2.5"  marker-end="url(#arr-0F766E)"/>
+<rect x="590" y="875" width="480" height="100" rx="10" fill="#ECFDF5" stroke="#0F766E" stroke-width="1.5" filter="url(#sh)"/>
+<circle cx="620" cy="905" r="15" fill="#0F766E"/>
+<text x="620" y="910" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#fff" font-weight="bold" text-anchor="middle" >6</text>
+<text x="646" y="910" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15" fill="#0B2545" font-weight="bold" text-anchor="start" >Report</text>
+<text x="610" y="933" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >HTTP status and response JSON → console, pipeline log or runbook</text>
+<text x="610" y="949" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5" fill="#5B6573" font-weight="normal" text-anchor="start" >output; optional webhook to Teams, e-mail or ITSM.</text>
+<text x="830.0" y="997" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#0F766E" font-weight="bold" text-anchor="middle" >interactive mode loops: automate another → re-discover</text>
+<rect x="1150" y="175" width="490" height="300" rx="12" fill="#EAF1FB" stroke="#1553A0" stroke-width="1.5" filter="url(#sh)"/>
+<text x="1168" y="205" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="16" fill="#1553A0" font-weight="bold" text-anchor="start" >DigiCert Trust Lifecycle Manager</text>
+<text x="1168" y="225" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#5B6573" font-weight="normal" text-anchor="start" >one.digicert.com · x-api-key authentication</text>
+<rect x="1168" y="243" width="454" height="48" rx="6" fill="#fff" stroke="#1553A0" stroke-width="1" />
+<text x="1180" y="262" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#0B2545" font-weight="bold" text-anchor="start" >GET  /ui-api/v2/inventory/endpoint/automatable</text>
+<text x="1180" y="280" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#5B6573" font-weight="normal" text-anchor="start" >automation inventory, filtered by connector / account, paged</text>
+<rect x="1168" y="298" width="454" height="48" rx="6" fill="#fff" stroke="#1553A0" stroke-width="1" />
+<text x="1180" y="317" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#0B2545" font-weight="bold" text-anchor="start" >POST  /ui-api/v1/automation</text>
+<text x="1180" y="335" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#5B6573" font-weight="normal" text-anchor="start" >creates the TRANSFER automation and runs it now</text>
+<rect x="1168" y="353" width="454" height="48" rx="6" fill="#fff" stroke="#1553A0" stroke-width="1" />
+<text x="1180" y="372" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#0B2545" font-weight="bold" text-anchor="start" >Automation engine</text>
+<text x="1180" y="390" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#5B6573" font-weight="normal" text-anchor="start" >picks the sensor, calls the connector plugin</text>
+<rect x="1168" y="408" width="454" height="48" rx="6" fill="#fff" stroke="#1553A0" stroke-width="1" />
+<text x="1180" y="427" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#0B2545" font-weight="bold" text-anchor="start" >Certificate profile</text>
+<text x="1180" y="445" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#5B6573" font-weight="normal" text-anchor="start" >from the record, or DEFAULT_PROFILE_ID in the script</text>
+<rect x="1150" y="515" width="490" height="250" rx="12" fill="#ECFDF5" stroke="#0F766E" stroke-width="1.5" filter="url(#sh)"/>
+<text x="1168" y="545" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="16" fill="#0F766E" font-weight="bold" text-anchor="start" >Automation request payload</text>
+<text x="1168" y="565" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#5B6573" font-weight="normal" text-anchor="start" >built by jq from the selected inventory record</text>
+<text x="1180" y="581" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#0B2545" font-weight="bold" text-anchor="start" >action_type</text>
+<text x="1610" y="581" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#5B6573" font-weight="normal" text-anchor="end" >TRANSFER</text>
+<line x1="1180" y1="587" x2="1610" y2="587" stroke="#9AA4B2" stroke-width="0.6"/>
+<text x="1180" y="605" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#0B2545" font-weight="bold" text-anchor="start" >cn / sans</text>
+<text x="1610" y="605" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#5B6573" font-weight="normal" text-anchor="end" >record CN; SANs minus the CN</text>
+<line x1="1180" y1="611" x2="1610" y2="611" stroke="#9AA4B2" stroke-width="0.6"/>
+<text x="1180" y="629" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#0B2545" font-weight="bold" text-anchor="start" >profile_id</text>
+<text x="1610" y="629" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#5B6573" font-weight="normal" text-anchor="end" >record.profile.id, else default</text>
+<line x1="1180" y1="635" x2="1610" y2="635" stroke="#9AA4B2" stroke-width="0.6"/>
+<text x="1180" y="653" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#0B2545" font-weight="bold" text-anchor="start" >automation_id</text>
+<text x="1610" y="653" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#5B6573" font-weight="normal" text-anchor="end" >record.inventory_id</text>
+<line x1="1180" y1="659" x2="1610" y2="659" stroke="#9AA4B2" stroke-width="0.6"/>
+<text x="1180" y="677" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#0B2545" font-weight="bold" text-anchor="start" >account_id</text>
+<text x="1610" y="677" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#5B6573" font-weight="normal" text-anchor="end" >TLM account</text>
+<line x1="1180" y1="683" x2="1610" y2="683" stroke="#9AA4B2" stroke-width="0.6"/>
+<text x="1180" y="701" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#0B2545" font-weight="bold" text-anchor="start" >run_now · grouped_automation</text>
+<text x="1610" y="701" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#5B6573" font-weight="normal" text-anchor="end" >1 · true</text>
+<line x1="1180" y1="707" x2="1610" y2="707" stroke="#9AA4B2" stroke-width="0.6"/>
+<text x="1180" y="725" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#0B2545" font-weight="bold" text-anchor="start" >auto_renew_settings</text>
+<text x="1610" y="725" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#5B6573" font-weight="normal" text-anchor="end" >off for the PoC (enable to let TLM renew)</text>
+<line x1="1180" y1="731" x2="1610" y2="731" stroke="#9AA4B2" stroke-width="0.6"/>
+<rect x="1150" y="805" width="490" height="230" rx="12" fill="#E6F2FB" stroke="#0078D4" stroke-width="1.5" filter="url(#sh)"/>
+<text x="1168" y="835" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="16" fill="#0078D4" font-weight="bold" text-anchor="start" >Azure Key Vault connector</text>
+<text x="1168" y="855" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#5B6573" font-weight="normal" text-anchor="start" >extensibility plugin on a TLM sensor → one vault</text>
+<text x="1168" y="881" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#5B6573" font-weight="normal" text-anchor="start" >TLM runs the connector for the TRANSFER: a new version of the same</text>
+<text x="1168" y="897" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#5B6573" font-weight="normal" text-anchor="start" >certificate object is created in the vault, the CSR is signed by</text>
+<text x="1168" y="913" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#5B6573" font-weight="normal" text-anchor="start" >DigiCert and the chain merged back. The private key never leaves Azure.</text>
+<rect x="1168" y="957" width="200" height="44" rx="6" fill="#FEF3C7" stroke="#D97706" stroke-width="1" />
+<text x="1178" y="975" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#92400E" font-weight="bold" text-anchor="start" >before</text>
+<text x="1178" y="991" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#92400E" font-weight="normal" text-anchor="start" >self-signed / 3rd-party CA</text>
+<polyline points="1374,979 1416,979" fill="none" stroke="#0078D4" stroke-width="2"  marker-end="url(#arr-0078D4)"/>
+<rect x="1420" y="957" width="200" height="44" rx="6" fill="#DCFCE7" stroke="#15803D" stroke-width="1" />
+<text x="1430" y="975" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" fill="#166534" font-weight="bold" text-anchor="start" >after</text>
+<text x="1430" y="991" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#166534" font-weight="normal" text-anchor="start" >DigiCert-issued, TLM-managed</text>
+<polyline points="1070,215 1150,215" fill="none" stroke="#0F766E" stroke-width="2.2"  marker-end="url(#arr-0F766E)"/>
+<rect x="1064.0" y="195" width="92" height="18" rx="4" fill="#fff" opacity="0.95"/>
+<text x="1110.0" y="208" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#0F766E" font-weight="bold" text-anchor="middle" >GET inventory</text>
+<polyline points="1150,237 1070,237" fill="none" stroke="#1553A0" stroke-width="1.8" stroke-dasharray="7,6" marker-end="url(#arr-1553A0)"/>
+<rect x="1059.5" y="242.5" width="101" height="17.5" rx="4" fill="#fff" opacity="0.95"/>
+<text x="1110.0" y="255" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1553A0" font-weight="bold" text-anchor="middle" >records (paged)</text>
+<polyline points="1070,785 1110,785 1110,435 1150,435" fill="none" stroke="#0F766E" stroke-width="2.5" marker-end="url(#arr-0F766E)"/>
+<g transform="translate(1101,610.0) rotate(-90)"><rect x="-123.0" y="-13" width="246" height="18" rx="4" fill="#fff" opacity="0.95"/><text x="0" y="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#0F766E" font-weight="bold" text-anchor="middle">POST /automation  (TRANSFER, run_now)</text></g>
+<polyline points="1110,805 1110,925 1070,925" fill="none" stroke="#1553A0" stroke-width="1.8" stroke-dasharray="7,6" marker-end="url(#arr-1553A0)"/>
+<g transform="translate(1101,875.0) rotate(-90)"><rect x="-96.0" y="-12.5" width="192" height="17.5" rx="4" fill="#fff" opacity="0.95"/><text x="0" y="0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1553A0" font-weight="bold" text-anchor="middle">HTTP 2xx + automation response</text></g>
+<polyline points="1395.0,475 1395.0,515" fill="none" stroke="#0F766E" stroke-width="2.2" stroke-dasharray="7,6" marker-end="url(#arr-0F766E)"/>
+<rect x="1347.5" y="487.5" width="95" height="17.5" rx="4" fill="#fff" opacity="0.95"/>
+<text x="1395.0" y="500" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#0F766E" font-weight="bold" text-anchor="middle" >payload fields</text>
+<polyline points="1395.0,765 1395.0,805" fill="none" stroke="#1553A0" stroke-width="2.5"  marker-end="url(#arr-1553A0)"/>
+<rect x="1320.0" y="777.5" width="150" height="17.5" rx="4" fill="#fff" opacity="0.95"/>
+<text x="1395.0" y="790" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1553A0" font-weight="bold" text-anchor="middle" >TLM runs the automation</text>
+<rect x="60" y="1075" width="1580" height="150" rx="12" fill="#F8FAFC" stroke="#9AA4B2" stroke-width="1" />
+<text x="80" y="1105" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15" fill="#0B2545" font-weight="bold" text-anchor="start" >Lifecycle outcome</text>
+<rect x="80" y="1120" width="486" height="90" rx="8" fill="#FEF3C7" stroke="#D97706" stroke-width="1.2" />
+<text x="94" y="1143" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13.5" fill="#D97706" font-weight="bold" text-anchor="start" >Before</text>
+<text x="94" y="1163" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#5B6573" font-weight="normal" text-anchor="start" >Self-signed or third-party certificate sits in the vault. The connector</text>
+<text x="94" y="1179" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#5B6573" font-weight="normal" text-anchor="start" >discovers it into the TLM inventory and flags it TRANSFER-eligible.</text>
+<polyline points="566,1165 606,1165" fill="none" stroke="#374151" stroke-width="2.5"  marker-end="url(#arr-374151)"/>
+<rect x="606" y="1120" width="486" height="90" rx="8" fill="#ECFDF5" stroke="#0F766E" stroke-width="1.2" />
+<text x="620" y="1143" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13.5" fill="#0F766E" font-weight="bold" text-anchor="start" >TRANSFER (once)</text>
+<text x="620" y="1163" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#5B6573" font-weight="normal" text-anchor="start" >The script, or any trigger above, submits the automation. TLM runs the</text>
+<text x="620" y="1179" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#5B6573" font-weight="normal" text-anchor="start" >connector: new version in the vault, CSR signed by DigiCert, chain merged</text>
+<text x="620" y="1195" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#5B6573" font-weight="normal" text-anchor="start" >back.</text>
+<polyline points="1092,1165 1132,1165" fill="none" stroke="#374151" stroke-width="2.5"  marker-end="url(#arr-374151)"/>
+<rect x="1132" y="1120" width="486" height="90" rx="8" fill="#DCFCE7" stroke="#15803D" stroke-width="1.2" />
+<text x="1146" y="1143" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13.5" fill="#15803D" font-weight="bold" text-anchor="start" >After</text>
+<text x="1146" y="1163" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#5B6573" font-weight="normal" text-anchor="start" >The object is DigiCert-issued and TLM-managed. With auto-renew on, TLM</text>
+<text x="1146" y="1179" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#5B6573" font-weight="normal" text-anchor="start" >renews it ahead of expiry through the same connector, with no manual</text>
+<text x="1146" y="1195" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" fill="#5B6573" font-weight="normal" text-anchor="start" >steps.</text>
+<line x1="80" y1="1248" x2="120" y2="1248" stroke="#0B2545" stroke-width="2"/>
+<text x="128" y="1252" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#5B6573" font-weight="normal" text-anchor="start" >runtime flow</text>
+<line x1="240" y1="1248" x2="280" y2="1248" stroke="#0B2545" stroke-width="2" stroke-dasharray="7,6"/>
+<text x="288" y="1252" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#5B6573" font-weight="normal" text-anchor="start" >response / optional path</text>
+<text x="1640" y="1252" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#5B6573" font-weight="normal" text-anchor="end" >DigiCert Trust Lifecycle Manager · Azure Key Vault TRANSFER automation script · October 2026</text>
+</svg>

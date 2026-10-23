@@ -9,6 +9,7 @@ TLM extensibility lets you add support for a target platform that TLM does not i
 | Path | What it is |
 |---|---|
 | [`automation-plugins/azure-keyvault-certificate-automation/`](automation-plugins/azure-keyvault-certificate-automation/) | Azure Key Vault certificate automation plugin — source, Maven build, TLM connector definition, and prebuilt distribution ZIP |
+| [`automation-plugins/azure-keyvault-certificate-automation-multi-tenant/`](automation-plugins/azure-keyvault-certificate-automation-multi-tenant/) | **Subscription-scope** variant of the same plugin: one connector per Azure subscription, every Key Vault in it discovered through Azure Resource Manager — source, build, connector definition and prebuilt ZIP |
 
 ## What the plugin does
 
@@ -27,6 +28,8 @@ Three properties are worth calling out:
 - **The private key never leaves Azure.** Because the certificate is created with the `Unknown` issuer, Key Vault generates and retains the key pair internally and hands out only a CSR. The plugin handles public material exclusively — no key is ever transmitted or written to disk outside Azure.
 - **Renewal happens in place, as a new version.** Azure treats a create against an existing certificate name as a new *version* of that certificate. The plugin round-trips each discovered certificate's Azure name so a renewal lands on the existing object instead of creating a duplicate. Nothing needs unbinding or rebinding.
 - **Data plane only.** The connector addresses a vault by URL using an Azure AD client-secret credential. It does not use Azure Resource Manager, so no subscription ID is required and it works across subscriptions and tenants. One connector manages one vault.
+
+If one connector per vault is too fine-grained for your estate, the **subscription-scope variant** in [`automation-plugins/azure-keyvault-certificate-automation-multi-tenant/`](automation-plugins/azure-keyvault-certificate-automation-multi-tenant/) keeps the same lifecycle, key custody and PAM support but takes a **subscription ID** as the connector key, lists the vaults through Azure Resource Manager (Reader role) and round-trips each certificate as `<vault>/<name>` so renewals land in the right vault. Optional filters (resource groups, vault-name pattern, tag) narrow discovery. See that folder's README for the differences.
 
 ## Upload artifacts
 

@@ -1,7 +1,7 @@
 {
     "plugin": {
-      "name": "f5-automation-plugin",
-      "version": "1.0.0",
+      "name": "${project.artifactId}",
+      "version": "${project.version}",
       "executions": [
         {
           "os": "windows",
@@ -9,7 +9,7 @@
           "exe": "java",
           "args": [
             "-jar",
-            "f5-automation-plugin-1.0.0.jar"
+            "${project.artifactId}-${project.version}.jar"
           ],
           "env": ["JAVA_HOME=${TG_JAVA_HOME}","Path=${JAVA_HOME}\\bin;${Path}","MAX_CHUNK=15","PROCESS_TIMEOUT=30m"]
         },
@@ -19,7 +19,7 @@
           "exe": "java",
           "args": [
             "-jar",
-            "f5-automation-plugin-1.0.0.jar"
+            "${project.artifactId}-${project.version}.jar"
           ],
           "env": ["JAVA_HOME=${TG_JAVA_HOME}","PATH=${JAVA_HOME}/bin:${PATH}","MAX_CHUNK=15","PROCESS_TIMEOUT=30m"]
         }

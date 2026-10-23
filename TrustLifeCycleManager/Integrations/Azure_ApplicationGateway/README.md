@@ -1,6 +1,12 @@
 # TLM Agent — Azure Application Gateway Certificate Upload
 
-**Script:** `awr-application-gateway-upload-cert.ps1`
+**Scripts:**
+
+| Platform | Script |
+|---|---|
+| Windows (PowerShell) | `awr-application-gateway-upload-cert.ps1` |
+| Linux (Bash) | `awr-application-gateway-upload-cert.sh` |
+| Linux prerequisites (Ubuntu 24.04) | `install-prerequisites-ubuntu-24.04.sh` |
 
 A DigiCert Trust Lifecycle Manager (TLM) AWR Post Script that automatically uploads a newly issued PFX certificate to an Azure Application Gateway SSL certificate store. Does not use Azure Key Vault — the certificate is uploaded directly to the Application Gateway using the native SSL certificate resource.
 
@@ -41,6 +47,31 @@ The script:
 
 - **DigiCert TLM Agent** installed and enrolled
 
+### On the TLM Agent host (Linux)
+
+The Bash version performs the same steps using the **Azure CLI** (`az`) instead of the Az PowerShell modules, and **jq** for JSON parsing.
+
+- **bash**, **coreutils** (`base64`), **jq**, **openssl**
+- **Azure CLI** (`az`) 2.x, installed from the Microsoft apt repository
+- **Log directory** — `/etc/digicert/AWR-Logs/` (the script creates it on first run if it can; the installer also creates it)
+- **DigiCert TLM Agent** installed and enrolled
+
+On Ubuntu 24.04 run the bundled installer as root. It is idempotent and safe to re-run:
+
+```bash
+sudo ./install-prerequisites-ubuntu-24.04.sh
+```
+
+It installs the packages above, adds the official Microsoft apt repository for `azure-cli` (manual repository setup, no `curl | bash`), creates the log directory, marks the post script executable and prints a verification summary.
+
+Differences from the PowerShell version:
+
+- The log file defaults to `/etc/digicert/AWR-Logs/agw-logfile.log`; change `LOGFILE` at the top of the script.
+- The script runs `az` with an isolated, temporary `AZURE_CONFIG_DIR` so it never reuses or disturbs an interactive `az login` session on the host, and it logs out and removes that directory on exit.
+- `az network application-gateway ssl-cert create` / `update` commit the change immediately. There is no separate `Set-AzApplicationGateway` step; the `az` call blocks until the gateway update finishes, so the same 2–10 minute timeout guidance applies.
+- Managed Identity is used via `az login --identity` when Parameters 1–3 are empty.
+- The Client Secret and PFX password are passed to `az` as command-line arguments because the CLI does not accept them from the environment. They are briefly visible to other local processes on the agent host during the call. The PFX inspection step passes the password to `openssl` through the environment instead.
+
 ### In Azure
 
 - An Azure Application Gateway (v1 or v2 SKU) already provisioned
@@ -55,7 +86,7 @@ Two variables at the top of the script must be set before use:
 | Variable | Default | Description |
 |---|---|---|
 | `$LEGAL_NOTICE_ACCEPT` | `"true"` | Must be `"true"` for the script to run |
-| `$LOGFILE` | `C:\Certs\agw-logfile.log` | Full path to the log file |
+| `$LOGFILE` / `LOGFILE` | `C:\Certs\agw-logfile.log` (Windows)<br>`/etc/digicert/AWR-Logs/agw-logfile.log` (Linux) | Full path to the log file |
 
 ---
 

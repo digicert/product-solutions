@@ -1,0 +1,241 @@
+{
+  "metadata": {
+    "author": "DigiCert",
+    "email": "support@digicert.com"
+  },
+  "core_settings": [
+    {
+      "name": "core_attributes.sensor_id",
+      "label": "Managing sensor",
+      "type": "select",
+      "description": "Sensor that runs the integration against the target.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "options_provider": "Sensors",
+      "validation": [
+        {
+          "rule": "alphaNumericRule"
+        }
+      ]
+    }
+  ],
+  "config_settings": [
+    {
+      "name": "config_attributes.tenantId",
+      "label": "Azure Tenant ID",
+      "type": "input",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.clientId",
+      "label": "Azure Client ID (App Registration)",
+      "type": "input",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.authentication_method",
+      "label": "authentication_method",
+      "type": "select",
+      "description": "How the Azure client secret is supplied: typed directly into TLM, or resolved at runtime from an external Secrets Manager (PAM) connector.",
+      "options": [
+        {
+          "key": "Self authentication",
+          "value": "Self authentication",
+          "label": "Self-authentication (Direct input)"
+        },
+        {
+          "key": "Self authentication secrets manager",
+          "value": "Self authentication secrets manager",
+          "label": "Self-authentication (Secrets manager)"
+        }
+      ],
+      "value": "Self authentication",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.clientSecret",
+      "label": "Azure Client Secret",
+      "type": "password",
+      "description": "Client secret of the Azure AD app registration / service principal.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true,
+      "conditional_group": {
+        "name": "authentication_method",
+        "value": "Self authentication",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.pam_connector_id",
+      "label": "secrets_manager_connector",
+      "type": "select",
+      "description": "Registered Secrets Manager (PAM) connector that resolves the Azure client secret at runtime.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "alphaNumericRule"
+        }
+      ],
+      "options_provider": "PamConnectors",
+      "required": true,
+      "conditional_banners": [
+        {
+          "value": "BeyondTrust",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the format systemName slash accountName to reference the Azure client secret from BeyondTrust vaults",
+          "banner_type": "info",
+          "dismissible": false
+        },
+        {
+          "value": "CyberArk",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the object or secret name to reference the Azure client secret from CyberArk vaults",
+          "banner_type": "info",
+          "dismissible": false
+        },
+        {
+          "value": "Delinea",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the numeric secret id optionally followed by slash field slug to reference the Azure client secret from Delinea secrets",
+          "banner_type": "info",
+          "dismissible": false
+        }
+      ],
+      "conditional_group": {
+        "name": "authentication_method",
+        "value": "Self authentication secrets manager",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.clientSecret",
+      "label": "Azure Client Secret (PAM vault reference)",
+      "type": "input",
+      "description": "Enter the PAM vault reference that holds the Azure client secret, not the secret itself. BeyondTrust: SystemName/AccountName. CyberArk: object name. Delinea: secretId or secretId/fieldSlug.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true,
+      "conditional_group": {
+        "name": "authentication_method",
+        "value": "Self authentication secrets manager",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.subscriptionId",
+      "label": "Azure Subscription ID",
+      "type": "input",
+      "description": "Subscription (GUID) whose Key Vaults this connector discovers and manages. One connector per subscription.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.resourceGroups",
+      "label": "Resource groups (optional)",
+      "type": "input",
+      "description": "Comma-separated resource-group names. When set, only vaults in these groups are discovered and the service principal needs Reader on those groups only.",
+      "size": "l",
+      "editable": true,
+      "optional": true
+    },
+    {
+      "name": "config_attributes.vaultNamePattern",
+      "label": "Vault name pattern (optional)",
+      "type": "input",
+      "description": "Case-insensitive regular expression a vault name must match, e.g. ^prod-.* — leave empty to discover every vault.",
+      "size": "l",
+      "editable": true,
+      "optional": true
+    },
+    {
+      "name": "config_attributes.vaultTagFilter",
+      "label": "Vault tag filter (optional)",
+      "type": "input",
+      "description": "Tag a vault must carry, as key=value (or just key for presence), e.g. tlm-managed=true.",
+      "size": "l",
+      "editable": true,
+      "optional": true
+    },
+    {
+      "name": "config_attributes.excludeExpiredCertificates",
+      "label": "Exclude expired certificates from discovery",
+      "type": "checkbox",
+      "size": "l",
+      "editable": true,
+      "optional": true
+    },
+    {
+      "name": "config_attributes.excludeDisabledCertificates",
+      "label": "Exclude disabled certificates from discovery",
+      "type": "checkbox",
+      "size": "l",
+      "editable": true,
+      "optional": true
+    }
+  ],
+  "additional_settings": [],
+  "credential_sets": [
+    {
+      "name": "sensitive",
+      "fields": [
+        {
+          "name": "config_attributes.clientSecret"
+        }
+      ]
+    },
+    {
+      "name": "unique",
+      "fields": [
+        {
+          "name": "config_attributes.subscriptionId"
+        }
+      ]
+    }
+  ]
+}

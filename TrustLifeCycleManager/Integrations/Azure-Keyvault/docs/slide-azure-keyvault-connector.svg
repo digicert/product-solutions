@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+<defs>
+<marker id="arr-0B2545" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0B2545"/></marker>
+<marker id="arr-B45309" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#B45309"/></marker>
+<marker id="arr-0F766E" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0F766E"/></marker>
+<marker id="arr-1553A0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1553A0"/></marker>
+<marker id="arr-0B2545" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0B2545"/></marker>
+<marker id="arr-6D28D9" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6D28D9"/></marker>
+<marker id="arr-0078D4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0078D4"/></marker>
+<marker id="arr-374151" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker>
+<filter id="sh" x="-5%" y="-5%" width="110%" height="115%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0B2545" flood-opacity="0.10"/></filter>
+</defs>
+<rect width="1920" height="1080" fill="#FFFFFF"/>
+<text x="80" y="76" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="36" fill="#0B2545" font-weight="bold" text-anchor="start" >Azure Key Vault connector for DigiCert Trust Lifecycle Manager</text>
+<text x="80" y="112" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="19" fill="#5B6573" font-weight="normal" text-anchor="start" >A custom extensibility plugin lets TLM discover, issue and renew certificates inside a vault. The private key never leaves Azure.</text>
+<line x1="80" y1="134" x2="1840" y2="134" stroke="#9AA4B2" stroke-width="1.2"/>
+<rect x="80" y="170" width="310" height="400" rx="16" fill="#EEF1F6" stroke="#0B2545" stroke-width="2" filter="url(#sh)"/>
+<rect x="80" y="170" width="310" height="64" rx="16" fill="#0B2545" stroke="#0B2545" stroke-width="1.5" />
+<rect x="80" y="210" width="310" height="24" rx="0" fill="#0B2545" stroke="#0B2545" stroke-width="1.5" />
+<text x="104" y="210" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="24" fill="#fff" font-weight="bold" text-anchor="start" >DigiCert CA</text>
+<text x="104" y="266" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="16" fill="#5B6573" font-weight="normal" text-anchor="start" >CertCentral or private CA</text>
+<circle cx="112" cy="298" r="4.5" fill="#0B2545"/>
+<text x="128" y="304" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >Signs the CSR according to</text>
+<text x="128" y="327" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >the TLM certificate</text>
+<text x="128" y="350" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >profile</text>
+<circle cx="112" cy="379" r="4.5" fill="#0B2545"/>
+<text x="128" y="385" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >Returns certificate and</text>
+<text x="128" y="408" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >chain to TLM</text>
+<rect x="470" y="170" width="380" height="400" rx="16" fill="#EAF1FB" stroke="#1553A0" stroke-width="2" filter="url(#sh)"/>
+<rect x="470" y="170" width="380" height="64" rx="16" fill="#1553A0" stroke="#1553A0" stroke-width="1.5" />
+<rect x="470" y="210" width="380" height="24" rx="0" fill="#1553A0" stroke="#1553A0" stroke-width="1.5" />
+<text x="494" y="210" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="24" fill="#fff" font-weight="bold" text-anchor="start" >DigiCert TLM</text>
+<text x="494" y="266" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="16" fill="#5B6573" font-weight="normal" text-anchor="start" >system of record and automation engine</text>
+<circle cx="502" cy="298" r="4.5" fill="#1553A0"/>
+<text x="518" y="304" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >Inventory of every certificate in</text>
+<text x="518" y="327" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >the vault</text>
+<circle cx="502" cy="356" r="4.5" fill="#1553A0"/>
+<text x="518" y="362" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >Profiles, policy and auto-renew</text>
+<text x="518" y="385" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >windows</text>
+<circle cx="502" cy="414" r="4.5" fill="#1553A0"/>
+<text x="518" y="420" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >Runs TRANSFER, RENEW and INSTALL</text>
+<text x="518" y="443" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >automations</text>
+<circle cx="502" cy="472" r="4.5" fill="#1553A0"/>
+<text x="518" y="478" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >Sensor dispatches the plugin</text>
+<rect x="930" y="170" width="420" height="400" rx="16" fill="#F3EEFD" stroke="#6D28D9" stroke-width="2" filter="url(#sh)"/>
+<rect x="930" y="170" width="420" height="64" rx="16" fill="#6D28D9" stroke="#6D28D9" stroke-width="1.5" />
+<rect x="930" y="210" width="420" height="24" rx="0" fill="#6D28D9" stroke="#6D28D9" stroke-width="1.5" />
+<text x="954" y="210" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="24" fill="#fff" font-weight="bold" text-anchor="start" >Key Vault plugin</text>
+<text x="954" y="266" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="16" fill="#5B6573" font-weight="normal" text-anchor="start" >built on TLM extensibility (Java plugin SDK)</text>
+<circle cx="962" cy="298" r="4.5" fill="#6D28D9"/>
+<text x="978" y="304" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >Five lifecycle operations: test,</text>
+<text x="978" y="327" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >discover, generate CSR, install,</text>
+<text x="978" y="350" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >validate</text>
+<circle cx="962" cy="379" r="4.5" fill="#6D28D9"/>
+<text x="978" y="385" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >Talks to the vault data plane with an</text>
+<text x="978" y="408" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >Azure AD service principal, secret held</text>
+<text x="978" y="431" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >in TLM or a PAM vault</text>
+<circle cx="962" cy="460" r="4.5" fill="#6D28D9"/>
+<text x="978" y="466" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >Handles only public material: the CSR</text>
+<text x="978" y="489" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >and the signed chain</text>
+<rect x="1430" y="170" width="390" height="400" rx="16" fill="#E6F2FB" stroke="#0078D4" stroke-width="2" filter="url(#sh)"/>
+<rect x="1430" y="170" width="390" height="64" rx="16" fill="#0078D4" stroke="#0078D4" stroke-width="1.5" />
+<rect x="1430" y="210" width="390" height="24" rx="0" fill="#0078D4" stroke="#0078D4" stroke-width="1.5" />
+<text x="1454" y="210" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="24" fill="#fff" font-weight="bold" text-anchor="start" >Azure Key Vault</text>
+<text x="1454" y="266" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="16" fill="#5B6573" font-weight="normal" text-anchor="start" >one connector = one vault</text>
+<circle cx="1462" cy="298" r="4.5" fill="#0078D4"/>
+<text x="1478" y="304" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >Every certificate object is</text>
+<text x="1478" y="327" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >discovered</text>
+<circle cx="1462" cy="356" r="4.5" fill="#0078D4"/>
+<text x="1478" y="362" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >Key pair and CSR generated inside</text>
+<text x="1478" y="385" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >the vault</text>
+<circle cx="1462" cy="414" r="4.5" fill="#0078D4"/>
+<text x="1478" y="420" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >Signed certificate merged back as a</text>
+<text x="1478" y="443" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >new version of the same object</text>
+<circle cx="1462" cy="472" r="4.5" fill="#0078D4"/>
+<text x="1478" y="478" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >Consumers keep the same name, no</text>
+<text x="1478" y="501" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="17" fill="#0B2545" font-weight="normal" text-anchor="start" >rebinding</text>
+<polyline points="850,380.0 930,380.0" fill="none" stroke="#1553A0" stroke-width="3"  marker-end="url(#arr-1553A0)"/>
+<polyline points="930,420.0 850,420.0" fill="none" stroke="#6D28D9" stroke-width="3"  marker-end="url(#arr-6D28D9)"/>
+<rect x="828.5" y="353.0" width="123" height="20" rx="4" fill="#fff" opacity="0.95"/>
+<text x="890" y="368.0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#1553A0" font-weight="bold" text-anchor="middle" >lifecycle calls</text>
+<rect x="859.0" y="431.0" width="62" height="20" rx="4" fill="#fff" opacity="0.95"/>
+<text x="890" y="446.0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#6D28D9" font-weight="bold" text-anchor="middle" >results</text>
+<polyline points="1350,380.0 1430,380.0" fill="none" stroke="#6D28D9" stroke-width="3"  marker-end="url(#arr-6D28D9)"/>
+<polyline points="1430,420.0 1350,420.0" fill="none" stroke="#0078D4" stroke-width="3"  marker-end="url(#arr-0078D4)"/>
+<rect x="1332.5" y="353.0" width="115" height="20" rx="4" fill="#fff" opacity="0.95"/>
+<text x="1390" y="368.0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#6D28D9" font-weight="bold" text-anchor="middle" >create · merge</text>
+<rect x="1351.5" y="431.0" width="77" height="20" rx="4" fill="#fff" opacity="0.95"/>
+<text x="1390" y="446.0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#0078D4" font-weight="bold" text-anchor="middle" >CSR · PEM</text>
+<polyline points="470,420.0 390,420.0" fill="none" stroke="#1553A0" stroke-width="3"  marker-end="url(#arr-1553A0)"/>
+<polyline points="390,380.0 470,380.0" fill="none" stroke="#0B2545" stroke-width="3"  marker-end="url(#arr-0B2545)"/>
+<rect x="380.0" y="353.0" width="100" height="20" rx="4" fill="#fff" opacity="0.95"/>
+<text x="430" y="368.0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#0B2545" font-weight="bold" text-anchor="middle" >cert + chain</text>
+<rect x="384.0" y="431.0" width="92" height="20" rx="4" fill="#fff" opacity="0.95"/>
+<text x="430" y="446.0" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#1553A0" font-weight="bold" text-anchor="middle" >CSR + order</text>
+<rect x="80" y="630" width="1760" height="240" rx="16" fill="#F8FAFC" stroke="#9AA4B2" stroke-width="1" />
+<text x="104" y="666" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="20" fill="#0B2545" font-weight="bold" text-anchor="start" >Renewal flow for one certificate</text>
+<rect x="104" y="686" width="398" height="160" rx="10" fill="#fff" stroke="#6D28D9" stroke-width="1.5" />
+<circle cx="128" cy="714" r="15" fill="#6D28D9"/>
+<text x="128" y="720" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="16" fill="#fff" font-weight="bold" text-anchor="middle" >1</text>
+<text x="152" y="720" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="18" fill="#0B2545" font-weight="bold" text-anchor="start" >Discover</text>
+<text x="124" y="748" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15.5" fill="#5B6573" font-weight="normal" text-anchor="start" >The plugin lists the vault; each certificate</text>
+<text x="124" y="769" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15.5" fill="#5B6573" font-weight="normal" text-anchor="start" >becomes a selectable asset in the TLM</text>
+<text x="124" y="790" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15.5" fill="#5B6573" font-weight="normal" text-anchor="start" >inventory.</text>
+<polyline points="502,766.0 542,766.0" fill="none" stroke="#6D28D9" stroke-width="3"  marker-end="url(#arr-6D28D9)"/>
+<rect x="542" y="686" width="398" height="160" rx="10" fill="#fff" stroke="#6D28D9" stroke-width="1.5" />
+<circle cx="566" cy="714" r="15" fill="#6D28D9"/>
+<text x="566" y="720" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="16" fill="#fff" font-weight="bold" text-anchor="middle" >2</text>
+<text x="590" y="720" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="18" fill="#0B2545" font-weight="bold" text-anchor="start" >Generate CSR</text>
+<text x="562" y="748" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15.5" fill="#5B6573" font-weight="normal" text-anchor="start" >TLM asks the plugin for a CSR. Azure creates</text>
+<text x="562" y="769" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15.5" fill="#5B6573" font-weight="normal" text-anchor="start" >a new pending version with a fresh key pair</text>
+<text x="562" y="790" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15.5" fill="#5B6573" font-weight="normal" text-anchor="start" >inside the vault.</text>
+<polyline points="940,766.0 980,766.0" fill="none" stroke="#6D28D9" stroke-width="3"  marker-end="url(#arr-6D28D9)"/>
+<rect x="980" y="686" width="398" height="160" rx="10" fill="#fff" stroke="#6D28D9" stroke-width="1.5" />
+<circle cx="1004" cy="714" r="15" fill="#6D28D9"/>
+<text x="1004" y="720" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="16" fill="#fff" font-weight="bold" text-anchor="middle" >3</text>
+<text x="1028" y="720" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="18" fill="#0B2545" font-weight="bold" text-anchor="start" >Issue</text>
+<text x="1000" y="748" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15.5" fill="#5B6573" font-weight="normal" text-anchor="start" >TLM orders the certificate from the DigiCert</text>
+<text x="1000" y="769" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15.5" fill="#5B6573" font-weight="normal" text-anchor="start" >CA using the chosen profile.</text>
+<polyline points="1378,766.0 1418,766.0" fill="none" stroke="#6D28D9" stroke-width="3"  marker-end="url(#arr-6D28D9)"/>
+<rect x="1418" y="686" width="398" height="160" rx="10" fill="#fff" stroke="#6D28D9" stroke-width="1.5" />
+<circle cx="1442" cy="714" r="15" fill="#6D28D9"/>
+<text x="1442" y="720" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="16" fill="#fff" font-weight="bold" text-anchor="middle" >4</text>
+<text x="1466" y="720" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="18" fill="#0B2545" font-weight="bold" text-anchor="start" >Install and validate</text>
+<text x="1438" y="748" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15.5" fill="#5B6573" font-weight="normal" text-anchor="start" >The plugin merges the signed chain into the</text>
+<text x="1438" y="769" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15.5" fill="#5B6573" font-weight="normal" text-anchor="start" >pending version and reads back the active</text>
+<text x="1438" y="790" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15.5" fill="#5B6573" font-weight="normal" text-anchor="start" >certificate.</text>
+<text x="1840" y="1050" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" fill="#5B6573" font-weight="normal" text-anchor="end" >DigiCert Trust Lifecycle Manager · Azure Key Vault extensibility plugin</text>
+</svg>

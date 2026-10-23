@@ -9,6 +9,10 @@
 		<maven.compiler.source>17</maven.compiler.source>
 		<maven.compiler.target>17</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<!-- bcprov, bcpkix and bcutil MUST stay on the same version: bcprov 1.85 + bcutil 1.84
+		     produced NoSuchFieldError id_MLKEM768_RSA2048_SHA3_256 at runtime (duplicate
+		     IANAObjectIdentifiers class, older copy won in the fat jar). -->
+		<bouncycastle.version>1.86</bouncycastle.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -58,12 +62,12 @@
 		<dependency>
 			<groupId>org.bouncycastle</groupId>
 			<artifactId>bcprov-jdk18on</artifactId>
-			<version>1.85</version>
+			<version>${bouncycastle.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.bouncycastle</groupId>
 			<artifactId>bcpkix-jdk18on</artifactId>
-			<version>1.84</version>
+			<version>${bouncycastle.version}</version>
 		</dependency>
 
 		<!-- Test dependencies -->
