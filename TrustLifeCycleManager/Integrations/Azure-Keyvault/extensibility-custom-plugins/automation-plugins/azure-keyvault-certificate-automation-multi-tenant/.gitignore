@@ -1,0 +1,2 @@
+# Maven build output — the distributable plugin zip is published under plugin-dist/
+target/

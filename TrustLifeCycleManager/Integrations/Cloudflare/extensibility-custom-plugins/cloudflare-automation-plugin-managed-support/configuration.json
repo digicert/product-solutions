@@ -1,0 +1,353 @@
+{
+  "metadata": {
+    "author": "DigiCert",
+    "email": "support@digicert.com"
+  },
+  "core_settings": [
+    {
+      "name": "core_attributes.sensor_id",
+      "label": "Managing sensor",
+      "type": "select",
+      "description": "Sensor that talks to the Cloudflare API (api.cloudflare.com, HTTPS 443) on behalf of this connector.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "options_provider": "Sensors",
+      "validation": [
+        {
+          "rule": "alphaNumericRule"
+        }
+      ]
+    }
+  ],
+  "config_settings": [
+    {
+      "name": "config_attributes.zoneId",
+      "label": "Cloudflare Zone ID",
+      "type": "input",
+      "description": "32-character Zone ID of the Cloudflare zone whose custom certificates this connector manages (Cloudflare dashboard > zone Overview > API section). One connector per zone.",
+      "label_helper": "Example: 023e105f4ecef8ad9ca31a8372d0c353",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.authentication_method",
+      "label": "authentication_method",
+      "type": "select",
+      "description": "How the Cloudflare API token is supplied: typed directly into TLM, or resolved at runtime from an external Secrets Manager (PAM) connector.",
+      "options": [
+        {
+          "key": "Self authentication",
+          "value": "Self authentication",
+          "label": "Self-authentication (Direct input)"
+        },
+        {
+          "key": "Self authentication secrets manager",
+          "value": "Self authentication secrets manager",
+          "label": "Self-authentication (Secrets manager)"
+        }
+      ],
+      "value": "Self authentication",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.password",
+      "label": "Cloudflare API token",
+      "type": "password",
+      "description": "API token (My Profile > API Tokens) with Zone > SSL and Certificates > Edit and Zone > Zone > Read on this zone (SSL and Certificates > Edit also covers certificate packs and the Universal SSL setting). Sent as Authorization: Bearer; never logged.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true,
+      "conditional_group": {
+        "name": "authentication_method",
+        "value": "Self authentication",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.pam_connector_id",
+      "label": "secrets_manager_connector",
+      "type": "select",
+      "description": "Registered Secrets Manager (PAM) connector that resolves the Cloudflare API token at runtime.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "alphaNumericRule"
+        }
+      ],
+      "options_provider": "PamConnectors",
+      "required": true,
+      "conditional_banners": [
+        {
+          "value": "BeyondTrust",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the format systemName slash accountName to reference the Cloudflare API token from BeyondTrust vaults",
+          "banner_type": "info",
+          "dismissible": false
+        },
+        {
+          "value": "CyberArk",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the object or secret name to reference the Cloudflare API token from CyberArk vaults",
+          "banner_type": "info",
+          "dismissible": false
+        },
+        {
+          "value": "Delinea",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the numeric secret id optionally followed by slash field slug to reference the Cloudflare API token from Delinea secrets",
+          "banner_type": "info",
+          "dismissible": false
+        }
+      ],
+      "conditional_group": {
+        "name": "authentication_method",
+        "value": "Self authentication secrets manager",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.password",
+      "label": "Cloudflare API token (PAM vault reference)",
+      "type": "input",
+      "description": "Enter the PAM vault reference that holds the Cloudflare API token, not the token itself. BeyondTrust: SystemName/AccountName. CyberArk: object name. Delinea: secretId or secretId/fieldSlug.",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true,
+      "conditional_group": {
+        "name": "authentication_method",
+        "value": "Self authentication secrets manager",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.csrMode",
+      "label": "Private key and CSR generation",
+      "type": "select",
+      "description": "'Cloudflare' (default): the key pair and CSR are generated by Cloudflare (POST /custom_csrs); the private key never leaves Cloudflare and the certificate is uploaded by CSR id. Cloudflare supports RSA 2048 and ECDSA P-256 only. 'Sensor': the key pair and CSR are generated on the TLM sensor (any key size) and the private key is uploaded together with the certificate.",
+      "options": [
+        {
+          "key": "cloudflare",
+          "value": "cloudflare",
+          "label": "Cloudflare generates the key and CSR (default)"
+        },
+        {
+          "key": "sensor",
+          "value": "sensor",
+          "label": "TLM sensor generates the key and CSR"
+        }
+      ],
+      "value": "cloudflare",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.csrSubjectFallback",
+      "label": "CSR subject fallback (C, ST, L, O)",
+      "type": "input",
+      "description": "Cloudflare-generated CSRs require country, state, locality and organization. Values from the TLM certificate profile's subject DN are used first; this fallback fills in any that are missing. Format: C=US, ST=Utah, L=Lehi, O=Example Inc.",
+      "value": "C=US, ST=Utah, L=Lehi, O=DigiCert",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.renewalStrategy",
+      "label": "How a renewed certificate replaces the existing one",
+      "type": "select",
+      "description": "'Update' (default) PATCHes the existing Cloudflare custom certificate with the renewed one in a single call (Cloudflare replaces the record and assigns it a new id). 'Upload new, delete replaced' uploads a new custom certificate and then deletes the one it replaces (the behaviour of the DigiCert post-enrollment scripts). 'Upload new, keep replaced' leaves the previous certificate in the zone for manual clean-up.",
+      "options": [
+        {
+          "key": "update",
+          "value": "update",
+          "label": "Update the existing certificate via PATCH (default)"
+        },
+        {
+          "key": "replace_delete",
+          "value": "replace_delete",
+          "label": "Upload new certificate, delete the replaced one"
+        },
+        {
+          "key": "replace_keep",
+          "value": "replace_keep",
+          "label": "Upload new certificate, keep the replaced one"
+        }
+      ],
+      "value": "update",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.certificateType",
+      "label": "Certificate type for new uploads",
+      "type": "select",
+      "description": "Cloudflare custom certificate type used when a NEW certificate is uploaded. 'SNI Custom' (Custom Modern, default) requires SNI-capable clients; 'Legacy Custom' also serves non-SNI clients (Business/Enterprise with legacy support). An update in place keeps the existing certificate's type.",
+      "options": [
+        {
+          "key": "sni_custom",
+          "value": "sni_custom",
+          "label": "SNI Custom (Custom Modern, default)"
+        },
+        {
+          "key": "legacy_custom",
+          "value": "legacy_custom",
+          "label": "Legacy Custom (non-SNI clients)"
+        }
+      ],
+      "value": "sni_custom",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.bundleMethod",
+      "label": "Chain bundling",
+      "type": "select",
+      "description": "'User defined' (force, default) uploads the end-entity certificate followed by the issuing CA exactly as TLM issued it and works with private CAs. 'Compatible' (ubiquitous) and 'Modern' (optimal) upload the end-entity certificate only and let Cloudflare build the chain from publicly trusted CAs.",
+      "options": [
+        {
+          "key": "force",
+          "value": "force",
+          "label": "User defined: leaf + issuing CA as issued (default)"
+        },
+        {
+          "key": "ubiquitous",
+          "value": "ubiquitous",
+          "label": "Compatible: Cloudflare builds the chain"
+        },
+        {
+          "key": "optimal",
+          "value": "optimal",
+          "label": "Modern: Cloudflare builds the chain"
+        }
+      ],
+      "value": "force",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.managedCertificates",
+      "label": "Cloudflare-managed certificates (Universal SSL / Advanced)",
+      "type": "select",
+      "description": "Whether certificates Cloudflare issued itself (Universal SSL and Advanced Certificate Manager packs, e.g. from Google Trust Services or Let's Encrypt) are listed as assets so they can be replaced by a custom (DigiCert) certificate, and what happens to them afterwards. 'Discover, keep' (default) lists them and leaves them in place after the switch: Cloudflare serves the custom certificate for every hostname both cover, the managed one stays as fallback. 'Discover, retire' additionally disables Universal SSL / deletes the Advanced pack once the custom certificate is active and covers every hostname of the managed certificate. 'Ignore' lists custom certificates only.",
+      "options": [
+        {
+          "key": "discover_keep",
+          "value": "discover_keep",
+          "label": "Discover, keep as fallback after the switch (default)"
+        },
+        {
+          "key": "discover_retire",
+          "value": "discover_retire",
+          "label": "Discover, retire after the switch (disable Universal SSL / delete pack)"
+        },
+        {
+          "key": "ignore",
+          "value": "ignore",
+          "label": "Ignore (custom certificates only)"
+        }
+      ],
+      "value": "discover_keep",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.csrRetention",
+      "label": "Cloudflare CSRs to keep per common name",
+      "type": "input",
+      "description": "After a successful install in Cloudflare CSR mode, older Cloudflare CSR records with the same common name are deleted, keeping this many most recent ones (the CSR just used is always kept). 0 keeps only the current CSR.",
+      "value": "5",
+      "size": "l",
+      "editable": true,
+      "optional": false,
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ]
+    }
+  ],
+  "additional_settings": [],
+  "credential_sets": [
+    {
+      "name": "sensitive",
+      "fields": [
+        {
+          "name": "config_attributes.password"
+        }
+      ]
+    },
+    {
+      "name": "unique",
+      "fields": [
+        {
+          "name": "config_attributes.zoneId"
+        }
+      ]
+    }
+  ]
+}

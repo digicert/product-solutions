@@ -81,7 +81,11 @@ CERT_INFO=${DC1_POST_SCRIPT_DATA}
 log_message "CERT_INFO length: ${#CERT_INFO} characters"
 
 # Decode JSON string
-JSON_STRING=$(echo "$CERT_INFO" | base64 -d)
+JSON_STRING=$(echo "$CERT_INFO" | base64 -d 2>/dev/null)
+if [ $? -ne 0 ] || [ -z "$JSON_STRING" ]; then
+    log_message "ERROR: Failed to Base64-decode DC1_POST_SCRIPT_DATA into JSON"
+    exit 1
+fi
 log_message "JSON_STRING decoded successfully"
 
 # Extract arguments from JSON
@@ -165,6 +169,16 @@ if [ "$CERT_UPLOAD_TYPE" = "SNI" ] && [ -z "$ARGUMENT_1" ]; then
     exit 1
 fi
 
+# API ID (Argument 2) and API Key (Argument 3) are required for every workflow.
+if [ -z "$ARGUMENT_2" ]; then
+    log_message "ERROR: Imperva API ID (Argument 2) is missing."
+    exit 1
+fi
+if [ -z "$ARGUMENT_3" ]; then
+    log_message "ERROR: Imperva API Key (Argument 3) is missing."
+    exit 1
+fi
+
 log_message "Certificate upload type: $CERT_UPLOAD_TYPE"
 if [ "$CERT_UPLOAD_TYPE" = "NONSNI" ]; then
     log_message "Network slice: $NETWORK_SLICE"
@@ -172,14 +186,26 @@ fi
 
 # Extract cert folder
 CERT_FOLDER=$(echo "$JSON_STRING" | grep -oP '"certfolder":"\K[^"]+')
+if [ -z "$CERT_FOLDER" ]; then
+    log_message "ERROR: Could not extract certfolder from DC1_POST_SCRIPT_DATA"
+    exit 1
+fi
 log_message "Extracted CERT_FOLDER: $CERT_FOLDER"
 
 # Extract the .crt file name
 CRT_FILE=$(echo "$JSON_STRING" | grep -oP '"files":\[\K[^]]*' | grep -oP '[^,"]+\.crt')
+if [ -z "$CRT_FILE" ]; then
+    log_message "ERROR: Could not find a .crt file name in DC1_POST_SCRIPT_DATA files list"
+    exit 1
+fi
 log_message "Extracted CRT_FILE: $CRT_FILE"
 
 # Extract the .key file name
 KEY_FILE=$(echo "$JSON_STRING" | grep -oP '"files":\[\K[^]]*' | grep -oP '[^,"]+\.key')
+if [ -z "$KEY_FILE" ]; then
+    log_message "ERROR: Could not find a .key file name in DC1_POST_SCRIPT_DATA files list"
+    exit 1
+fi
 log_message "Extracted KEY_FILE: $KEY_FILE"
 
 # Construct file paths
@@ -208,6 +234,10 @@ fi
 
 # Count total certificates in the file for logging purposes
 CERT_COUNT=$(grep -c "BEGIN CERTIFICATE" "${CRT_FILE_PATH}")
+if [ "${CERT_COUNT:-0}" -lt 1 ]; then
+    log_message "ERROR: No PEM certificates found in $CRT_FILE_PATH"
+    exit 1
+fi
 log_message "Total certificates in file: $CERT_COUNT"
 
 # ========================================
@@ -225,6 +255,10 @@ if [ $? -ne 0 ]; then
     # Fallback for macOS or systems where -w flag doesn't work
     log_message "Base64 with -w 0 failed, trying without -w flag (macOS compatible)..."
     CERT_CHAIN_BASE64=$(cat "$CRT_FILE_PATH" | base64)
+fi
+if [ -z "$CERT_CHAIN_BASE64" ]; then
+    log_message "ERROR: Base64 encoding of certificate chain produced no output"
+    exit 1
 fi
 log_message "Certificate chain Base64 encoded successfully"
 log_message "Certificate chain Base64 length: ${#CERT_CHAIN_BASE64} characters"
@@ -246,6 +280,10 @@ if [ $? -ne 0 ]; then
     log_message "Base64 with -w 0 failed, trying without -w flag (macOS compatible)..."
     KEY_BASE64=$(cat "$KEY_FILE_PATH" | base64)
 fi
+if [ -z "$KEY_BASE64" ]; then
+    log_message "ERROR: Base64 encoding of private key produced no output"
+    exit 1
+fi
 log_message "Private key Base64 encoded successfully"
 log_message "Private key Base64 length: ${#KEY_BASE64} characters"
 
@@ -259,14 +297,16 @@ VERIFY_CERT=$(echo "$CERT_CHAIN_BASE64" | base64 -d 2>&1 | head -1)
 if [[ "$VERIFY_CERT" == *"BEGIN CERTIFICATE"* ]]; then
     log_message "Certificate Base64 verification: SUCCESS (decodes to valid PEM)"
 else
-    log_message "WARNING: Certificate Base64 may be invalid. First line after decode: $VERIFY_CERT"
+    log_message "ERROR: Certificate Base64 is invalid. First line after decode: $VERIFY_CERT"
+    exit 1
 fi
 
 VERIFY_KEY=$(echo "$KEY_BASE64" | base64 -d 2>&1 | head -1)
 if [[ "$VERIFY_KEY" == *"BEGIN"*"PRIVATE KEY"* ]]; then
     log_message "Private key Base64 verification: SUCCESS (decodes to valid PEM)"
 else
-    log_message "WARNING: Private key Base64 may be invalid. First line after decode: $VERIFY_KEY"
+    log_message "ERROR: Private key Base64 is invalid. First line after decode: $VERIFY_KEY"
+    exit 1
 fi
 
 # Determine auth_type based on private key file content
@@ -383,6 +423,7 @@ EOF
       --header "x-API-Key: $API_KEY" \
       --header "x-API-Id: $API_ID" \
       --data "${API_PAYLOAD}")
+    CURL_EXIT_CODE=$?
 else
     # ========================================
     # NONSNI workflow: POST form-encoded payload to the site group manual
@@ -438,6 +479,16 @@ else
       --data-urlencode "network_slice=${NETWORK_SLICE}" \
       --data-urlencode "certificate=${CERT_CHAIN_BASE64}" \
       --data-urlencode "private_key=${KEY_BASE64}")
+    CURL_EXIT_CODE=$?
+fi
+
+# A curl transport failure (DNS, TLS, timeout, proxy) never reaches Imperva.
+# It leaves HTTP_STATUS empty or 000, so fail explicitly here with the curl code.
+if [ "$CURL_EXIT_CODE" -ne 0 ]; then
+    log_message "ERROR: curl failed to contact Imperva (curl exit code $CURL_EXIT_CODE)"
+    log_message "ERROR: Exiting with failure - no response received from $API_URL"
+    log_message "=========================================="
+    exit 1
 fi
 
 # Extract HTTP status code and response body
