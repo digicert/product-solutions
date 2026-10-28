@@ -81,9 +81,9 @@ Edit these variables at the top of the script before deploying:
 | Variable | Script | Default | Description |
 |----------|--------|---------|-------------|
 | `LEGAL_NOTICE_ACCEPT` | Both | `"false"` | Must be set to `"true"` to allow execution |
-| `LOGFILE` | Linux | `/opt/digicert/fortigate.log` | Path to the script log file |
+| `LOGFILE` | Linux | `/opt/digicert/logs/fortigate.log` | Path to the script log file (the directory is created if missing) |
 | `MAX_CERT_NAME_LENGTH` | Both | `35` | FortiOS limit for certificate object names; do not change |
-| `LOG_PATH` | Windows | `C:\Program Files\DigiCert\TLM Agent\log\fortigate-awr.log` | Path to the script log file |
+| `LOG_PATH` | Windows | `C:\Program Files\DigiCert\TLM Agent\log\fortigate-awr.log` | Path to the script log file (the directory is created if missing) |
 | `SKIP_CERTIFICATE_CHECK` | Windows | `$false` | Set to `$true` to accept a self-signed FortiGate management certificate (the Linux script always uses `curl -k`) |
 
 ---
@@ -92,11 +92,11 @@ Edit these variables at the top of the script before deploying:
 
 | Position | Variable | Required | Description |
 |----------|----------|----------|-------------|
-| 1 | `FORTIGATE_URL` | Yes | FortiGate hostname or IP (no `https://` prefix) |
+| 1 | `FORTIGATE_URL` | Yes | FortiGate hostname or IP. A bare host is preferred; a leading `https://` (or `http://`) and trailing slashes are tolerated and normalised. |
 | 2 | `CERT_BASE_NAME` | Yes | Base name used to identify the certificate and to name the new one. A reference matches if its value equals the base name or starts with `<base>-` (a name produced by an earlier run). Ex: if the old cert is named `mydomain.com` or `mydomain.com-20250101-120000`, use `mydomain.com`. New certs are named `<base>-YYYYMMDD-HHmmss`. **Max 19 characters**: FortiOS caps certificate names at 35 characters and the suffix uses 16; the script aborts before importing if the new name would be longer. |
 | 3 | `BEARER_TOKEN` | Yes | FortiGate REST API Bearer token |
 | 4 | `DELETE_MODE` | No | `delete_old` — delete previously matched certs after reassignment. `keep_old` (default) — leave old certs in place |
-| 5 | `ASSIGN_MODE` | No | Assignment strategy. One of:<br>`assign_refs` (default) — reassign all references to the new cert<br>`import_only` — only import, skip reassignment<br>Comma-separated selectors (e.g., `ssl_vpn,admin_https`) — reassign only the specified features:<br>&nbsp;&nbsp;• `ssl_vpn` — SSL-VPN settings<br>&nbsp;&nbsp;• `admin_https` — Admin HTTPS certificate<br>&nbsp;&nbsp;• `admin_https_fallback` — Admin HTTPS certificate fallback<br>&nbsp;&nbsp;• `ipsec_phase1_interface` — IPsec phase1-interface table<br>&nbsp;&nbsp;• `ipsec_phase1` — IPsec phase1 table<br>&nbsp;&nbsp;• `firewall_vip` — Firewall virtual servers / VIPs with SSL offloading (`ssl-certificate` list) |
+| 5 | `ASSIGN_MODE` | No | Assignment strategy. One of:<br>`assign_refs` (default) — reassign all references to the new cert<br>`import_only` — only import, skip reassignment<br>Comma-separated selectors (e.g., `ssl_vpn,admin_https`) — reassign only the specified features:<br>&nbsp;&nbsp;• `ssl_vpn` — SSL-VPN settings<br>&nbsp;&nbsp;• `admin_https` — Admin HTTPS certificate<br>&nbsp;&nbsp;• `admin_https_fallback` — Admin HTTPS certificate fallback<br>&nbsp;&nbsp;• `ipsec_phase1_interface` — IPsec phase1-interface table<br>&nbsp;&nbsp;• `ipsec_phase1` — IPsec phase1 table<br>&nbsp;&nbsp;• `firewall_vip` — Firewall virtual servers / VIPs with SSL offloading (`ssl-certificate` list)<br>Selectors are case-insensitive. `import_only` wins if combined with anything else; `assign_refs` enables every selector. Unknown selectors are logged as a warning and ignored. |
 | 6 | `OLD_CERT_NAME` | No | Exact name of a certificate to take over that was not named by this script (e.g. one uploaded manually or by the FortiGate automation plugin, such as `paolo-2909_digicert-de_39bc349182d8`). It is matched **in addition to** the prefix rule of argument 2, so the same arguments keep working on later renewals: the first run matches this name, later runs match the `<base>-*` name the script created, and the stale value is simply ignored. |
 
 ---
@@ -184,7 +184,7 @@ The administrator's **trusted hosts** must include the TLM Agent host.
 
 | Platform | Path |
 |----------|------|
-| Linux | `/opt/digicert/fortigate.log` |
+| Linux | `/opt/digicert/logs/fortigate.log` |
 | Windows | `C:\Program Files\DigiCert\TLM Agent\log\fortigate-awr.log` |
 
 The bearer token is redacted from every log line, including the raw JSON dump.

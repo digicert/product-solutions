@@ -330,7 +330,13 @@ function Get-MatchingSingletonFieldValue {
 }
 
 function Get-UnwrappedStringValues {
-    param([Parameter(Mandatory = $true)]$Value)
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [AllowEmptyCollection()]
+        $Value
+    )
 
     $values = [System.Collections.Generic.List[string]]::new()
 
