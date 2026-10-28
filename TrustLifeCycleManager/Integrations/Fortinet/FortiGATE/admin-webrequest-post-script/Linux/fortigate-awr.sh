@@ -31,8 +31,9 @@ The contractor/manufacturer is DIGICERT, INC.
 LEGAL_NOTICE
 
 # Configuration
-LEGAL_NOTICE_ACCEPT="true"  # Set to "true" to accept the legal notice and proceed with script execution
-LOGFILE="//opt/digicert/logs/fortigate.log"
+LEGAL_NOTICE_ACCEPT="false"  # Set to "true" to accept the legal notice and proceed with script execution
+LOGFILE="/opt/digicert/logs/fortigate.log"
+SCRIPT_VERSION="1.1.0"
 MAX_CERT_NAME_LENGTH=35  # FortiOS limit for vpn.certificate.local object names
 
 log_message() {
@@ -69,6 +70,21 @@ http_status() {
 
 http_body() {
     echo "$1" | sed 's/HTTP_STATUS:[0-9]*$//'
+}
+
+# Normalises argument 1 into a base URL: strips trailing slashes and prepends
+# https:// unless a scheme was given (mirrors Get-FortiGateBaseUrl in the PowerShell variant).
+normalize_base_url() {
+    URL_IN=$(printf '%s' "$1" | sed -E 's#/+$##')
+    case "$URL_IN" in
+        http://*|https://*) printf '%s' "$URL_IN" ;;
+        *) printf 'https://%s' "$URL_IN" ;;
+    esac
+}
+
+# True when ASSIGN_MODE contains the given comma-separated token (whole-token match).
+assign_mode_has() {
+    echo "$ASSIGN_MODE" | grep -qE "(^|,)$1(,|$)"
 }
 
 urlencode() {
@@ -121,7 +137,7 @@ import json, sys
 data=json.loads(sys.argv[1])
 ext=sys.argv[2]
 for f in data.get("files", []):
-    if f.endswith(ext):
+    if f.lower().endswith(ext.lower()):
         print(f)
         break
 ' "$JSON_STRING" "$1"
@@ -187,7 +203,7 @@ log_import_error() {
     elif [ "$STATUS" = "500" ]; then
         log_message "ERROR: Internal server error (500)"
         log_message "FortiGate encountered an internal error"
-    elif [ -z "$STATUS" ]; then
+    elif [ -z "$STATUS" ] || [ "$STATUS" = "000" ]; then
         log_message "ERROR: Failed to connect to FortiGate"
         log_message "Please verify the FortiGate URL is correct and accessible"
         log_message "Curl output: $RAW_RESPONSE"
@@ -354,8 +370,10 @@ print(json.dumps({field: [{"name": m} for m in members]}))
 ' "$1" "$2" "$3" "$4"
 }
 
+mkdir -p "$(dirname "$LOGFILE")" 2>/dev/null || true
+
 log_message "=========================================="
-log_message "Starting FortiGate Certificate Import Script"
+log_message "Starting FortiGate Certificate Import Script v$SCRIPT_VERSION"
 log_message "=========================================="
 
 log_message "Checking legal notice acceptance..."
@@ -398,6 +416,7 @@ log_message "Raw args array (sensitive values redacted): $ARGS_ARRAY_FOR_LOG"
 FORTIGATE_URL=$(json_get_arg 0 | tr -d '[:space:]')
 log_message "ARGUMENT_1 (FortiGate URL) extracted: '$FORTIGATE_URL'"
 log_message "ARGUMENT_1 length: ${#FORTIGATE_URL}"
+FORTIGATE_BASE_URL=$(normalize_base_url "$FORTIGATE_URL")
 
 CERT_BASE_NAME=$(json_get_arg 1 | tr -d '[:space:]')
 log_message "ARGUMENT_2 (Certificate Base Name) extracted: '$CERT_BASE_NAME'"
@@ -421,6 +440,16 @@ log_message "ARGUMENT_6 length: ${#OLD_CERT_NAME}"
 
 [ -z "$DELETE_MODE" ] && DELETE_MODE="keep_old"
 [ -z "$ASSIGN_MODE" ] && ASSIGN_MODE="assign_refs"
+ASSIGN_MODE=$(printf '%s' "$ASSIGN_MODE" | tr '[:upper:]' '[:lower:]')
+
+KNOWN_ASSIGN_OPTIONS=" assign_refs import_only ssl_vpn admin_https admin_https_fallback ipsec_phase1_interface ipsec_phase1 firewall_vip "
+UNKNOWN_ASSIGN_OPTIONS=""
+for ASSIGN_TOKEN in $(printf '%s' "$ASSIGN_MODE" | tr ',' ' '); do
+    case "$KNOWN_ASSIGN_OPTIONS" in
+        *" $ASSIGN_TOKEN "*) ;;
+        *) UNKNOWN_ASSIGN_OPTIONS="${UNKNOWN_ASSIGN_OPTIONS:+$UNKNOWN_ASSIGN_OPTIONS,}$ASSIGN_TOKEN" ;;
+    esac
+done
 
 CERT_FOLDER=$(json_get_value "certfolder")
 log_message "Extracted CERT_FOLDER: $CERT_FOLDER"
@@ -445,6 +474,7 @@ log_message "EXTRACTION SUMMARY:"
 log_message "=========================================="
 log_message "FortiGate Configuration:"
 log_message "  FortiGate URL: $FORTIGATE_URL"
+log_message "  Base URL: $FORTIGATE_BASE_URL"
 log_message "  Certificate Base Name: $CERT_BASE_NAME"
 log_message "  New Certificate Name: $NEW_CERT_NAME"
 if [ -n "$OLD_CERT_NAME" ]; then
@@ -485,7 +515,7 @@ log_message "All validations passed, proceeding with API call..."
 MATCHED_OLD_CERTS_FILE="/tmp/fortigate_matched_old_certs_$$.txt"
 : > "$MATCHED_OLD_CERTS_FILE"
 
-IMPORT_URL="https://${FORTIGATE_URL}/api/v2/monitor/vpn-certificate/local/import"
+IMPORT_URL="${FORTIGATE_BASE_URL}/api/v2/monitor/vpn-certificate/local/import"
 log_message "FortiGate API URL: $IMPORT_URL"
 
 log_message "Base64 encoding certificate file..."
@@ -513,7 +543,9 @@ fi
 
 log_message "SUCCESS: Imported new certificate '$NEW_CERT_NAME'"
 
-if [ "$ASSIGN_MODE" = "import_only" ]; then
+[ -n "$UNKNOWN_ASSIGN_OPTIONS" ] && log_message "WARNING: Unknown ASSIGN_MODE option(s) ignored: $UNKNOWN_ASSIGN_OPTIONS"
+
+if assign_mode_has "import_only"; then
     log_message "ASSIGN_MODE=import_only, skipping reference reassignment"
     rm -f "$MATCHED_OLD_CERTS_FILE"
     log_message "FortiGate certificate import section completed"
@@ -531,17 +563,14 @@ remember_old_cert() {
     [ -n "$1" ] && echo "$1" >> "$MATCHED_OLD_CERTS_FILE"
 }
 
+# Feature selection mirrors Get-AssignModeConfig in the PowerShell variant:
+# import_only wins over everything, assign_refs enables every feature, otherwise
+# only the listed selectors are enabled (whole-token match, case-insensitive).
 is_feature_enabled() {
     FEATURE="$1"
-    if [ "$ASSIGN_MODE" = "assign_refs" ]; then
-        return 0
-    elif [ "$ASSIGN_MODE" = "import_only" ]; then
-        return 1
-    else
-        # Anchor match to whole comma-delimited token to prevent substring false positives
-        echo "$ASSIGN_MODE" | grep -qE "(^|,)${FEATURE}(,|$)"
-        return $?
-    fi
+    assign_mode_has "import_only" && return 1
+    assign_mode_has "assign_refs" && return 0
+    assign_mode_has "$FEATURE"
 }
 
 reassign_singleton() {
@@ -549,7 +578,7 @@ reassign_singleton() {
     ENDPOINT="$2"
     FIELD="$3"
 
-    URL="https://${FORTIGATE_URL}/api/v2/cmdb/${ENDPOINT}"
+    URL="${FORTIGATE_BASE_URL}/api/v2/cmdb/${ENDPOINT}"
 
     log_message "Checking $LABEL field $FIELD"
     RESP=$(api_call GET "$URL" "")
@@ -613,7 +642,7 @@ reassign_table() {
     FIELD="$3"
     VALUE_KIND="${4:-string}"
 
-    LIST_URL="https://${FORTIGATE_URL}/api/v2/cmdb/${ENDPOINT}"
+    LIST_URL="${FORTIGATE_BASE_URL}/api/v2/cmdb/${ENDPOINT}"
 
     log_message "Checking table $LABEL field $FIELD"
     RESP=$(api_call GET "$LIST_URL" "")
@@ -643,7 +672,7 @@ reassign_table() {
         remember_old_cert "$MATCHED_VALUE"
 
         ENCODED_MKEY=$(urlencode "$MKEY")
-        UPDATE_URL="https://${FORTIGATE_URL}/api/v2/cmdb/${ENDPOINT}/${ENCODED_MKEY}"
+        UPDATE_URL="${FORTIGATE_BASE_URL}/api/v2/cmdb/${ENDPOINT}/${ENCODED_MKEY}"
         if [ "$VALUE_KIND" = "list" ]; then
             PAYLOAD=$(echo "$BODY" | make_list_field_payload "$MKEY" "$FIELD" "$MATCHED_VALUE" "$NEW_CERT_NAME")
         else
@@ -691,7 +720,7 @@ if [ "$DELETE_MODE" = "delete_old" ]; then
         [ "$OLD_CERT" = "$NEW_CERT_NAME" ] && continue
 
         OLD_CERT_ENCODED=$(urlencode "$OLD_CERT")
-        DELETE_URL="https://${FORTIGATE_URL}/api/v2/cmdb/vpn.certificate/local/${OLD_CERT_ENCODED}"
+        DELETE_URL="${FORTIGATE_BASE_URL}/api/v2/cmdb/vpn.certificate/local/${OLD_CERT_ENCODED}"
 
         log_message "DELETE $DELETE_URL"
         DELETE_RESPONSE=$(api_call DELETE "$DELETE_URL" "")
