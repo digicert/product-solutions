@@ -59,6 +59,15 @@ Streamline your certificate management with our production-ready integration scr
       <sub>Configuration management automation for certificate deployment across infrastructure fleets using Ansible playbooks.</sub>
     </td>
     <td align="center" width="33%">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Apache">
+        <img src="https://img.shields.io/badge/Apache-HTTP_Server-D22128?style=for-the-badge&logo=apache&logoColor=white" alt="Apache HTTP Server">
+        <br><br>
+        <strong>Apache HTTP Server</strong>
+      </a>
+      <br><br>
+      <sub>Multi-server Apache certificate deployment over SSH with key/cert match check, atomic install, backup, config test and reload.</sub>
+    </td>
+    <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Tomcat">
         <img src="https://img.shields.io/badge/Apache-Tomcat-F8DC75?style=for-the-badge&logo=apache-tomcat&logoColor=black" alt="Tomcat">
         <br><br>
@@ -67,6 +76,12 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Java application server certificate management with keystore automation for secure web application deployment.</sub>
     </td>
+  </tr>
+</table>
+
+<!-- Row 3 -->
+<table>
+  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Azure_App_Proxy">
         <img src="https://img.shields.io/badge/Azure-App_Proxy-0078D4?style=for-the-badge&logo=microsoft-azure&logoColor=white" alt="Azure App Proxy">
@@ -76,12 +91,6 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Certificate management for Azure AD Application Proxy enabling secure remote access to on-premises applications.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 3 -->
-<table>
-  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Azure_ApplicationGateway">
         <img src="https://img.shields.io/badge/Azure-Application_Gateway-0078D4?style=for-the-badge&logo=microsoft-azure&logoColor=white" alt="Azure Application Gateway">
@@ -100,6 +109,12 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>CI/CD pipeline integration for automated certificate issuance and deployment within Azure DevOps workflows.</sub>
     </td>
+  </tr>
+</table>
+
+<!-- Row 4 -->
+<table>
+  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Azure-Keyvault">
         <img src="https://img.shields.io/badge/Azure-Key_Vault-0078D4?style=for-the-badge&logo=microsoft-azure&logoColor=white" alt="Azure Key Vault">
@@ -109,12 +124,6 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Centralized certificate storage and lifecycle management through Azure Key Vault integration.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 4 -->
-<table>
-  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Azure_Web_App">
         <img src="https://img.shields.io/badge/Azure-Web_App-0078D4?style=for-the-badge&logo=microsoft-azure&logoColor=white" alt="Azure Web App">
@@ -133,6 +142,12 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Web Application Firewall certificate automation for secure certificate deployment and lifecycle management.</sub>
     </td>
+  </tr>
+</table>
+
+<!-- Row 5 -->
+<table>
+  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Cisco_FirePower">
         <img src="https://img.shields.io/badge/Cisco-Firepower_FMC-1BA0D7?style=for-the-badge&logo=cisco&logoColor=white" alt="Cisco Firepower">
@@ -142,12 +157,6 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Firepower Management Center certificate deployment as Internal Certificate objects via the FMC REST API.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 5 -->
-<table>
-  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Cisco-ISE">
         <img src="https://img.shields.io/badge/Cisco-ISE-1BA0D7?style=for-the-badge&logo=cisco&logoColor=white" alt="Cisco ISE">
@@ -166,6 +175,12 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>ADC certificate management using Nitro API for SSL offloading and application delivery.</sub>
     </td>
+  </tr>
+</table>
+
+<!-- Row 6 -->
+<table>
+  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Cloudflare">
         <img src="https://img.shields.io/badge/Cloudflare-Edge-F38020?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Cloudflare">
@@ -175,12 +190,6 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Edge certificate deployment with support for Cloudflare-generated and DigiCert-generated CSR workflows.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 6 -->
-<table>
-  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/F5-Big-IP">
         <img src="https://img.shields.io/badge/F5-BIG--IP-E4002B?style=for-the-badge&logo=f5&logoColor=white" alt="F5 BIG-IP">
@@ -199,6 +208,12 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Multi-cloud application delivery and security with automated certificate management across distributed environments.</sub>
     </td>
+  </tr>
+</table>
+
+<!-- Row 7 -->
+<table>
+  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Fortinet">
         <img src="https://img.shields.io/badge/Fortinet-Security-EE3124?style=for-the-badge&logo=fortinet&logoColor=white" alt="Fortinet">
@@ -208,13 +223,7 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Certificate automation for FortiGate, FortiWeb, and FortiNAC platforms with API-driven deployment.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 7 -->
-<table>
-  <tr>
-    <td align="center" width="25%">
+    <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Google-GCP">
         <img src="https://img.shields.io/badge/Google-GCP-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white" alt="Google GCP">
         <br><br>
@@ -223,7 +232,7 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Google Cloud Platform integrations including APIGEE API gateway certificate management.</sub>
     </td>
-    <td align="center" width="25%">
+    <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/HAProxy">
         <img src="https://img.shields.io/badge/HAProxy-Load_Balancer-003399?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0wLTE0Yy0zLjMxIDAtNiAyLjY5LTYgNnMyLjY5IDYgNiA2IDYtMi42OSA2LTYtMi42OS02LTYtNnoiLz48L3N2Zz4=" alt="HAProxy">
         <br><br>
@@ -232,7 +241,13 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>High-availability load balancer certificate deployment for Enterprise and OSS editions with SSL termination.</sub>
     </td>
-    <td align="center" width="25%">
+  </tr>
+</table>
+
+<!-- Row 8 -->
+<table>
+  <tr>
+    <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Websphere">
         <img src="https://img.shields.io/badge/IBM-WebSphere-052FAD?style=for-the-badge&logo=ibm&logoColor=white" alt="IBM WebSphere">
         <br><br>
@@ -241,7 +256,7 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Certificate rotation for IBM WebSphere Application Server with automated backup and rollback.</sub>
     </td>
-    <td align="center" width="25%">
+    <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Imperva">
         <img src="https://img.shields.io/badge/Imperva-Cloud_WAF-5B9BD5?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0wLTE0Yy0zLjMxIDAtNiAyLjY5LTYgNnMyLjY5IDYgNiA2IDYtMi42OSA2LTYtMi42OS02LTYtNnoiLz48L3N2Zz4=" alt="Imperva">
         <br><br>
@@ -250,13 +265,7 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Automated certificate deployment to Imperva Cloud WAF with full chain support and intelligent key type detection.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 8 -->
-<table>
-  <tr>
-    <td align="center" width="25%">
+    <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Kemp_Loadbalancer">
         <img src="https://img.shields.io/badge/Kemp-LoadBalancer-00A651?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0wLTE0Yy0zLjMxIDAtNiAyLjY5LTYgNnMyLjY5IDYgNiA2IDYtMi42OSA2LTYtMi42OS02LTYtNnoiLz48L3N2Zz4=" alt="Kemp">
         <br><br>
@@ -265,7 +274,13 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>High-availability load balancer certificate deployment with SSL termination and traffic distribution.</sub>
     </td>
-    <td align="center" width="25%">
+  </tr>
+</table>
+
+<!-- Row 9 -->
+<table>
+  <tr>
+    <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Lightspeed">
         <img src="https://img.shields.io/badge/Lightspeed-Proxy-4A90D9?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0wLTE0Yy0zLjMxIDAtNiAyLjY5LTYgNnMyLjY5IDYgNiA2IDYtMi42OSA2LTYtMi42OS02LTYtNnoiLz48L3N2Zz4=" alt="Lightspeed">
         <br><br>
@@ -274,7 +289,16 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Content filtering proxy certificate management for secure web gateway deployments.</sub>
     </td>
-    <td align="center" width="25%">
+    <td align="center" width="33%">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MS_ADFS_WAP">
+        <img src="https://img.shields.io/badge/Microsoft-AD_FS_%26_WAP-0078D4?style=for-the-badge&logo=microsoft&logoColor=white" alt="Microsoft AD FS and WAP">
+        <br><br>
+        <strong>Microsoft AD FS &amp; WAP</strong>
+      </a>
+      <br><br>
+      <sub>Role-aware AD FS farm and Web Application Proxy certificate deployment covering service communications and SSL bindings.</sub>
+    </td>
+    <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MS_Exchange_2019">
         <img src="https://img.shields.io/badge/Microsoft-Exchange_2019-0078D4?style=for-the-badge&logo=microsoft-exchange&logoColor=white" alt="MS Exchange">
         <br><br>
@@ -283,7 +307,13 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Exchange Server certificate management for secure email services and client connectivity.</sub>
     </td>
-    <td align="center" width="25%">
+  </tr>
+</table>
+
+<!-- Row 10 -->
+<table>
+  <tr>
+    <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MS_Exchange_HA_Support">
         <img src="https://img.shields.io/badge/Microsoft-Exchange_HA-0078D4?style=for-the-badge&logo=microsoft-exchange&logoColor=white" alt="Microsoft Exchange HA Support">
         <br><br>
@@ -292,12 +322,6 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Exchange certificate automation for single or HA deployments, with optional hybrid TLS connector and configuration updates.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 9 -->
-<table>
-  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MS_GPO">
         <img src="https://img.shields.io/badge/Microsoft-GPO-0078D4?style=for-the-badge&logo=microsoft&logoColor=white" alt="MS GPO">
@@ -316,6 +340,12 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Multi-site IIS certificate deployment with DPAPI-protected private key management.</sub>
     </td>
+  </tr>
+</table>
+
+<!-- Row 11 -->
+<table>
+  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MS_IIS_Multiple_Sites_and_ports">
         <img src="https://img.shields.io/badge/Microsoft-IIS_Multi--Site-0078D4?style=for-the-badge&logo=microsoft&logoColor=white" alt="MS IIS Multi-Site">
@@ -325,12 +355,6 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Re-points every https binding across multiple IIS sites and ports, updating applicationHost.config and http.sys with snapshot and rollback.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 10 -->
-<table>
-  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MS_IIS_SMTP">
         <img src="https://img.shields.io/badge/Microsoft-IIS_SMTP-0078D4?style=for-the-badge&logo=microsoft&logoColor=white" alt="MS IIS SMTP">
@@ -349,6 +373,12 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Remote Desktop Protocol certificate management for secure terminal server connections.</sub>
     </td>
+  </tr>
+</table>
+
+<!-- Row 12 -->
+<table>
+  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MS_Remote_Desktop_Services">
         <img src="https://img.shields.io/badge/Microsoft-RDS-0078D4?style=for-the-badge&logo=microsoft&logoColor=white" alt="MS RDS">
@@ -358,12 +388,6 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Remote Desktop Services certificate deployment for enterprise-scale remote access infrastructure.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 11 -->
-<table>
-  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MSSQL">
         <img src="https://img.shields.io/badge/Microsoft-SQL_Server-CC2927?style=for-the-badge&logo=microsoft-sql-server&logoColor=white" alt="MS SQL">
@@ -373,6 +397,21 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Database encryption certificate management for SQL Server TDE and connection security.</sub>
     </td>
+    <td align="center" width="33%">
+      <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/MuleSoft">
+        <img src="https://img.shields.io/badge/MuleSoft-CloudHub_2.0-00A0DF?style=for-the-badge&logo=mulesoft&logoColor=white" alt="MuleSoft CloudHub 2.0">
+        <br><br>
+        <strong>MuleSoft CloudHub 2.0</strong>
+      </a>
+      <br><br>
+      <sub>Anypoint CloudHub 2.0 private space TLS context deployment via the Runtime Fabric REST API with Connected App auth.</sub>
+    </td>
+  </tr>
+</table>
+
+<!-- Row 13 -->
+<table>
+  <tr>
     <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Nginx">
         <img src="https://img.shields.io/badge/Nginx-Web_Server-009639?style=for-the-badge&logo=nginx&logoColor=white" alt="Nginx">
@@ -391,13 +430,7 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Certificate deployment into a bind-mounted nginx Docker container with an in-container config test and reload.</sub>
     </td>
-  </tr>
-</table>
-
-<!-- Row 12 -->
-<table>
-  <tr>
-    <td align="center" width="25%">
+    <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Nginx_Mailcow">
         <img src="https://img.shields.io/badge/Nginx-Mailcow-009639?style=for-the-badge&logo=nginx&logoColor=white" alt="Nginx Mailcow">
         <br><br>
@@ -406,7 +439,13 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Docker-based mail server solution with automated certificate deployment for secure email services.</sub>
     </td>
-    <td align="center" width="25%">
+  </tr>
+</table>
+
+<!-- Row 14 -->
+<table>
+  <tr>
+    <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Okta">
         <img src="https://img.shields.io/badge/Okta-Custom_Domain-007DC1?style=for-the-badge&logo=okta&logoColor=white" alt="Okta">
         <br><br>
@@ -415,7 +454,7 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>Custom-domain TLS certificate automation through the Okta Management API.</sub>
     </td>
-    <td align="center" width="25%">
+    <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Oracle_Cloud_Infrastructure">
         <img src="https://img.shields.io/badge/Oracle-OCI-F80000?style=for-the-badge&logo=oracle&logoColor=white" alt="Oracle Cloud Infrastructure">
         <br><br>
@@ -424,7 +463,7 @@ Streamline your certificate management with our production-ready integration scr
       <br><br>
       <sub>OCI certificate automation for compartment certificate management and Load Balancer certificate upload and listener binding.</sub>
     </td>
-    <td align="center" width="25%">
+    <td align="center" width="33%">
       <a href="https://github.com/digicert/product-solutions/tree/master/TrustLifeCycleManager/Integrations/Weblogic">
         <img src="https://img.shields.io/badge/Oracle-WebLogic-F80000?style=for-the-badge&logo=oracle&logoColor=white" alt="Oracle WebLogic">
         <br><br>
@@ -436,7 +475,7 @@ Streamline your certificate management with our production-ready integration scr
   </tr>
 </table>
 
-<!-- Row 13 -->
+<!-- Row 15 -->
 <table>
   <tr>
     <td align="center" width="33%">
@@ -469,7 +508,7 @@ Streamline your certificate management with our production-ready integration scr
   </tr>
 </table>
 
-<!-- Row 14 -->
+<!-- Row 16 -->
 <table>
   <tr>
     <td align="center" width="33%">
@@ -502,7 +541,7 @@ Streamline your certificate management with our production-ready integration scr
   </tr>
 </table>
 
-<!-- Row 15 -->
+<!-- Row 17 -->
 <table>
   <tr>
     <td align="center" width="33%">
