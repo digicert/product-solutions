@@ -20,6 +20,10 @@ import lombok.extern.slf4j.Slf4j;
  * <p>
  * Validation problems (for example SEPARATE mode without SSH credentials) are collected rather than thrown
  * so the plugin can still be constructed and report them through Test Connection with a clear message.
+ * <p>
+ * Secrets manager: when the connector's "Credentials source" is a PAM connector, TLM has already replaced
+ * the vault references with the real passwords by the time this class runs, so nothing here differs. The
+ * source is only recorded for {@link #describe()}.
  */
 @Slf4j
 @Getter
@@ -28,13 +32,15 @@ public class TransportCredentials {
     private final AuthMode authMode;
     private final AdapterConfig ssh;
     private final AdapterConfig rest;
+    private final boolean secretsManagerSource;
     private final List<String> validationErrors;
 
     private TransportCredentials(AuthMode authMode, AdapterConfig ssh, AdapterConfig rest,
-                                 List<String> validationErrors) {
+                                 boolean secretsManagerSource, List<String> validationErrors) {
         this.authMode = authMode;
         this.ssh = ssh;
         this.rest = rest;
+        this.secretsManagerSource = secretsManagerSource;
         this.validationErrors = Collections.unmodifiableList(validationErrors);
     }
 
@@ -74,6 +80,13 @@ public class TransportCredentials {
                     log.info("Authentication mode is SHARED; the SSH username/password fields are ignored");
                 }
             }
+            default -> {
+                // AuthMode.from never returns anything else; kept for exhaustiveness.
+            }
+        }
+
+        if (isBlank(config.getManagementIp())) {
+            errors.add("Management IP is required");
         }
 
         final var sshConfig = AdapterConfig.builder()
@@ -90,7 +103,7 @@ public class TransportCredentials {
                 .password(primaryPassword)
                 .build();
 
-        return new TransportCredentials(mode, sshConfig, restConfig, errors);
+        return new TransportCredentials(mode, sshConfig, restConfig, config.isSecretsManagerSource(), errors);
     }
 
     /**
@@ -108,11 +121,12 @@ public class TransportCredentials {
      * Human-readable description of the identities in use, safe to log (no secrets).
      */
     public String describe() {
+        final var source = secretsManagerSource ? "secrets-manager" : "direct";
         final var sshIdentity = String.format("ssh=%s@%s:%d", ssh.getUsername(), ssh.getHost(), ssh.getSshPort());
         if (rest == null) {
-            return String.format("mode=%s, %s, rest=disabled", authMode, sshIdentity);
+            return String.format("mode=%s, credentials=%s, %s, rest=disabled", authMode, source, sshIdentity);
         }
-        return String.format("mode=%s, %s, rest=%s@%s:%s", authMode, sshIdentity,
+        return String.format("mode=%s, credentials=%s, %s, rest=%s@%s:%s", authMode, source, sshIdentity,
                 rest.getUsername(), rest.getHost(), rest.getPort());
     }
 

@@ -1,5 +1,6 @@
 package com.example.automation;
 
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -58,6 +59,7 @@ import lombok.extern.slf4j.Slf4j;
 public class F5AutomationPlugin extends AbstractAutomationWorkflow {
 
     private static final String PLUGIN_NAME = "F5AutomationPlugin";
+    private static final String PLUGIN_META = "plugin-meta.json";
 
     private final MyPluginConfiguration extendedConfig;
     private final TransportCredentials credentials;
@@ -65,14 +67,27 @@ public class F5AutomationPlugin extends AbstractAutomationWorkflow {
     private final F5SshAdapter sshAdapter;
     private final String managementIp;
 
+    /** SDK entry point. */
     public F5AutomationPlugin(SdkContext context, PluginConfiguration<MyPluginConfiguration> configuration) {
-        this.extendedConfig = Objects.requireNonNull(configuration.getExtendedConfig(),
-                "Plugin extended configuration is required");
+        this(Objects.requireNonNull(configuration.getExtendedConfig(),
+                "Plugin extended configuration is required"), null, null);
+        log.info("------------ {} loaded, version {} ------------", PLUGIN_NAME, readPluginVersion());
+    }
+
+    /**
+     * Test seam: builds the plugin from an already-parsed configuration and, optionally, pre-built
+     * adapters. A {@code null} adapter is constructed from the resolved credentials as in production
+     * (the REST adapter stays absent in SSH-only mode).
+     */
+    F5AutomationPlugin(MyPluginConfiguration extendedConfig, F5iControlRestAdapter restAdapter,
+                       F5SshAdapter sshAdapter) {
+        this.extendedConfig = Objects.requireNonNull(extendedConfig, "Plugin extended configuration is required");
         this.credentials = TransportCredentials.resolve(extendedConfig);
-        log.info("Loaded extended configuration: {}, authMode raw '{}', updateServerSslProfile={} (raw '{}'), "
-                        + "clientSslProfileMode={} (raw '{}')",
+        log.info("Loaded extended configuration: {}, authMode raw '{}', groupSync={}, "
+                        + "updateServerSslProfile={} (raw '{}'), clientSslProfileMode={} (raw '{}')",
                 credentials.describe(),
                 extendedConfig.getAuthMode(),
+                extendedConfig.isGroupSyncEnabled(),
                 extendedConfig.isUpdateServerSslProfileEnabled(),
                 extendedConfig.getUpdateServerSslProfile(),
                 extendedConfig.isUpdateSameClientSslProfile() ? "update" : "create",
@@ -82,8 +97,23 @@ public class F5AutomationPlugin extends AbstractAutomationWorkflow {
         }
 
         this.managementIp = extendedConfig.getManagementIp();
-        this.restAdapter = credentials.rest().map(F5iControlRestAdapter::new);
-        this.sshAdapter = new F5SshAdapter(credentials.getSsh());
+        this.restAdapter = restAdapter != null
+                ? Optional.of(restAdapter)
+                : credentials.rest().map(F5iControlRestAdapter::new);
+        this.sshAdapter = sshAdapter != null ? sshAdapter : new F5SshAdapter(credentials.getSsh());
+    }
+
+    /** Reads the version the replacer plugin wrote into plugin-meta.json at build time. */
+    static String readPluginVersion() {
+        try (InputStream is = F5AutomationPlugin.class.getClassLoader().getResourceAsStream(PLUGIN_META)) {
+            if (is == null) {
+                return "UNKNOWN";
+            }
+            return objectMapper.readTree(is).at("/plugin/version").asText("UNKNOWN");
+        } catch (Exception e) {
+            log.warn("Failed to read plugin version from {}: {}", PLUGIN_META, e.getMessage());
+            return "UNKNOWN";
+        }
     }
 
     /**
@@ -195,7 +225,8 @@ public class F5AutomationPlugin extends AbstractAutomationWorkflow {
                     keySize,
                     keyType,
                     keyStorage,
-                    subjectDnFields);
+                    subjectDnFields,
+                    extendedConfig.isGroupSyncEnabled());
 
             final GenerateCsrResponse<JsonNode> response = new GenerateCsrResponse<>();
             if (generated.isSuccess()) {
@@ -203,7 +234,7 @@ public class F5AutomationPlugin extends AbstractAutomationWorkflow {
 
                 // Persist a copy of the CSR locally so subsequent flow steps can reference it.
                 final var pluginDir = Path.of(System.getProperty("java.io.tmpdir"), PLUGIN_NAME,
-                        csrRequest.getFlowId());
+                        csrRequest.getFlowId() == null ? "no-flow-id" : csrRequest.getFlowId());
                 Files.createDirectories(pluginDir);
                 Files.writeString(pluginDir.resolve("request.csr"), generated.getValue().getCsr());
             } else {
@@ -235,7 +266,7 @@ public class F5AutomationPlugin extends AbstractAutomationWorkflow {
             final var extended = Optional.ofNullable(installRequest.getExtendedRequest())
                     .orElseGet(MyInstallCertificateRequest::new);
 
-            // Resolve the cert chain — prefer inline chain, otherwise download the artifact.
+            // Resolve the cert chain: prefer the inline chain, otherwise download the artifact.
             Map<String, String> certificates;
             if (installRequest.getCertificateChain() != null
                     && !installRequest.getCertificateChain().isBlank()) {
@@ -243,7 +274,7 @@ public class F5AutomationPlugin extends AbstractAutomationWorkflow {
             } else if (installRequest.getCertificateLink() != null
                     && !installRequest.getCertificateLink().isBlank()) {
                 final var pluginDir = Path.of(System.getProperty("java.io.tmpdir"), PLUGIN_NAME,
-                        installRequest.getFlowId());
+                        installRequest.getFlowId() == null ? "no-flow-id" : installRequest.getFlowId());
                 Files.createDirectories(pluginDir);
                 final var downloaded = F5AutomationPluginHelper.downloadFileToDirectory(
                         installRequest.getCertificateLink(), pluginDir.toString());
@@ -280,7 +311,8 @@ public class F5AutomationPlugin extends AbstractAutomationWorkflow {
                     installRequest.getCurrentCertificateThumbprint(),
                     updateSameSslProfile,
                     extended.isUseCommonIca(),
-                    extendedConfig.isUpdateServerSslProfileEnabled());
+                    extendedConfig.isUpdateServerSslProfileEnabled(),
+                    extendedConfig.isGroupSyncEnabled());
 
             final InstallCertificateResponse<JsonNode> response = new InstallCertificateResponse<>();
             if (!installResult.isSuccess()) {
@@ -340,10 +372,13 @@ public class F5AutomationPlugin extends AbstractAutomationWorkflow {
     @Override
     public Response<JsonNode> refreshConfiguration(JsonNode request) throws WorkflowExecutionException {
         try {
+            // Log the raw node, not the converted object: MyRefreshRequest has no properties and the
+            // SDK mapper fails on empty beans, which turned every refresh into a WorkflowExecutionException.
+            log.info("RefreshConfiguration request: {}", objectMapper.writeValueAsString(request));
             final RefreshConfigurationRequest<MyRefreshRequest> refreshRequest =
                     PluginUtils.convertWrappedObject(request, RefreshConfigurationRequest.class,
                             MyRefreshRequest.class);
-            log.info("RefreshConfiguration request: {}", objectMapper.writeValueAsString(refreshRequest));
+            log.debug("RefreshConfiguration name: {}", refreshRequest.getName());
             if (!credentials.isValid()) {
                 final RefreshConfigurationResponse<JsonNode> invalid = new RefreshConfigurationResponse<>();
                 invalid.setErrors(configurationErrors());
@@ -386,6 +421,9 @@ public class F5AutomationPlugin extends AbstractAutomationWorkflow {
         final var certificates = Optional.ofNullable(data.getCertificates()).orElseGet(List::of);
         final var peers = Optional.ofNullable(data.getPeers()).orElseGet(List::of);
         final var partitions = Optional.ofNullable(data.getPartitions()).orElseGet(List::of);
+
+        Optional.ofNullable(data.getSkippedVirtualServers()).orElseGet(List::of)
+                .forEach(skipped -> log.info("Skipped virtual server: {}", skipped));
 
         final var automationInfo = new RefreshConfigurationResponse.AutomationInfo();
         automationInfo.setManagementIp(managementIp);
@@ -439,19 +477,19 @@ public class F5AutomationPlugin extends AbstractAutomationWorkflow {
                 .toList());
     }
 
-    private static String mapKeyType(String keyAlgorithm) {
+    static String mapKeyType(String keyAlgorithm) {
         if (keyAlgorithm == null) {
             return "rsa-private";
         }
         return keyAlgorithm.toLowerCase().startsWith("rsa") ? "rsa-private" : "ec-private";
     }
 
-    private static F5SshAdapter.KeyStorage mapKeyStorage(String keyStorage) {
+    static F5SshAdapter.KeyStorage mapKeyStorage(String keyStorage) {
         if (keyStorage == null) {
             return F5SshAdapter.KeyStorage.NORMAL;
         }
         return switch (keyStorage.toLowerCase()) {
-            case "fips" -> F5SshAdapter.KeyStorage.FIPS;
+            case "fips", "fips module" -> F5SshAdapter.KeyStorage.FIPS;
             case "nethsm", "net_hsm", "hsm" -> F5SshAdapter.KeyStorage.NET_HSM;
             default -> F5SshAdapter.KeyStorage.NORMAL;
         };

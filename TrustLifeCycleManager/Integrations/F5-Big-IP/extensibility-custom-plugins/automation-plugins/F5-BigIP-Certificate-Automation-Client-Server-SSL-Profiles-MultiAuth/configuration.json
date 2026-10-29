@@ -1,13 +1,35 @@
 {
   "metadata": {
-    "author": "John Doe",
-    "email": "John.Doe@digicert.com"
+    "author": "DigiCert",
+    "email": "support@digicert.com"
   },
+  "credential_sets": [
+    {
+      "name": "sensitive",
+      "fields": [
+        {
+          "name": "config_attributes.password"
+        },
+        {
+          "name": "config_attributes.sshPassword"
+        }
+      ]
+    },
+    {
+      "name": "unique",
+      "fields": [
+        {
+          "name": "config_attributes.managementIp"
+        }
+      ]
+    }
+  ],
   "core_settings": [
     {
       "name": "core_attributes.sensor_id",
-      "label": "sensor_id",
+      "label": "Managing Sensor",
       "type": "select",
+      "description": "Sensor that runs the integration against the BIG-IP.",
       "editable": true,
       "optional": false,
       "size": "l",
@@ -22,37 +44,10 @@
   ],
   "config_settings": [
     {
-      "name": "config_attributes.userName",
-      "label": "username",
-      "type": "input",
-      "editable": true,
-      "optional": false,
-      "size": "l",
-      "validation": [
-        {
-          "rule": "requiredRule"
-        }
-      ],
-      "required": true
-    },
-    {
-      "name": "config_attributes.password",
-      "label": "password",
-      "type": "password",
-      "editable": true,
-      "optional": false,
-      "size": "l",
-      "validation": [
-        {
-          "rule": "requiredRule"
-        }
-      ],
-      "required": true
-    },
-    {
       "name": "config_attributes.managementIp",
-      "label": "managementIp",
+      "label": "Management IP",
       "type": "input",
+      "description": "BIG-IP management IP address or hostname.",
       "editable": true,
       "optional": false,
       "size": "l",
@@ -65,8 +60,87 @@
     },
     {
       "name": "config_attributes.managementPort",
-      "label": "managementPort (iControl REST)",
+      "label": "Management Port (iControl REST)",
       "type": "input",
+      "description": "iControl REST port on the management address: 443, or 8443 on single-NIC deployments. Not used when the authentication mode is 'SSH only', but the field is still required by the form; enter 443.",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        },
+        {
+          "rule": "numericRule"
+        }
+      ],
+      "required": true
+    },
+    {
+      "description": "authentication_settings",
+      "label": "Authentication settings",
+      "type": "section",
+      "fields": [
+        {
+          "id": "authentication",
+          "name": "config_attributes.authentication",
+          "label": "Credentials source",
+          "description": null,
+          "type": "radio_group",
+          "fields": [
+            {
+              "id": "manual_entry",
+              "name": "manual_entry",
+              "label": "Direct input",
+              "description": "Enter credentials directly in the connector",
+              "type": "radio_item",
+              "fields": null,
+              "size": null,
+              "label_helper": null,
+              "editable": null,
+              "value": "manual entry",
+              "optional": null,
+              "options_provider": null,
+              "default_value": null,
+              "validation": null,
+              "options": null,
+              "dirty_editable": null,
+              "required": true
+            },
+            {
+              "id": "from_secrets_manager",
+              "name": "from_secrets_manager",
+              "label": "Secrets manager",
+              "description": "Use credentials from a connected secrets manager.",
+              "type": "radio_item",
+              "value": "from secrets manager",
+              "validation": [
+                {
+                  "rule": "requiredRule"
+                }
+              ],
+              "required": true
+            }
+          ],
+          "size": null,
+          "label_helper": null,
+          "editable": null,
+          "value": "manual entry",
+          "optional": null,
+          "options_provider": null,
+          "default_value": null,
+          "validation": null,
+          "options": null,
+          "dirty_editable": null,
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.userName",
+      "label": "Username",
+      "type": "input",
+      "description": "Primary BIG-IP account. Used for iControl REST and SSH in 'Shared credentials' mode, for REST only in 'Separate' mode, and for SSH in 'SSH only' mode unless an SSH username is given below.",
       "editable": true,
       "optional": false,
       "size": "l",
@@ -76,13 +150,121 @@
         }
       ],
       "required": true,
-      "description": "iControl REST port on the management address: 443, or 8443 on single-NIC deployments. Not used when the authentication mode is 'SSH only', but the field is still required by the form; enter 443."
+      "conditional_group": {
+        "name": "authentication",
+        "value": "manual entry",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.password",
+      "label": "Password",
+      "type": "password",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true,
+      "conditional_group": {
+        "name": "authentication",
+        "value": "manual entry",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.pam_connector_id",
+      "label": "Secrets manager connector",
+      "type": "select",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "alphaNumericRule"
+        }
+      ],
+      "options_provider": "PamConnectors",
+      "conditional_group": {
+        "name": "authentication",
+        "value": "from secrets manager",
+        "required": true
+      },
+      "conditional_banners": [
+        {
+          "value": "BeyondTrust",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "To reference credentials from BeyondTrust vaults, use the format SystemName/AccountName",
+          "banner_type": "info",
+          "dismissible": false
+        },
+        {
+          "value": "CyberArk",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the object or secret name to reference credentials from CyberArk vaults",
+          "banner_type": "info",
+          "dismissible": false
+        },
+        {
+          "value": "Delinea",
+          "match_field": "provider",
+          "title": "Note",
+          "description": "Use the numeric secret id optionally followed by slash field slug to reference Delinea secrets",
+          "banner_type": "info",
+          "dismissible": false
+        }
+      ]
+    },
+    {
+      "name": "config_attributes.userName",
+      "label": "Username",
+      "type": "input",
+      "description": "Enter the BIG-IP username. Same role as the direct-input username above.",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true,
+      "conditional_group": {
+        "name": "authentication",
+        "value": "from secrets manager",
+        "required": true
+      }
+    },
+    {
+      "name": "config_attributes.password",
+      "label": "Password",
+      "type": "input",
+      "description": "Enter the PAM vault reference that contains the password for the username above.",
+      "editable": true,
+      "optional": false,
+      "size": "l",
+      "validation": [
+        {
+          "rule": "requiredRule"
+        }
+      ],
+      "required": true,
+      "conditional_group": {
+        "name": "authentication",
+        "value": "from secrets manager",
+        "required": true
+      }
     },
     {
       "name": "config_attributes.authMode",
       "label": "Authentication mode",
       "type": "select",
-      "description": "How the credentials map onto the BIG-IP. 'Shared credentials' (default) uses the username/password above for both iControl REST and SSH. 'Separate REST and SSH credentials' uses the username/password above for REST and the SSH username/password below for SSH (for example admin for the API and root for the CLI). 'SSH only' skips REST entirely and uses the username/password above for SSH, or the SSH username/password below when both are set. All lifecycle operations run over SSH; REST is only used by Test Connection. RADIUS/TACACS/LDAP accounts are entered as a normal username/password and must be mapped to the Administrator role with Advanced shell terminal access.",
+      "description": "How the credentials map onto the BIG-IP. 'Shared credentials' (default) uses the username/password above for both iControl REST and SSH. 'Separate REST and SSH credentials' uses the username/password above for REST and the SSH username/password below for SSH (for example admin for the API and root for the CLI). 'SSH only' skips REST entirely and uses the username/password above for SSH, or the SSH username/password below when both are set. All lifecycle operations run over SSH; REST is only used by Test Connection. RADIUS/TACACS/LDAP accounts are entered as a normal username/password; the plugin handles both Advanced shell and tmsh terminal access.",
       "options": [
         {
           "key": "shared",
@@ -115,7 +297,7 @@
       "name": "config_attributes.sshUserName",
       "label": "SSH username",
       "type": "input",
-      "description": "SSH login used for all lifecycle operations when the authentication mode is 'Separate REST and SSH credentials' (required) or 'SSH only' (optional, falls back to the username above). Needs Advanced shell (bash) terminal access. Ignored in 'Shared credentials' mode.",
+      "description": "SSH login used for all lifecycle operations when the authentication mode is 'Separate REST and SSH credentials' (required) or 'SSH only' (optional, falls back to the username above). Ignored in 'Shared credentials' mode.",
       "size": "l",
       "editable": true,
       "optional": true,
@@ -131,7 +313,28 @@
       "editable": true,
       "optional": true,
       "validation": [],
-      "required": false
+      "required": false,
+      "conditional_group": {
+        "name": "authentication",
+        "value": "manual entry",
+        "required": false
+      }
+    },
+    {
+      "name": "config_attributes.sshPassword",
+      "label": "SSH password",
+      "type": "input",
+      "description": "PAM vault reference that contains the password for the SSH username. Same rules as the SSH username.",
+      "size": "l",
+      "editable": true,
+      "optional": true,
+      "validation": [],
+      "required": false,
+      "conditional_group": {
+        "name": "authentication",
+        "value": "from secrets manager",
+        "required": false
+      }
     },
     {
       "name": "config_attributes.sshPort",
@@ -200,28 +403,24 @@
         }
       ],
       "required": true
-    }
-  ],
-  "additional_settings": [],
-  "credential_sets": [
-    {
-      "name": "sensitive",
-      "fields": [
-        {
-          "name": "config_attributes.password"
-        },
-        {
-          "name": "config_attributes.sshPassword"
-        }
-      ]
     },
     {
-      "name": "unique",
+      "label": "Advanced settings",
+      "description": "",
+      "type": "section",
       "fields": [
         {
-          "name": "config_attributes.managementIp"
+          "name": "config_attributes.group_sync_enabled",
+          "label": "Enable HA group sync",
+          "type": "checkbox",
+          "description": "Enable this option to trigger a config-sync to the sync-failover device group after a CSR is generated and after a certificate is installed. Only applicable to HA pairs; on a standalone BIG-IP the setting is ignored.",
+          "size": "l",
+          "editable": true,
+          "value": "false",
+          "optional": true
         }
       ]
     }
-  ]
+  ],
+  "additional_settings": []
 }

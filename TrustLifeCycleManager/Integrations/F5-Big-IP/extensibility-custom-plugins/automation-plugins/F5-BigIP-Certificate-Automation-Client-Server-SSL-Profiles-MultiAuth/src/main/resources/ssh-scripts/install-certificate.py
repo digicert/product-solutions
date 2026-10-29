@@ -1,3 +1,4 @@
+import base64
 import json
 import subprocess
 import sys
@@ -113,7 +114,7 @@ def get_cert_fingerprint(cert):
     command = ("tmsh -c 'cd /; list sys crypto cert {0}'" +
                "| grep fingerprint " +
                "| awk '{{print $2}}' " +
-               "| sed 's/SHA256\///' " +
+               "| sed 's/SHA256\\///' " +
                "| sed 's/://g'").format(cert)
     fingerprint, err = run_command(command)
     return fingerprint.strip()
@@ -215,7 +216,7 @@ def copy_profile(existing_profile, new_profile):
     tmp_file_name = new_profile.replace("/", "-")
     command = "".join([
         "tmsh -c 'list ltm profile client-ssl /{0} one-line'".format(existing_profile),
-        "| sed 's,\(ltm profile client-ssl\)[^{{}}]*{{,ltm profile client-ssl /{0} {{,g' ".format(new_profile),
+        "| sed 's,\\(ltm profile client-ssl\\)[^{{}}]*{{,ltm profile client-ssl /{0} {{,g' ".format(new_profile),
         " > /var/tmp/{0}.conf".format(tmp_file_name)
     ])
     run_command(command)
@@ -308,7 +309,7 @@ def wrap_with_tmsh(command):
 
 def get_tmos_version():
     """Gets the version of the TMOS."""
-    command = "tmsh show sys version | grep -E \"\s+Version\s+\" | awk '{{print $2}}'"
+    command = "tmsh show sys version | grep -E \"\\s+Version\\s+\" | awk '{{print $2}}'"
     version, _ = run_command(command)
 
     return version.strip()
@@ -437,29 +438,96 @@ def is_server_ssl_profile(profile):
         return False
 
 
-def main():
-    full_virtual_server_name = sys.argv[1]
-    current_certificate_thumbprint = sys.argv[2]
-    key_name = sys.argv[3]
-    update_same_ssl_profile = sys.argv[4]
-    use_common_ica = sys.argv[5]
-    ica_serial_number = sys.argv[6]
-    ee_certificate = sys.argv[7]
-    ica_certificate = sys.argv[8]
-    # Optional 9th argument: also repoint server-ssl profiles on the VIP that carry the certificate being
-    # replaced. Defaults to "true" so an older Java side that does not pass it keeps the new behaviour.
-    update_server_ssl_profile = sys.argv[9] if len(sys.argv) > 9 else "true"
+def to_bool(value):
+    """Normalises a flag that may arrive as a JSON boolean or as the strings "true"/"false"."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() == "true"
 
+
+def sync_ha_if_enabled(group_sync_enabled):
+    """Runs the HA config-sync only when the connector enabled it and the device is in an HA pair.
+
+    Returns the informational message that is reported back to TLM."""
+    if group_sync_enabled and is_ha():
+        ha_sync()
+        return "HA sync performed as group sync is enabled and HA is configured"
+    return "HA sync not performed as group sync is {0} or HA is not configured".format(
+        "enabled" if group_sync_enabled else "disabled")
+
+
+def parse_input(argv):
+    """Returns the install parameters as a dict.
+
+    Preferred form (current Java side): one argument holding a base64-encoded JSON document with the keys
+    virtualServerName, currentCertificateThumbprint, keyName, updateSameSslProfile, useCommonIca, icaSerialNum,
+    endEntityCertificate, icaCertificate, updateServerSslProfile (default true) and groupSyncEnabled (default
+    false). The PEM blocks never touch the shell this way and new keys can be added without renumbering.
+
+    Legacy form (single-credential plugin): eight positional arguments in the order above (without the two
+    trailing flags), an optional ninth updateServerSslProfile (default true) and an optional tenth
+    groupSyncEnabled (default true, the behaviour before the flag existed)."""
+    if len(argv) == 2:
+        try:
+            payload = json.loads(base64.b64decode(argv[1]).decode("utf-8"))
+        except Exception:
+            payload = None
+        if isinstance(payload, dict) and "virtualServerName" in payload:
+            return {
+                "virtual_server_name": payload.get("virtualServerName"),
+                "current_certificate_thumbprint": payload.get("currentCertificateThumbprint"),
+                "key_name": payload.get("keyName"),
+                "update_same_ssl_profile": to_bool(payload.get("updateSameSslProfile")),
+                "use_common_ica": to_bool(payload.get("useCommonIca")),
+                "ica_serial_number": payload.get("icaSerialNum"),
+                "ee_certificate": payload.get("endEntityCertificate") or "",
+                "ica_certificate": payload.get("icaCertificate") or "",
+                "update_server_ssl_profile": to_bool(payload.get("updateServerSslProfile", True)),
+                "group_sync_enabled": to_bool(payload.get("groupSyncEnabled", False)),
+            }
+    if len(argv) < 9:
+        raise F5PluginException(
+            "Expected one base64-encoded JSON argument or at least 8 positional arguments, got {0}".format(
+                len(argv) - 1),
+            "INVALID_ARGUMENTS")
+    return {
+        "virtual_server_name": argv[1],
+        "current_certificate_thumbprint": argv[2],
+        "key_name": argv[3],
+        "update_same_ssl_profile": to_bool(argv[4]),
+        "use_common_ica": to_bool(argv[5]),
+        "ica_serial_number": argv[6],
+        "ee_certificate": argv[7],
+        "ica_certificate": argv[8],
+        "update_server_ssl_profile": to_bool(argv[9]) if len(argv) > 9 else True,
+        # Legacy callers never send the flag; keep their behaviour (sync whenever HA is configured).
+        "group_sync_enabled": to_bool(argv[10]) if len(argv) > 10 else True,
+    }
+
+
+def main():
     try:
+        params = parse_input(sys.argv)
+        full_virtual_server_name = params["virtual_server_name"]
+        current_certificate_thumbprint = params["current_certificate_thumbprint"]
+        key_name = params["key_name"]
+        update_same_ssl_profile = params["update_same_ssl_profile"]
+        use_common_ica = params["use_common_ica"]
+        ica_serial_number = params["ica_serial_number"]
+        ee_certificate = params["ee_certificate"]
+        ica_certificate = params["ica_certificate"]
+        update_server_ssl_profile = params["update_server_ssl_profile"]
+        group_sync_enabled = params["group_sync_enabled"]
+
         vserver_path = full_virtual_server_name.split("/")
         partition = "/{0}".format(vserver_path[1])
         virtual_server = vserver_path[-1]
 
         ee_cert_file, ica_cert_file = create_temp_files_for_certs(ee_certificate, ica_certificate, key_name)
-        is_unsecured_vip = current_certificate_thumbprint == "null"
-        should_create_new_profile = update_same_ssl_profile != "true" and not is_unsecured_vip
-        use_common_ica = use_common_ica == "true"
-        update_server_ssl_profile = update_server_ssl_profile == "true"
+        is_unsecured_vip = current_certificate_thumbprint is None or current_certificate_thumbprint in ("", "null")
+        should_create_new_profile = not update_same_ssl_profile and not is_unsecured_vip
         server_ssl_profiles = []
 
         if use_common_ica:
@@ -507,9 +575,7 @@ def main():
 
         save_config()
 
-        if is_ha():
-            ha_sync()
-
+        result["info"] = [sync_ha_if_enabled(group_sync_enabled)]
         result["server-ssl-profiles-updated"] = server_ssl_profiles
         print(json.dumps(result))
     except F5PluginException as e:

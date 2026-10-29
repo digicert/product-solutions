@@ -11,7 +11,7 @@
             "-jar",
             "${project.artifactId}-${project.version}.jar"
           ],
-          "env": ["JAVA_HOME=${TG_JAVA_HOME}","Path=${JAVA_HOME}\\bin;${Path}","MAX_CHUNK=15","PROCESS_TIMEOUT=30m"]
+          "env": ["JAVA_HOME=${TG_JAVA_HOME}","Path=${JAVA_HOME}\\bin;${Path}","MAX_CHUNK=10","PROCESS_TIMEOUT=60m"]
         },
         {
           "os": "linux",
@@ -21,9 +21,8 @@
             "-jar",
             "${project.artifactId}-${project.version}.jar"
           ],
-          "env": ["JAVA_HOME=${TG_JAVA_HOME}","PATH=${JAVA_HOME}/bin:${PATH}","MAX_CHUNK=15","PROCESS_TIMEOUT=30m"]
+          "env": ["JAVA_HOME=${TG_JAVA_HOME}","PATH=${JAVA_HOME}/bin:${PATH}","MAX_CHUNK=10","PROCESS_TIMEOUT=60m"]
         }
       ]
     }
   }
-  

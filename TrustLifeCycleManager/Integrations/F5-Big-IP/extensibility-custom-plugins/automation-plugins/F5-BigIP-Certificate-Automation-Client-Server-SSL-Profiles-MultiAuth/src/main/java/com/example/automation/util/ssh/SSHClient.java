@@ -22,10 +22,24 @@ import org.apache.sshd.common.SshException;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Minimal Apache MINA SSHD wrapper: one session per call, password authentication only, stderr
+ * merged into stdout.
+ * <p>
+ * Login-shell handling: BIG-IP accounts whose Terminal Access is "tmsh" (common for AD/LDAP/RADIUS
+ * remote-role users) land every exec channel in tmsh rather than bash, so a plain shell command is
+ * rejected. {@link #isTmshShell(ClientSession)} probes this once per session and, when detected,
+ * every command is wrapped as {@code run /util bash -c '<command>'} so the scripts still execute
+ * without changing the account on the appliance.
+ */
 @Slf4j
 @AllArgsConstructor
 public class SSHClient {
     private static final Duration TIMEOUT = Duration.ofSeconds(60);
+
+    /** Probe that only produces this marker when the exec channel is a tmsh shell. */
+    static final String TMSH_PROBE_COMMAND = "run /util bash -c 'echo %0'";
+    static final String TMSH_PROBE_MARKER = "%0";
 
     private final String host;
     private final int port;
@@ -37,6 +51,9 @@ public class SSHClient {
         try {
             client.start();
             try (ClientSession session = openSession(client)) {
+                if (isTmshShell(session)) {
+                    command = wrapForTmsh(command);
+                }
                 return executeCommand(session, command, null);
             }
         } finally {
@@ -58,8 +75,11 @@ public class SSHClient {
                         new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
                     script = reader.lines().collect(Collectors.joining("\n"));
                 }
-                final var command = String.format("python - %s", scriptArgs);
+                var command = String.format("python - %s", scriptArgs);
                 log.info("Executing python script over SSH [name={}]", scriptResourcePath);
+                if (isTmshShell(session)) {
+                    command = wrapForTmsh(command);
+                }
                 return executeCommand(session, command, script);
             }
         } finally {
@@ -98,5 +118,33 @@ public class SSHClient {
         client.getProperties().put(HEARTBEAT_INTERVAL.getName(), TIMEOUT.toMillis());
         client.getProperties().put(IDLE_TIMEOUT.getName(), TIMEOUT.toMillis());
         return client;
+    }
+
+    /**
+     * In bash the probe is a syntax error (non-zero exit, no marker). In tmsh it runs bash and echoes
+     * the literal marker, which tells us every later command needs wrapping.
+     */
+    private boolean isTmshShell(ClientSession session) {
+        try {
+            final var response = executeCommand(session, TMSH_PROBE_COMMAND, null);
+            final var tmsh = response.isSuccess() && response.getOutput().trim().contains(TMSH_PROBE_MARKER);
+            if (tmsh) {
+                log.info("tmsh login shell detected for {}@{}:{}; commands will be wrapped with run /util bash -c",
+                        username, host, port);
+            }
+            return tmsh;
+        } catch (Exception e) {
+            log.warn("Could not determine login shell type for {}@{}:{}; assuming bash", username, host, port, e);
+            return false;
+        }
+    }
+
+    /**
+     * Wraps a bash command so tmsh executes it. Single quotes inside the command are closed, escaped
+     * and reopened ({@code '\''}) so the wrapping quotes stay balanced.
+     */
+    static String wrapForTmsh(String command) {
+        final var escaped = command == null ? "" : command.replace("'", "'\\''");
+        return "run /util bash -c '" + escaped + "'";
     }
 }
