@@ -62,7 +62,7 @@
 
 
 # Configuration
-$LEGAL_NOTICE_ACCEPT = "true"   # Set to "true" to accept the legal notice and allow execution.
+$LEGAL_NOTICE_ACCEPT = "false"   # Set to "true" to accept the legal notice and allow execution.
 $LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\adfs-wap-awr.log"
 
 $ErrorActionPreference = "Stop"

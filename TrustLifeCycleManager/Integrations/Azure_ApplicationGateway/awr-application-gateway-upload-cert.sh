@@ -44,7 +44,7 @@ LEGAL_NOTICE
 # ============================================================================
 # Configuration
 # ============================================================================
-LEGAL_NOTICE_ACCEPT="true"
+LEGAL_NOTICE_ACCEPT="false"
 LOGFILE="/home/mike/agw-logfile.log"
 
 # Isolated Azure CLI profile so this script never touches (or leaks into) an

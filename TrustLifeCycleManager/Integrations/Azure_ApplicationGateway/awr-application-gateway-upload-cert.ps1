@@ -41,7 +41,7 @@
 
 
 # Configuration
-$LEGAL_NOTICE_ACCEPT = "true"
+$LEGAL_NOTICE_ACCEPT = "false"
 $LOGFILE = "C:\Certs\agw-logfile.log"
 
 # Function to log messages with timestamp
