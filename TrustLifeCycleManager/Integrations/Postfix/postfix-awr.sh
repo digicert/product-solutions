@@ -33,7 +33,7 @@ LEGAL_NOTICE
 # ============================================================================
 # Configuration
 # ============================================================================
-LEGAL_NOTICE_ACCEPT="true"
+LEGAL_NOTICE_ACCEPT="false"
 LOGFILE="/opt/digicert/logs/postfix-awr.log"
 
 # Postfix Configuration
