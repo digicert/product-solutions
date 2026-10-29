@@ -38,8 +38,10 @@ LOGFILE="/home/ubuntu/tlm_agent_3.1.4_linux64/log/nginx.log"
 # Control whether to back up existing nginx certs before replacing them.
 BACKUP_OLD_CERTS="true"          # True/False (default True)
 
-# Control whether to restart nginx after deployment. If false, no restart is performed. If true and restart fails, reload is performed.
-RESTART_NGINX="true"            # True/False (default False)
+# Control whether to restart nginx after deployment. If false, no restart is performed.
+# If true, the script uses systemctl, then service, then 'nginx -s reload' (only when neither manager exists).
+# A failed restart exits with status 1; it does not fall back to a reload.
+RESTART_NGINX="true"            # True/False (default True)
 
 # Control whether to validate nginx configuration with 'nginx -t' and log the output.
 VALIDATE_NGINX_CONFIG="true"     # True/False (default True)
@@ -293,10 +295,12 @@ fi
 # Ensure destination directory exists
 DEST_DIR_CERT="$(dirname "${NGINX_CERT_PATH}")"
 DEST_DIR_KEY="$(dirname "${NGINX_KEY_PATH}")"
-if [ ! -d "${DEST_DIR_CERT}" ]; then
-    log_message "Destination directory ${DEST_DIR_CERT} does not exist. Creating..."
-    mkdir -p "${DEST_DIR_CERT}" || { log_message "ERROR: Failed to create ${DEST_DIR_CERT}"; exit 1; }
-fi
+for DEST_DIR in "${DEST_DIR_CERT}" "${DEST_DIR_KEY}"; do
+    if [ ! -d "${DEST_DIR}" ]; then
+        log_message "Destination directory ${DEST_DIR} does not exist. Creating..."
+        mkdir -p "${DEST_DIR}" || { log_message "ERROR: Failed to create ${DEST_DIR}"; exit 1; }
+    fi
+done
 
 # Timestamp for backups and temp files
 TS="$(date -u +%Y%m%d-%H%M%SZ)"
@@ -347,7 +351,7 @@ deploy_file() {
     log_message "Deployed ${DEST} (mode ${MODE})"
 }
 
-# Copy/convert certificate to .pem path. Content format (.crt vs .pem) is compatible (base64 X.509).
+# Copy certificate to the nginx ssl_certificate path (PEM content, .crt extension)
 deploy_file "${SRC_CERT}" "${NGINX_CERT_PATH}" 0644
 # Copy private key (restrict permissions)
 deploy_file "${SRC_KEY}" "${NGINX_KEY_PATH}" 0600
@@ -402,9 +406,17 @@ else
 fi
 
 log_message "NGINX certificate deployment logic complete"
+# ------------------ END: NGINX cert deployment logic ------------------
+
+# ----------------------------------------
+# END CUSTOM LOGIC
 
 log_message "Custom script section completed"
 log_message "=========================================="
+
+# ============================================================================
+# END OF CUSTOM SCRIPT SECTION
+# ============================================================================
 
 log_message "=========================================="
 log_message "Script execution completed"
