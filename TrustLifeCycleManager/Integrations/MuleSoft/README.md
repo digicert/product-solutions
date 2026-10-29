@@ -263,7 +263,6 @@ Parameters are ignored for any value that the TLM AWR payload supplies.
 
 - The client secret is read from ARGUMENT_5, used once for the token request, and then cleared. It is masked as `***` in the log and in validation messages.
 - ORG_ID and PRIVATE_SPACE_ID are validated as GUIDs before they are placed in any URL. The API host is fixed per control plane and never comes from an argument.
-- The private key is sent only inside the HTTPS request body to Anypoint. It is never written to the log; the `-DryRun` output redacts it.
 - TLS 1.2 is enforced for all API calls.
 
 ---
