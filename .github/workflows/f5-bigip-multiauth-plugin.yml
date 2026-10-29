@@ -1,0 +1,75 @@
+name: F5 BIG-IP multi-auth plugin
+
+# Builds and tests the MultiAuth plugin when its files change, or on demand. The repository is a
+# monorepo, so the workflow has to live at the repository root and scope itself with path filters.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'TrustLifeCycleManager/Integrations/F5-Big-IP/extensibility-custom-plugins/automation-plugins/F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles-MultiAuth/**'
+      - '.github/workflows/f5-bigip-multiauth-plugin.yml'
+  pull_request:
+    paths:
+      - 'TrustLifeCycleManager/Integrations/F5-Big-IP/extensibility-custom-plugins/automation-plugins/F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles-MultiAuth/**'
+
+defaults:
+  run:
+    working-directory: TrustLifeCycleManager/Integrations/F5-Big-IP/extensibility-custom-plugins/automation-plugins/F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles-MultiAuth
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Device script tests
+        run: python3 -B -m unittest discover -s src/test/python -p 'test_*.py' -v
+
+      - name: Unit and integration tests, fat jar, dist zip
+        # The plugin-sdk lives in the digicert/tlm-plugins-sdk package registry. The default GITHUB_TOKEN
+        # can read it only when that package grants this repository access; otherwise define a
+        # PLUGIN_SDK_TOKEN secret (classic PAT with read:packages) and it takes precedence.
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.PLUGIN_SDK_TOKEN || secrets.GITHUB_TOKEN }}
+        run: mvn -B clean verify -s settings.xml
+
+      - name: Fat jar smoke test (BouncyCastle provider loads from the assembled jar)
+        run: |
+          JAR=$(ls target/f5-automation-plugin-multiauth-*.jar | head -1)
+          cat > /tmp/Smoke.java <<'EOF'
+          public class Smoke { public static void main(String[] a) throws Exception {
+            System.out.println("BC " + new org.bouncycastle.jce.provider.BouncyCastleProvider().getVersionStr());
+            Class.forName("com.example.automation.F5AutomationPluginRunner");
+          }}
+          EOF
+          javac -cp "$JAR" -d /tmp /tmp/Smoke.java && java -cp "$JAR:/tmp" Smoke
+          if unzip -l "$JAR" | grep -q ServletContextCleaner; then echo "commons-logging leaked into the fat jar"; exit 1; fi
+
+      - name: Checksums
+        run: |
+          cd plugin-dist
+          { echo ""; echo "SHA2 checksum for TPM"; echo '```'; sha256sum *.zip; echo '```'; } > checksums
+          cat checksums
+
+      - name: Upload distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: f5-automation-plugin-multiauth-dist
+          path: TrustLifeCycleManager/Integrations/F5-Big-IP/extensibility-custom-plugins/automation-plugins/F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles-MultiAuth/plugin-dist/

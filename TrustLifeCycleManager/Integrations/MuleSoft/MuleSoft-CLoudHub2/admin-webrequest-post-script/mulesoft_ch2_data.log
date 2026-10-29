@@ -1,0 +1,15 @@
+2026-10-19 09:03:31 [INFO] ===== MuleSoft CloudHub 2.0 TLS context deploy v1.0.0 - start =====
+2026-10-19 09:03:31 [INFO] Mode: TLM AWR (DC1_POST_SCRIPT_DATA present)
+2026-10-19 09:03:31 [INFO] Payload file: test.domain.com.pem
+2026-10-19 09:03:31 [INFO]   contains: 3 certificate(s) + encrypted private key
+2026-10-19 09:03:31 [INFO] Leaf: CN=test.domain.com | Serial=6995DD957B2768E50977370247D0ED4D1B363EBA | Thumbprint=19D9B4EE1A0A760A4B9178E961595086405594DD | NotAfter=2026-10-28 23:59:59Z | chain certs=2
+2026-10-19 09:03:31 [INFO] Settings: ORG_ID=3598da9f-eae1-4d5c-ad9e-8936732cf3cf | PRIVATE_SPACE_ID=16280aa6-5aad-4d56-aa33-5ef1b56b36ce | TLS_CONTEXT_NAME=tlm-tls-context | CLIENT_ID=a2df3e44215e4007a3faa112a3f6d7c3 | CLIENT_SECRET=*** | CONTROL_PLANE=US
+2026-10-19 09:03:31 [INFO] Authenticated to Anypoint Platform (connected app).
+2026-10-19 09:03:31 [INFO] Existing context id=dae4712b-c426-4b5b-9a16-1a8b40dc507f | CN=abc.domain.com | expires=2026-11-17 | file=abc.ciphersnexus.com-leaf.pem
+2026-10-19 09:03:31 [INFO] Deployed certificate differs from the new certificate - deploying.
+2026-10-19 09:03:31 [INFO] Sending PATCH to Anypoint (timeout 120s): leaf certificate + CA path (intermediates)...
+2026-10-19 09:03:33 [INFO] PATCH accepted (leaf + CA path chain)
+2026-10-19 09:03:33 [INFO] PATCH succeeded. TLS context id=dae4712b-c426-4b5b-9a16-1a8b40dc507f
+2026-10-19 09:03:38 [INFO] Verify: id=dae4712b-c426-4b5b-9a16-1a8b40dc507f | CN=test.domain.com | expires=2026-10-28 | file=tlm-tls-context-19d9b4ee1a0a760a-cert.pem | SAN=
+2026-10-19 09:03:38 [INFO] Verified: deployed file carries thumbprint 19D9B4EE1A0A760A4B9178E961595086405594DD and expiry 2026-10-28 matches.
+2026-10-19 09:03:38 [INFO] ===== Completed successfully =====
