@@ -248,6 +248,26 @@ def is_hsm_enabled():
         )
 
 
+def to_bool(value):
+    """Normalises a flag that may arrive as a JSON boolean or as the strings "true"/"false"."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() == "true"
+
+
+def sync_ha_if_enabled(group_sync_enabled):
+    """Runs the HA config-sync only when the connector enabled it and the device is in an HA pair.
+
+    Returns the informational message that is reported back to TLM."""
+    if group_sync_enabled and is_ha():
+        ha_sync()
+        return "HA sync performed as group sync is enabled and HA is configured"
+    return "HA sync not performed as group sync is {0} or HA is not configured".format(
+        "enabled" if group_sync_enabled else "disabled")
+
+
 def main():
     full_virtual_server_name = sys.argv[1]
     common_name = sys.argv[2]
@@ -257,6 +277,10 @@ def main():
     key_type = sys.argv[6]
     security_type = sys.argv[7]
     subject_dn_fields_arg = sys.argv[8] if len(sys.argv) > 8 else "EMPTY_SUBJECT_DN_FIELDS"
+    # Optional 9th argument: run a config-sync to the sync-failover device group after the CSR/key is
+    # created. When absent (single-credential plugin, which never sends it) the legacy behaviour is
+    # kept: sync whenever the device is in an HA pair. The multi-auth plugin always sends the flag.
+    group_sync_enabled = to_bool(sys.argv[9]) if len(sys.argv) > 9 else True
 
     try:
         if key_type.lower().startswith("rsa"):
@@ -282,10 +306,9 @@ def main():
 
         save_config()
 
-        if is_ha():
-            ha_sync()
+        info = [sync_ha_if_enabled(group_sync_enabled)]
 
-        print(json.dumps({"csr": result.get("csr"), "warnings": result.get("warnings")}))
+        print(json.dumps({"csr": result.get("csr"), "warnings": result.get("warnings"), "info": info}))
     except F5PluginException as e:
         print(json.dumps({"error": str(e), "code": e.code}))
         sys.exit(1)

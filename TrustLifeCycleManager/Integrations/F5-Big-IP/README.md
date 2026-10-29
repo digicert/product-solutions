@@ -30,8 +30,7 @@ These are TLM automation plugins (Java, TLM Plugin SDK) that run on a **DigiCert
 
 | Plugin | Purpose |
 |--------|---------|
-| `automation-plugins/F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles` | Standard build: one local BIG-IP account for both REST and SSH |
-| `automation-plugins/F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles-MultiAuth` | Same lifecycle, plus several ways to log in: shared, separate REST and SSH accounts, or SSH only. Supports remote (RADIUS/TACACS+/LDAP) accounts and a configurable SSH port |
+| `automation-plugins/F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles-MultiAuth` | Full lifecycle with several ways to log in: shared, separate REST and SSH accounts, or SSH only. Supports remote (RADIUS/TACACS+/LDAP) accounts, secrets-manager credentials and a configurable SSH port |
 
 **Use this when** you want TLM to own the full lifecycle per virtual server, with keys that never leave the BIG-IP.
 

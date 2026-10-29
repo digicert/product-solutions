@@ -58,7 +58,7 @@
 # CONFIGURATION
 # ============================================================================
 
-$LEGAL_NOTICE_ACCEPT = "true"
+$LEGAL_NOTICE_ACCEPT = "false"
 $LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\dc1_data.log"
 
 # OpenSSL path - adjust if installed elsewhere

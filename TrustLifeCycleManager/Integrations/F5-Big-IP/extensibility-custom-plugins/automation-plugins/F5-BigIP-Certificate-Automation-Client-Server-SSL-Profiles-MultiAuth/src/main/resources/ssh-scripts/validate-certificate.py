@@ -111,7 +111,7 @@ def get_certificate(virtual_server_name, certificate_name):
 
             if not cert or not chain:
                 cert = profile.get("cert")
-                if cert.endswith(certificate_name):
+                if cert and cert.endswith(certificate_name):
                     chain = profile.get("chain")
 
             if cert and chain:
