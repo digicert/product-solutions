@@ -78,9 +78,12 @@ $AZURE_TENANT_ID       = "7637ffcf-xxxx-xxxx-xxxx-xxxxxxxxxxxx"   # Entra ID ten
 $AZURE_CONNECTION_APPID = "551fee0c-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # App registration (client) ID used to authenticate to Graph
 $AZURE_CLIENT_SECRET   = "xxxxxxxxxxxxxxx-xxxxxxxx"   # Client secret for the connection app registration (KEEP SECURE)
 
-# Object/App ID of the TARGET Application Proxy in Entra ID whose custom-domain
-# certificate should be replaced. (Previously supplied as -targetapplicationID;
-# now a fixed configuration value.)
+# Object ID of the Application Proxy app whose custom-domain certificate should
+# be replaced. Use the APP REGISTRATION (Application) Object ID:
+#   Entra ID > App registrations > <App Proxy app> > Overview > Object ID
+# Do NOT use the Enterprise Application (Service Principal) Object ID or the
+# Application (client) ID; the beta/applications/{id} endpoint rejects both.
+# (Previously supplied as -targetapplicationID; now a fixed configuration value.)
 $APP_PROXY_OBJECT_ID   = "8f473c7e-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 
 # ---- Optional: certificate-based auth alternative ---------------------------

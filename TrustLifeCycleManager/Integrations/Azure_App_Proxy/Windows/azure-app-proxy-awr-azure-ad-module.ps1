@@ -49,7 +49,7 @@ $LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\azure-app-proxy_data.log"
 $AZURE_TENANT_ID = "< Azure Tenant ID >"
 $AZURE_CLIENT_ID = "< Azure Client ID >"
 $AZURE_CERT_THUMBPRINT = "< Azure Certificate Thumbprint >"
-$APP_PROXY_OBJECT_ID = "< Azure App Proxy Object ID >"
+$APP_PROXY_OBJECT_ID = "< Azure App Proxy Object ID >" # App Registration (Application) Object ID of the App Proxy app, NOT the Enterprise Application Object ID
 
 # ============================================================================
 # FUNCTIONS
