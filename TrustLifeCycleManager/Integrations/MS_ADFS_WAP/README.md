@@ -129,10 +129,10 @@ No additional steps are needed. Entra ID federation trust is based on the token-
 
 ### Legal Notice
 
-The legal notice is accepted via a **string** value (must be the literal `"true"`):
+The script ships with the legal notice **not** accepted. Before deploying, read the notice in the script header and set the flag to the literal string `"true"`:
 
 ```powershell
-$LEGAL_NOTICE_ACCEPT = "true"   # Set to "true" to accept the legal notice and allow execution.
+$LEGAL_NOTICE_ACCEPT = "false"   # Set to "true" to accept the legal notice and allow execution.
 ```
 
 If this is not `"true"`, the script logs the reason and exits `1`.
