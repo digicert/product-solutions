@@ -13,7 +13,7 @@ Two script variants are provided, identical in behaviour and argument structure,
 
 ## Overview
 
-The script imports the certificate into FortiGate and optionally reassigns all existing references to the old certificate (SSL-VPN, Admin HTTPS, IPsec Phase1, Firewall VIP SSL offloading) to the newly imported one. It supports automatic cleanup of the old certificate after reassignment.
+The script imports the certificate into FortiGate and optionally reassigns all existing references to the old certificate (SSL-VPN, Admin HTTPS, User & Authentication settings, IPsec Phase1, Firewall VIP SSL offloading) to the newly imported one. It supports automatic cleanup of the old certificate after reassignment.
 
 FortiOS cannot overwrite a local certificate in place through the REST API: importing under an existing name is rejected, and a certificate that is referenced by any object cannot be deleted. Every renewal is therefore a **rotation**: the new certificate is imported under a new name, every reference is repointed, and the old certificate is optionally deleted.
 
@@ -144,10 +144,10 @@ If any reassignment fails the script exits with an error **before** the delete s
 | `admin_https` | Reassign Admin HTTPS certificate only |
 | `user_auth` | Reassign the User & Authentication settings certificate only |
 | `firewall_vip` | Reassign firewall VIP / virtual server SSL offloading certificates only |
-| `ssl_vpn,admin_https` | Reassign SSL-VPN and Admin HTTPS; skip Admin fallback, IPsec and VIPs |
+| `ssl_vpn,admin_https` | Reassign SSL-VPN and Admin HTTPS; skip Admin fallback, User Authentication, IPsec and VIPs |
 | `admin_https,admin_https_fallback` | Reassign both Admin HTTPS references |
-| `ipsec_phase1_interface,ipsec_phase1` | Reassign IPsec configurations only; skip VPN/Admin/VIP references |
-| `ssl_vpn,admin_https,ipsec_phase1` | Reassign SSL-VPN, Admin HTTPS, and IPsec phase1 (skip Admin fallback, phase1-interface and VIPs) |
+| `ipsec_phase1_interface,ipsec_phase1` | Reassign IPsec configurations only; skip SSL-VPN, Admin, User Authentication and VIP references |
+| `ssl_vpn,admin_https,ipsec_phase1` | Reassign SSL-VPN, Admin HTTPS, and IPsec phase1 (skip Admin fallback, User Authentication, phase1-interface and VIPs) |
 
 ### Example: replacing a certificate bound to a virtual server (SSL offloading)
 
@@ -163,7 +163,7 @@ First run: the script imports the certificate as `paolo-vip-20261009-101500`, re
 
 Later renewals with the **same arguments**: argument 6 no longer matches anything (that certificate is gone), but the prefix rule matches `paolo-vip-20261009-101500`, so the rotation continues normally. Argument 6 can stay in the TLM profile indefinitely or be removed, either works.
 
-Use `assign_refs` instead of `firewall_vip` if the same certificate is also bound to SSL-VPN, admin HTTPS or IPsec.
+Use `assign_refs` instead of `firewall_vip` if the same certificate is also bound to SSL-VPN, admin HTTPS, the User & Authentication settings or IPsec.
 
 ---
 
