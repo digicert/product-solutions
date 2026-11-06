@@ -46,7 +46,7 @@
 # =====================================================================
 $LEGAL_NOTICE_ACCEPT = "false"
 $LOG_PATH = "C:\Program Files\DigiCert\TLM Agent\log\fortigate-awr.log"
-$SCRIPT_VERSION = "1.1.0"
+$SCRIPT_VERSION = "1.2.0"
 $MAX_CERT_NAME_LENGTH = 35  # FortiOS limit for vpn.certificate.local object names
 $SKIP_CERTIFICATE_CHECK = $false
 
@@ -720,6 +720,7 @@ function Get-AssignModeConfig {
         ReassignSslVpn = $false
         ReassignAdminHttps = $false
         ReassignAdminHttpsFallback = $false
+        ReassignUserAuth = $false
         ReassignIpsecPhase1Interface = $false
         ReassignIpsecPhase1 = $false
         ReassignFirewallVip = $false
@@ -744,6 +745,7 @@ function Get-AssignModeConfig {
         $config.ReassignSslVpn = $true
         $config.ReassignAdminHttps = $true
         $config.ReassignAdminHttpsFallback = $true
+        $config.ReassignUserAuth = $true
         $config.ReassignIpsecPhase1Interface = $true
         $config.ReassignIpsecPhase1 = $true
         $config.ReassignFirewallVip = $true
@@ -760,6 +762,9 @@ function Get-AssignModeConfig {
             }
             { $_ -in @("admin_https_fallback") } {
                 $config.ReassignAdminHttpsFallback = $true
+            }
+            { $_ -in @("user_auth") } {
+                $config.ReassignUserAuth = $true
             }
             { $_ -in @("ipsec_phase1_interface") } {
                 $config.ReassignIpsecPhase1Interface = $true
@@ -898,6 +903,9 @@ function Main {
         }
         if ($assignConfig.ReassignAdminHttpsFallback) {
             Invoke-ReassignSingleton -State $state -Label "Admin HTTPS certificate fallback" -Endpoint "system/global" -Field "admin-server-certname"
+        }
+        if ($assignConfig.ReassignUserAuth) {
+            Invoke-ReassignSingleton -State $state -Label "User Authentication settings certificate" -Endpoint "user/setting" -Field "auth-cert"
         }
         if ($assignConfig.ReassignIpsecPhase1Interface) {
             Invoke-ReassignTable -State $state -Label "IPsec phase1-interface" -Endpoint "vpn.ipsec/phase1-interface" -Field "certificate"

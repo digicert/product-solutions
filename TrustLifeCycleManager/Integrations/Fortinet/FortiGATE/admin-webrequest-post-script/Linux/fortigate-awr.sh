@@ -33,7 +33,7 @@ LEGAL_NOTICE
 # Configuration
 LEGAL_NOTICE_ACCEPT="false"  # Set to "true" to accept the legal notice and proceed with script execution
 LOGFILE="/opt/digicert/logs/fortigate.log"
-SCRIPT_VERSION="1.1.0"
+SCRIPT_VERSION="1.2.0"
 MAX_CERT_NAME_LENGTH=35  # FortiOS limit for vpn.certificate.local object names
 
 log_message() {
@@ -442,7 +442,7 @@ log_message "ARGUMENT_6 length: ${#OLD_CERT_NAME}"
 [ -z "$ASSIGN_MODE" ] && ASSIGN_MODE="assign_refs"
 ASSIGN_MODE=$(printf '%s' "$ASSIGN_MODE" | tr '[:upper:]' '[:lower:]')
 
-KNOWN_ASSIGN_OPTIONS=" assign_refs import_only ssl_vpn admin_https admin_https_fallback ipsec_phase1_interface ipsec_phase1 firewall_vip "
+KNOWN_ASSIGN_OPTIONS=" assign_refs import_only ssl_vpn admin_https admin_https_fallback user_auth ipsec_phase1_interface ipsec_phase1 firewall_vip "
 UNKNOWN_ASSIGN_OPTIONS=""
 for ASSIGN_TOKEN in $(printf '%s' "$ASSIGN_MODE" | tr ',' ' '); do
     case "$KNOWN_ASSIGN_OPTIONS" in
@@ -702,6 +702,7 @@ reassign_table() {
 is_feature_enabled "ssl_vpn" && reassign_singleton "SSL-VPN settings" "vpn.ssl/settings" "servercert"
 is_feature_enabled "admin_https" && reassign_singleton "Admin HTTPS certificate" "system/global" "admin-server-cert"
 is_feature_enabled "admin_https_fallback" && reassign_singleton "Admin HTTPS certificate fallback" "system/global" "admin-server-certname"
+is_feature_enabled "user_auth" && reassign_singleton "User Authentication settings certificate" "user/setting" "auth-cert"
 
 is_feature_enabled "ipsec_phase1_interface" && reassign_table "IPsec phase1-interface" "vpn.ipsec/phase1-interface" "certificate"
 is_feature_enabled "ipsec_phase1" && reassign_table "IPsec phase1" "vpn.ipsec/phase1" "certificate"
