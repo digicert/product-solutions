@@ -177,6 +177,7 @@ The REST API administrator's profile must grant read/write access to:
 - `vpn.ipsec/phase1-interface` (read, write)
 - `vpn.ipsec/phase1` (read, write)
 - `firewall/vip` (read, write)
+- `user/setting` (read, write)
 
 The administrator's **trusted hosts** must include the TLM Agent host.
 
