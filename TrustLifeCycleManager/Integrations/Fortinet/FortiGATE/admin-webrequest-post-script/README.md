@@ -96,7 +96,7 @@ Edit these variables at the top of the script before deploying:
 | 2 | `CERT_BASE_NAME` | Yes | Base name used to identify the certificate and to name the new one. A reference matches if its value equals the base name or starts with `<base>-` (a name produced by an earlier run). Ex: if the old cert is named `mydomain.com` or `mydomain.com-20250101-120000`, use `mydomain.com`. New certs are named `<base>-YYYYMMDD-HHmmss`. **Max 19 characters**: FortiOS caps certificate names at 35 characters and the suffix uses 16; the script aborts before importing if the new name would be longer. |
 | 3 | `BEARER_TOKEN` | Yes | FortiGate REST API Bearer token |
 | 4 | `DELETE_MODE` | No | `delete_old` — delete previously matched certs after reassignment. `keep_old` (default) — leave old certs in place |
-| 5 | `ASSIGN_MODE` | No | Assignment strategy. One of:<br>`assign_refs` (default) — reassign all references to the new cert<br>`import_only` — only import, skip reassignment<br>Comma-separated selectors (e.g., `ssl_vpn,admin_https`) — reassign only the specified features:<br>&nbsp;&nbsp;• `ssl_vpn` — SSL-VPN settings<br>&nbsp;&nbsp;• `admin_https` — Admin HTTPS certificate<br>&nbsp;&nbsp;• `admin_https_fallback` — Admin HTTPS certificate fallback<br>&nbsp;&nbsp;• `ipsec_phase1_interface` — IPsec phase1-interface table<br>&nbsp;&nbsp;• `ipsec_phase1` — IPsec phase1 table<br>&nbsp;&nbsp;• `firewall_vip` — Firewall virtual servers / VIPs with SSL offloading (`ssl-certificate` list)<br>Selectors are case-insensitive. `import_only` wins if combined with anything else; `assign_refs` enables every selector. Unknown selectors are logged as a warning and ignored. |
+| 5 | `ASSIGN_MODE` | No | Assignment strategy. One of:<br>`assign_refs` (default) — reassign all references to the new cert<br>`import_only` — only import, skip reassignment<br>Comma-separated selectors (e.g., `ssl_vpn,admin_https`) — reassign only the specified features:<br>&nbsp;&nbsp;• `ssl_vpn` — SSL-VPN settings<br>&nbsp;&nbsp;• `admin_https` — Admin HTTPS certificate<br>&nbsp;&nbsp;• `admin_https_fallback` — Admin HTTPS certificate fallback<br>&nbsp;&nbsp;• `user_auth` — User & Authentication settings certificate<br>&nbsp;&nbsp;• `ipsec_phase1_interface` — IPsec phase1-interface table<br>&nbsp;&nbsp;• `ipsec_phase1` — IPsec phase1 table<br>&nbsp;&nbsp;• `firewall_vip` — Firewall virtual servers / VIPs with SSL offloading (`ssl-certificate` list)<br>Selectors are case-insensitive. `import_only` wins if combined with anything else; `assign_refs` enables every selector. Unknown selectors are logged as a warning and ignored. |
 | 6 | `OLD_CERT_NAME` | No | Exact name of a certificate to take over that was not named by this script (e.g. one uploaded manually or by the FortiGate automation plugin, such as `paolo-2909_digicert-de_39bc349182d8`). It is matched **in addition to** the prefix rule of argument 2, so the same arguments keep working on later renewals: the first run matches this name, later runs match the `<base>-*` name the script created, and the stale value is simply ignored. |
 
 ---
@@ -112,9 +112,10 @@ Edit these variables at the top of the script before deploying:
    a. If ssl_vpn enabled: GET SSL-VPN settings → if referencing old cert, PUT new cert name
    b. If admin_https enabled: GET system/global (admin-server-cert) → if referencing old cert, PUT new cert name
    c. If admin_https_fallback enabled: GET system/global (admin-server-certname) → if referencing old cert, PUT new cert name
-   d. If ipsec_phase1_interface enabled: GET vpn.ipsec/phase1-interface → for each entry referencing old cert, PUT new cert name
-   e. If ipsec_phase1 enabled: GET vpn.ipsec/phase1 → for each entry referencing old cert, PUT new cert name
-   f. If firewall_vip enabled: GET firewall/vip → for each VIP whose ssl-certificate list contains the old cert,
+   d. If user_auth enabled: GET user/setting (auth-cert) → if referencing old cert, PUT new cert name
+   e. If ipsec_phase1_interface enabled: GET vpn.ipsec/phase1-interface → for each entry referencing old cert, PUT new cert name
+   f. If ipsec_phase1 enabled: GET vpn.ipsec/phase1 → for each entry referencing old cert, PUT new cert name
+   g. If firewall_vip enabled: GET firewall/vip → for each VIP whose ssl-certificate list contains the old cert,
       PUT the list back with only that member swapped (other certificates in the list are preserved)
 
    Reference matching (a reference matches if any rule applies):
@@ -137,10 +138,11 @@ If any reassignment fails the script exits with an error **before** the delete s
 
 | ASSIGN_MODE Value | Effect |
 |-------------------|--------|
-| `assign_refs` or empty | Reassign all features: SSL-VPN, Admin HTTPS, Admin HTTPS fallback, IPsec phase1-interface, IPsec phase1 and Firewall VIP |
+| `assign_refs` or empty | Reassign all features: SSL-VPN, Admin HTTPS, Admin HTTPS fallback, User Authentication settings, IPsec phase1-interface, IPsec phase1 and Firewall VIP |
 | `import_only` | Import certificate only; skip all reassignments |
 | `ssl_vpn` | Reassign SSL-VPN settings only |
 | `admin_https` | Reassign Admin HTTPS certificate only |
+| `user_auth` | Reassign the User & Authentication settings certificate only |
 | `firewall_vip` | Reassign firewall VIP / virtual server SSL offloading certificates only |
 | `ssl_vpn,admin_https` | Reassign SSL-VPN and Admin HTTPS; skip Admin fallback, IPsec and VIPs |
 | `admin_https,admin_https_fallback` | Reassign both Admin HTTPS references |
