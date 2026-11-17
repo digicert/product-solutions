@@ -46,10 +46,37 @@ $LEGAL_NOTICE_ACCEPT = "false" # Set to "true" to accept the legal notice and pr
 $LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\azure-app-proxy_data.log"
 
 # Azure App Proxy Configuration
-$AZURE_TENANT_ID = "< Azure Tenant ID >"
-$AZURE_CLIENT_ID = "< Azure Client ID >"
-$AZURE_CERT_THUMBPRINT = "< Azure Certificate Thumbprint >"
-$APP_PROXY_OBJECT_ID = "< Azure App Proxy Object ID >" # App Registration (Application) Object ID of the App Proxy app, NOT the Enterprise Application Object ID
+# A non-empty configured value takes precedence over its AWR argument:
+#   ARGUMENT_1 = APP_PROXY_OBJECT_ID
+#   ARGUMENT_2 = AZURE_TENANT_ID (required in both authentication modes)
+#   ManagedIdentity: ARGUMENT_3 = AZURE_MANAGED_IDENTITY_CLIENT_ID (optional)
+#   Certificate: ARGUMENT_3 = AZURE_CLIENT_ID; ARGUMENT_4 = AZURE_CERT_THUMBPRINT
+
+# Authentication mode: "Certificate" (default) or "ManagedIdentity".
+$AZURE_AUTH_MODE                  = "Certificate"
+
+# Entra ID (Azure AD) tenant ID (Directory ID) that owns the App Proxy application.
+# Required in both authentication modes; ARGUMENT_2 is used when this is blank.
+$AZURE_TENANT_ID                  = ""
+
+# ManagedIdentity mode only:
+# Leave blank for a system-assigned identity, or set a user-assigned identity client ID.
+# The identity must be enabled on the host and granted permission to update the App Proxy application.
+# ARGUMENT_3 is used when this is blank in ManagedIdentity mode.
+$AZURE_MANAGED_IDENTITY_CLIENT_ID = ""
+
+# Certificate mode only:
+# Application (client) ID of the connection app registration used to sign in.
+# ARGUMENT_3 is used when this is blank in Certificate mode.
+$AZURE_CLIENT_ID                  = ""
+# Thumbprint of the authentication certificate installed in the machine certificate store
+# and uploaded to the connection app registration.
+# ARGUMENT_4 is used when this is blank in Certificate mode.
+$AZURE_CERT_THUMBPRINT            = ""
+
+# App Registration (Application) Object ID of the App Proxy app, NOT the Enterprise Application Object ID.
+# ARGUMENT_1 is used when this is blank.
+$APP_PROXY_OBJECT_ID              = ""
 
 # ============================================================================
 # FUNCTIONS
@@ -58,6 +85,71 @@ function Write-LogMessage {
     param([string]$Message)
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     "[$timestamp] $Message" | Add-Content -Path $LOGFILE -Encoding UTF8
+}
+
+function Get-ManagedIdentityAccessToken {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Resource,
+        [string]$ClientId
+    )
+
+    $query = "api-version=2018-02-01&resource=$([uri]::EscapeDataString($Resource))"
+    $headers = @{}
+
+    if (-not [string]::IsNullOrEmpty($env:IDENTITY_ENDPOINT)) {
+        $query = "api-version=2019-08-01&resource=$([uri]::EscapeDataString($Resource))"
+        $endpoint = $env:IDENTITY_ENDPOINT
+        if ([string]::IsNullOrEmpty($env:IDENTITY_HEADER)) {
+            throw "IDENTITY_ENDPOINT is set but IDENTITY_HEADER is missing."
+        }
+        $headers["X-IDENTITY-HEADER"] = $env:IDENTITY_HEADER
+    } else {
+        $endpoint = "http://169.254.169.254/metadata/identity/oauth2/token"
+        $headers["Metadata"] = "true"
+    }
+
+    if (-not [string]::IsNullOrEmpty($ClientId)) {
+        $query += "&client_id=$([uri]::EscapeDataString($ClientId))"
+    }
+
+    $separator = if ($endpoint.Contains("?")) { "&" } else { "?" }
+    $response = Invoke-RestMethod -Method Get -Uri "$endpoint$separator$query" -Headers $headers -ErrorAction Stop
+    if ([string]::IsNullOrEmpty($response.access_token)) {
+        throw "The managed identity endpoint returned no access token for resource '$Resource'."
+    }
+
+    return $response.access_token
+}
+
+function Get-ManagedIdentityAccountId {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$AccessToken
+    )
+
+    $tokenParts = $AccessToken.Split(".")
+    if ($tokenParts.Length -lt 2) {
+        throw "The managed identity access token is not a valid JWT."
+    }
+
+    $payload = $tokenParts[1].Replace("-", "+").Replace("_", "/")
+    switch ($payload.Length % 4) {
+        2 { $payload += "==" }
+        3 { $payload += "=" }
+        1 { throw "The managed identity access token has an invalid JWT payload." }
+    }
+
+    $claims = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($payload)) | ConvertFrom-Json
+    $accountId = $claims.appid
+    if ([string]::IsNullOrEmpty($accountId)) {
+        $accountId = $claims.azp
+    }
+    if ([string]::IsNullOrEmpty($accountId)) {
+        throw "The managed identity access token does not contain an appid or azp claim required by AzureAD."
+    }
+
+    return $accountId
 }
 
 # ============================================================================
@@ -102,6 +194,67 @@ try {
 } catch {
     Write-LogMessage "ERROR: Failed to parse JSON: $_"
     exit 1
+}
+
+# Extract the AWR arguments used for configuration fallbacks.
+$ARGUMENT_1 = ""; $ARGUMENT_2 = ""; $ARGUMENT_3 = ""; $ARGUMENT_4 = ""
+if ($JSON_OBJECT.args) {
+    $ARGS_ARRAY = $JSON_OBJECT.args
+    for ($i = 0; $i -lt [Math]::Min($ARGS_ARRAY.Count, 4); $i++) {
+        $value = ([string]$ARGS_ARRAY[$i] -replace '\s', '').Trim()
+        Set-Variable -Name "ARGUMENT_$($i + 1)" -Value $value
+        $suffixLength = [Math]::Min(4, $value.Length)
+        $suffix = $value.Substring($value.Length - $suffixLength)
+        Write-LogMessage "ARGUMENT_$($i + 1) last $suffixLength characters: ...$suffix"
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($APP_PROXY_OBJECT_ID) -and
+    -not [string]::IsNullOrWhiteSpace($ARGUMENT_1)) {
+    $APP_PROXY_OBJECT_ID = $ARGUMENT_1
+    Write-LogMessage "APP_PROXY_OBJECT_ID sourced from ARGUMENT_1"
+}
+if ([string]::IsNullOrWhiteSpace($AZURE_TENANT_ID) -and
+    -not [string]::IsNullOrWhiteSpace($ARGUMENT_2)) {
+    $AZURE_TENANT_ID = $ARGUMENT_2
+    Write-LogMessage "AZURE_TENANT_ID sourced from ARGUMENT_2"
+}
+if ($AZURE_AUTH_MODE -eq "ManagedIdentity") {
+    if ([string]::IsNullOrWhiteSpace($AZURE_MANAGED_IDENTITY_CLIENT_ID) -and
+        -not [string]::IsNullOrWhiteSpace($ARGUMENT_3)) {
+        $AZURE_MANAGED_IDENTITY_CLIENT_ID = $ARGUMENT_3
+        Write-LogMessage "AZURE_MANAGED_IDENTITY_CLIENT_ID sourced from ARGUMENT_3"
+    }
+} elseif ($AZURE_AUTH_MODE -eq "Certificate") {
+    if ([string]::IsNullOrWhiteSpace($AZURE_CLIENT_ID) -and
+        -not [string]::IsNullOrWhiteSpace($ARGUMENT_3)) {
+        $AZURE_CLIENT_ID = $ARGUMENT_3
+        Write-LogMessage "AZURE_CLIENT_ID sourced from ARGUMENT_3"
+    }
+    if ([string]::IsNullOrWhiteSpace($AZURE_CERT_THUMBPRINT) -and
+        -not [string]::IsNullOrWhiteSpace($ARGUMENT_4)) {
+        $AZURE_CERT_THUMBPRINT = $ARGUMENT_4
+        Write-LogMessage "AZURE_CERT_THUMBPRINT sourced from ARGUMENT_4"
+    }
+}
+
+# Log resolved configuration without logging credentials.
+Write-LogMessage "Configuration:"
+Write-LogMessage "  LEGAL_NOTICE_ACCEPT : $LEGAL_NOTICE_ACCEPT"
+Write-LogMessage "  LOGFILE             : $LOGFILE"
+Write-LogMessage "  AZURE_AUTH_MODE     : $AZURE_AUTH_MODE"
+Write-LogMessage "  AZURE_TENANT_ID     : $AZURE_TENANT_ID"
+Write-LogMessage "  APP_PROXY_OBJECT_ID : $APP_PROXY_OBJECT_ID"
+if ($AZURE_AUTH_MODE -eq "ManagedIdentity") {
+    if ([string]::IsNullOrWhiteSpace($AZURE_MANAGED_IDENTITY_CLIENT_ID)) {
+        Write-LogMessage "  MANAGED_IDENTITY    : System-assigned"
+    } else {
+        Write-LogMessage "  MANAGED_IDENTITY    : User-assigned"
+        Write-LogMessage "  IDENTITY_CLIENT_ID  : $AZURE_MANAGED_IDENTITY_CLIENT_ID"
+    }
+} elseif ($AZURE_AUTH_MODE -eq "Certificate") {
+    Write-LogMessage "  AZURE_CLIENT_ID     : $AZURE_CLIENT_ID"
+    Write-LogMessage "  CERT_THUMBPRINT     : $AZURE_CERT_THUMBPRINT"
 }
 
 # Extract certificate folder
@@ -181,16 +334,39 @@ try {
     Import-Module AzureAD -ErrorAction Stop
     Write-LogMessage "AzureAD module imported successfully"
 
-    # Connect to Azure AD using certificate authentication
-    Write-LogMessage "Connecting to Azure AD..."
-    Write-LogMessage "  Tenant ID: $AZURE_TENANT_ID"
-    Write-LogMessage "  Client ID: $AZURE_CLIENT_ID"
-    Write-LogMessage "  Auth Cert Thumbprint: $AZURE_CERT_THUMBPRINT"
-    
-    $azureConnection = Connect-AzureAD -TenantId $AZURE_TENANT_ID `
-                                        -ApplicationId $AZURE_CLIENT_ID `
-                                        -CertificateThumbprint $AZURE_CERT_THUMBPRINT `
-                                        -ErrorAction Stop
+    if ($AZURE_AUTH_MODE -eq "ManagedIdentity") {
+        if ([string]::IsNullOrEmpty($AZURE_TENANT_ID)) {
+            throw "AZURE_TENANT_ID must be configured when using managed identity."
+        }
+
+        Write-LogMessage "Connecting to Azure AD using managed identity..."
+        $aadAccessToken = Get-ManagedIdentityAccessToken `
+            -Resource "https://graph.windows.net/" `
+            -ClientId $AZURE_MANAGED_IDENTITY_CLIENT_ID
+        $msAccessToken = Get-ManagedIdentityAccessToken `
+            -Resource "https://graph.microsoft.com/" `
+            -ClientId $AZURE_MANAGED_IDENTITY_CLIENT_ID
+        $identityAccountId = Get-ManagedIdentityAccountId -AccessToken $aadAccessToken
+
+        $azureConnection = Connect-AzureAD -TenantId $AZURE_TENANT_ID `
+                                            -AadAccessToken $aadAccessToken `
+                                            -MsAccessToken $msAccessToken `
+                                            -AccountId $identityAccountId `
+                                            -ErrorAction Stop
+    } elseif ($AZURE_AUTH_MODE -eq "Certificate") {
+        # Connect to Azure AD using certificate authentication
+        Write-LogMessage "Connecting to Azure AD..."
+        Write-LogMessage "  Tenant ID: $AZURE_TENANT_ID"
+        Write-LogMessage "  Client ID: $AZURE_CLIENT_ID"
+        Write-LogMessage "  Auth Cert Thumbprint: $AZURE_CERT_THUMBPRINT"
+
+        $azureConnection = Connect-AzureAD -TenantId $AZURE_TENANT_ID `
+                                            -ApplicationId $AZURE_CLIENT_ID `
+                                            -CertificateThumbprint $AZURE_CERT_THUMBPRINT `
+                                            -ErrorAction Stop
+    } else {
+        throw "Unsupported AZURE_AUTH_MODE '$AZURE_AUTH_MODE'. Use 'Certificate' or 'ManagedIdentity'."
+    }
     
     Write-LogMessage "Connected to Azure AD successfully"
     Write-LogMessage "  Account: $($azureConnection.Account)"
