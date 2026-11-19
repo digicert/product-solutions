@@ -10,11 +10,14 @@
     certificate data from the TLM Agent through the DC1_POST_SCRIPT_DATA environment
     variable (Base64-encoded JSON) and is therefore invoked NON-INTERACTIVELY.
 
+    DEPRECATION: Hardcoding configuration values in this script is deprecated.
+    Support for this option will be removed in the next version.
+
     IMPORTANT: Do NOT add a param() block to this script. The TLM Agent does not pass
     named PowerShell parameters; a [Parameter(Mandatory)] declaration will cause the
     agent run to fail (or hang) during parameter binding, before any log line is written,
     even though the same script runs fine when launched by hand. Target/connection values
-    are configured in the CONFIGURATION section below instead.
+    are configured in the CONFIGURATION section below or sourced from documented AWR arguments.
 .NOTES
     Legal Notice (version January 1, 2026)
     Copyright © 2026 DigiCert. All rights reserved.
@@ -61,7 +64,8 @@ $MaximumVariableCount = 32768
 # CONFIGURATION
 # ============================================================================
 $LEGAL_NOTICE_ACCEPT = "false"   # Set to "true" to accept the legal notice and proceed with execution
-$LOGFILE             = "C:\Certs\azure-app-proxy.log"
+$LOGFILE             = "C:\Program Files\DigiCert\TLM Agent\log\azure-app-proxy.log"
+$SCRIPT_VERSION      = "1.2.0"
 
 # Dry-run mode:
 #   "true"  = do NOT call Microsoft Graph. Instead, log the exact Graph operations
@@ -71,20 +75,46 @@ $LOGFILE             = "C:\Certs\azure-app-proxy.log"
 $DRY_RUN = "false"
 
 # ---- Azure / Entra ID configuration ----------------------------------------
-# All values below are configured here (top of file) rather than passed as AWR
-# arguments, so this script targets one fixed Application Proxy per deployment.
+# A non-empty value configured here takes precedence over the AWR argument:
+#   ARGUMENT_1 = APP_PROXY_OBJECT_ID (both authentication modes)
+#   ManagedIdentity: ARGUMENT_2 = AZURE_MANAGED_IDENTITY_CLIENT_ID (optional)
+#   ClientSecret: ARGUMENT_2 = AZURE_TENANT_ID, ARGUMENT_3 = AZURE_CONNECTION_APPID,
+#                 ARGUMENT_4 = AZURE_CLIENT_SECRET
+# Decoded JSON is not logged. Only the last four characters of mapped,
+# non-secret AWR arguments are logged; secrets and unused arguments are redacted.
 
-$AZURE_TENANT_ID       = "7637ffcf-xxxx-xxxx-xxxx-xxxxxxxxxxxx"   # Entra ID tenant ID
-$AZURE_CONNECTION_APPID = "551fee0c-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # App registration (client) ID used to authenticate to Graph
-$AZURE_CLIENT_SECRET   = "xxxxxxxxxxxxxxx-xxxxxxxx"   # Client secret for the connection app registration (KEEP SECURE)
+# Authentication mode: "ClientSecret" (default) or "ManagedIdentity".
+$AZURE_AUTH_MODE = "ClientSecret"
+
+# The three values below are required ONLY when $AZURE_AUTH_MODE = "ClientSecret".
+# They are ignored in "ManagedIdentity" mode.
+
+# Entra ID (Azure AD) tenant ID (Directory ID) used for ClientSecret authentication.
+$AZURE_TENANT_ID        = ""
+
+# Application (client) ID of the connection app registration for ClientSecret
+# authentication. The authentication principal needs the required Graph Application
+# permissions with tenant-wide consent.
+$AZURE_CONNECTION_APPID = ""
+
+# Client secret VALUE (not the secret ID) of the connection app registration.
+# Treat as a credential: restrict file access, never commit or log it, and rotate
+# it before expiry. In ClientSecret mode, ARGUMENT_4 supplies it when this is blank.
+$AZURE_CLIENT_SECRET    = ""
+
+# For ManagedIdentity, leave blank to use a system-assigned identity, or set
+# the client ID of a user-assigned managed identity. The TLM Agent must run on
+# Azure compute with that identity assigned and granted the required Graph
+# permissions. In ManagedIdentity mode, ARGUMENT_2 is used when this is blank.
+$AZURE_MANAGED_IDENTITY_CLIENT_ID = ""
 
 # Object ID of the Application Proxy app whose custom-domain certificate should
 # be replaced. Use the APP REGISTRATION (Application) Object ID:
 #   Entra ID > App registrations > <App Proxy app> > Overview > Object ID
 # Do NOT use the Enterprise Application (Service Principal) Object ID or the
 # Application (client) ID; the beta/applications/{id} endpoint rejects both.
-# (Previously supplied as -targetapplicationID; now a fixed configuration value.)
-$APP_PROXY_OBJECT_ID   = "8f473c7e-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+# ARGUMENT_1 is used in either authentication mode when this is blank.
+$APP_PROXY_OBJECT_ID   = ""
 
 # ---- Optional: certificate-based auth alternative ---------------------------
 # If you prefer certificate auth over a client secret, populate a thumbprint and
@@ -119,20 +149,6 @@ if ($LEGAL_NOTICE_ACCEPT -ne "true") {
     Write-LogMessage "Legal notice accepted, proceeding with script execution."
 }
 
-# Log initial configuration (never log the client secret in plaintext)
-Write-LogMessage "Configuration:"
-Write-LogMessage "  LEGAL_NOTICE_ACCEPT : $LEGAL_NOTICE_ACCEPT"
-Write-LogMessage "  DRY_RUN             : $DRY_RUN"
-Write-LogMessage "  LOGFILE             : $LOGFILE"
-Write-LogMessage "  AZURE_TENANT_ID     : $AZURE_TENANT_ID"
-Write-LogMessage "  CONNECTION_APPID    : $AZURE_CONNECTION_APPID"
-Write-LogMessage "  APP_PROXY_OBJECT_ID : $APP_PROXY_OBJECT_ID"
-if (-not [string]::IsNullOrEmpty($AZURE_CLIENT_SECRET)) {
-    Write-LogMessage "  CLIENT_SECRET       : Configured ($($AZURE_CLIENT_SECRET.Length) characters, value not logged)"
-} else {
-    Write-LogMessage "  CLIENT_SECRET       : NOT configured"
-}
-
 # ============================================================================
 # READ AND DECODE TLM AGENT DATA
 # ============================================================================
@@ -156,11 +172,8 @@ try {
     exit 1
 }
 
-# Log the raw JSON for debugging
-Write-LogMessage "=========================================="
-Write-LogMessage "Raw JSON content:"
-Write-LogMessage $JSON_STRING
-Write-LogMessage "=========================================="
+# The decoded payload can contain the PFX password and AWR values; do not log it.
+Write-LogMessage "Decoded TLM agent JSON successfully; payload contents omitted from log."
 
 # Parse JSON
 try {
@@ -174,9 +187,8 @@ try {
 # ============================================================================
 # EXTRACT ARGUMENTS FROM JSON (AWR Parameters 1-15)
 # ============================================================================
-# Retained from the standard template so the documented $ARGUMENT_1..15 variables
-# are available in the custom section, even though this script sources its target
-# configuration from the CONFIGURATION block above.
+# Extract standard AWR arguments. The argument mapping depends on the selected
+# authentication mode; see the CONFIGURATION comments above.
 Write-LogMessage "Extracting arguments from JSON..."
 
 $ARGUMENT_1 = ""; $ARGUMENT_2 = ""; $ARGUMENT_3 = ""; $ARGUMENT_4 = ""; $ARGUMENT_5 = ""
@@ -185,12 +197,68 @@ $ARGUMENT_11 = ""; $ARGUMENT_12 = ""; $ARGUMENT_13 = ""; $ARGUMENT_14 = ""; $ARG
 
 if ($JSON_OBJECT.args) {
     $ARGS_ARRAY = $JSON_OBJECT.args
-    Write-LogMessage "Raw args array: $($ARGS_ARRAY -join ',')"
+    Write-LogMessage "AWR args received: count=$($ARGS_ARRAY.Count)"
 
     for ($i = 0; $i -lt [Math]::Min($ARGS_ARRAY.Count, 15); $i++) {
         $value = ($ARGS_ARRAY[$i] -replace '\s', '').Trim()
         Set-Variable -Name "ARGUMENT_$($i + 1)" -Value $value
-        Write-LogMessage "ARGUMENT_$($i + 1) extracted: '$value' (length: $($value.Length))"
+        $suffixLength = [Math]::Min(4, $value.Length)
+        $suffix = $value.Substring($value.Length - $suffixLength)
+        Write-LogMessage "ARGUMENT_$($i + 1) last $suffixLength characters: ...$suffix"
+    }
+}
+
+# Use AWR arguments only when the corresponding script setting is empty.
+if ([string]::IsNullOrWhiteSpace($APP_PROXY_OBJECT_ID) -and
+    -not [string]::IsNullOrWhiteSpace($ARGUMENT_1)) {
+    $APP_PROXY_OBJECT_ID = $ARGUMENT_1
+    Write-LogMessage "APP_PROXY_OBJECT_ID sourced from ARGUMENT_1"
+}
+if ($AZURE_AUTH_MODE -eq "ManagedIdentity") {
+    if ([string]::IsNullOrWhiteSpace($AZURE_MANAGED_IDENTITY_CLIENT_ID) -and
+        -not [string]::IsNullOrWhiteSpace($ARGUMENT_2)) {
+        $AZURE_MANAGED_IDENTITY_CLIENT_ID = $ARGUMENT_2
+        Write-LogMessage "AZURE_MANAGED_IDENTITY_CLIENT_ID sourced from ARGUMENT_2"
+    }
+} elseif ($AZURE_AUTH_MODE -eq "ClientSecret") {
+    if ([string]::IsNullOrWhiteSpace($AZURE_TENANT_ID) -and
+        -not [string]::IsNullOrWhiteSpace($ARGUMENT_2)) {
+        $AZURE_TENANT_ID = $ARGUMENT_2
+        Write-LogMessage "AZURE_TENANT_ID sourced from ARGUMENT_2"
+    }
+    if ([string]::IsNullOrWhiteSpace($AZURE_CONNECTION_APPID) -and
+        -not [string]::IsNullOrWhiteSpace($ARGUMENT_3)) {
+        $AZURE_CONNECTION_APPID = $ARGUMENT_3
+        Write-LogMessage "AZURE_CONNECTION_APPID sourced from ARGUMENT_3"
+    }
+    if ([string]::IsNullOrWhiteSpace($AZURE_CLIENT_SECRET) -and
+        -not [string]::IsNullOrWhiteSpace($ARGUMENT_4)) {
+        $AZURE_CLIENT_SECRET = $ARGUMENT_4
+        Write-LogMessage "AZURE_CLIENT_SECRET sourced from ARGUMENT_4"
+    }
+}
+
+# Log resolved configuration after applying AWR argument fallbacks (never log the client secret)
+Write-LogMessage "Configuration:"
+Write-LogMessage "  LEGAL_NOTICE_ACCEPT : $LEGAL_NOTICE_ACCEPT"
+Write-LogMessage "  DRY_RUN             : $DRY_RUN"
+Write-LogMessage "  LOGFILE             : $LOGFILE"
+Write-LogMessage "  AZURE_AUTH_MODE     : $AZURE_AUTH_MODE"
+Write-LogMessage "  APP_PROXY_OBJECT_ID : $APP_PROXY_OBJECT_ID"
+if ($AZURE_AUTH_MODE -eq "ClientSecret") {
+    Write-LogMessage "  AZURE_TENANT_ID     : $AZURE_TENANT_ID"
+    Write-LogMessage "  CONNECTION_APPID    : $AZURE_CONNECTION_APPID"
+    if (-not [string]::IsNullOrEmpty($AZURE_CLIENT_SECRET)) {
+        Write-LogMessage "  CLIENT_SECRET       : Configured (value not logged)"
+    } else {
+        Write-LogMessage "  CLIENT_SECRET       : NOT configured"
+    }
+} elseif ($AZURE_AUTH_MODE -eq "ManagedIdentity") {
+    if ([string]::IsNullOrEmpty($AZURE_MANAGED_IDENTITY_CLIENT_ID)) {
+        Write-LogMessage "  MANAGED_IDENTITY    : System-assigned"
+    } else {
+        Write-LogMessage "  MANAGED_IDENTITY    : User-assigned"
+        Write-LogMessage "  MANAGED_IDENTITY_CLIENT_ID : $AZURE_MANAGED_IDENTITY_CLIENT_ID"
     }
 }
 
@@ -219,13 +287,7 @@ if ([string]::IsNullOrEmpty($PFX_PASSWORD)) {
     Write-LogMessage "ERROR: No PFX password found in JSON"
     exit 1
 } else {
-    Write-LogMessage "PFX password extracted from JSON (length: $($PFX_PASSWORD.Length) characters)"
-    # Obfuscated confirmation only - never log the full password
-    if ($PFX_PASSWORD.Length -ge 3) {
-        Write-LogMessage "PFX password (masked): $($PFX_PASSWORD.Substring(0,3))***"
-    } else {
-        Write-LogMessage "PFX password (masked): ***"
-    }
+    Write-LogMessage "PFX password extracted from JSON; value not logged."
 }
 
 # Construct full PFX path
@@ -292,7 +354,7 @@ try {
 #   $PFX_PASSWORD     - Password for the PFX/P12 file
 #   $CERT_SERIAL      - Serial number of the validated certificate
 #   $CERT_THUMBPRINT  - Thumbprint of the validated certificate
-#   $ARGUMENT_1..15   - AWR Parameters from the JSON args array (unused here)
+#   $ARGUMENT_1..15   - AWR parameters; ARGUMENT_1..4 may provide configuration fallbacks
 #   $JSON_STRING      - Complete decoded JSON string
 #   $JSON_OBJECT      - Parsed JSON object
 #
@@ -308,10 +370,17 @@ Write-LogMessage "Starting Azure App Proxy certificate upload..."
 Write-LogMessage "=========================================="
 
 # --- Validate required configuration before attempting any Graph call --------
+if ($AZURE_AUTH_MODE -notin @("ClientSecret", "ManagedIdentity")) {
+    Write-LogMessage "ERROR: Unsupported AZURE_AUTH_MODE '$AZURE_AUTH_MODE'. Use 'ClientSecret' or 'ManagedIdentity'."
+    exit 1
+}
+
 $missingConfig = @()
-if ([string]::IsNullOrEmpty($AZURE_TENANT_ID))        { $missingConfig += "AZURE_TENANT_ID" }
-if ([string]::IsNullOrEmpty($AZURE_CONNECTION_APPID)) { $missingConfig += "AZURE_CONNECTION_APPID" }
-if ([string]::IsNullOrEmpty($AZURE_CLIENT_SECRET))    { $missingConfig += "AZURE_CLIENT_SECRET" }
+if ($AZURE_AUTH_MODE -eq "ClientSecret") {
+    if ([string]::IsNullOrEmpty($AZURE_TENANT_ID))        { $missingConfig += "AZURE_TENANT_ID" }
+    if ([string]::IsNullOrEmpty($AZURE_CONNECTION_APPID)) { $missingConfig += "AZURE_CONNECTION_APPID" }
+    if ([string]::IsNullOrEmpty($AZURE_CLIENT_SECRET))    { $missingConfig += "AZURE_CLIENT_SECRET" }
+}
 if ([string]::IsNullOrEmpty($APP_PROXY_OBJECT_ID))    { $missingConfig += "APP_PROXY_OBJECT_ID" }
 
 if ($missingConfig.Count -gt 0) {
@@ -365,9 +434,17 @@ try {
         Write-LogMessage "The following operations WOULD have been executed:"
         Write-LogMessage "=========================================="
         Write-LogMessage "[DRY RUN] Import-Module Microsoft.Graph"
-        Write-LogMessage "[DRY RUN] Connect-MgGraph -TenantId '$AZURE_TENANT_ID' ``"
-        Write-LogMessage "[DRY RUN]     -ClientSecretCredential <PSCredential UserName='$AZURE_CONNECTION_APPID' Password=*** (client secret, not logged)> ``"
-        Write-LogMessage "[DRY RUN]     -NoWelcome"
+        if ($AZURE_AUTH_MODE -eq "ManagedIdentity") {
+            if ([string]::IsNullOrEmpty($AZURE_MANAGED_IDENTITY_CLIENT_ID)) {
+                Write-LogMessage "[DRY RUN] Connect-MgGraph -Identity -NoWelcome"
+            } else {
+                Write-LogMessage "[DRY RUN] Connect-MgGraph -Identity -ClientId '$AZURE_MANAGED_IDENTITY_CLIENT_ID' -NoWelcome"
+            }
+        } else {
+            Write-LogMessage "[DRY RUN] Connect-MgGraph -TenantId '$AZURE_TENANT_ID' ``"
+            Write-LogMessage "[DRY RUN]     -ClientSecretCredential <PSCredential UserName='$AZURE_CONNECTION_APPID' Password=*** (client secret, not logged)> ``"
+            Write-LogMessage "[DRY RUN]     -NoWelcome"
+        }
         Write-LogMessage "[DRY RUN] Update-MgApplication -ApplicationId '$APP_PROXY_OBJECT_ID' -BodyParameter <payload>"
         Write-LogMessage "[DRY RUN]     payload.onPremisesPublishing.verifiedCustomDomainKeyCredential.type      = X509CertAndPassword"
         Write-LogMessage "[DRY RUN]     payload.onPremisesPublishing.verifiedCustomDomainKeyCredential.value     = <Base64 PFX: $($pfxBytes.Length) bytes / $($pfxBase64.Length) Base64 chars> (value not logged)"
@@ -382,9 +459,12 @@ try {
         # LIVE RUN - execute the Graph operations
         # ====================================================================
 
-        # --- Build the client-secret credential for Graph authentication -----
-        $secureSecret           = ConvertTo-SecureString -String $AZURE_CLIENT_SECRET -AsPlainText -Force
-        $ClientSecretCredential = New-Object System.Management.Automation.PSCredential($AZURE_CONNECTION_APPID, $secureSecret)
+        $secureSecret = $null
+        if ($AZURE_AUTH_MODE -eq "ClientSecret") {
+            # --- Build the client-secret credential for Graph authentication -----
+            $secureSecret           = ConvertTo-SecureString -String $AZURE_CLIENT_SECRET -AsPlainText -Force
+            $ClientSecretCredential = New-Object System.Management.Automation.PSCredential($AZURE_CONNECTION_APPID, $secureSecret)
+        }
 
         # --- Import the Microsoft Graph module -------------------------------
         # NOTE: The TLM Agent runs as LocalSystem (or a dedicated service account).
@@ -397,8 +477,17 @@ try {
         Write-LogMessage "Microsoft.Graph module imported successfully"
 
         # --- Connect to Graph ------------------------------------------------
-        Write-LogMessage "Connecting to Microsoft Graph (Tenant: $AZURE_TENANT_ID)..."
-        Connect-MgGraph -TenantId $AZURE_TENANT_ID -ClientSecretCredential $ClientSecretCredential -NoWelcome -ErrorAction Stop
+        if ($AZURE_AUTH_MODE -eq "ManagedIdentity") {
+            Write-LogMessage "Connecting to Microsoft Graph using managed identity..."
+            if ([string]::IsNullOrEmpty($AZURE_MANAGED_IDENTITY_CLIENT_ID)) {
+                Connect-MgGraph -Identity -NoWelcome -ErrorAction Stop
+            } else {
+                Connect-MgGraph -Identity -ClientId $AZURE_MANAGED_IDENTITY_CLIENT_ID -NoWelcome -ErrorAction Stop
+            }
+        } else {
+            Write-LogMessage "Connecting to Microsoft Graph (Tenant: $AZURE_TENANT_ID)..."
+            Connect-MgGraph -TenantId $AZURE_TENANT_ID -ClientSecretCredential $ClientSecretCredential -NoWelcome -ErrorAction Stop
+        }
         Write-LogMessage "Connected to Microsoft Graph successfully"
 
         # --- Upload the certificate ------------------------------------------
