@@ -65,6 +65,7 @@ $MaximumVariableCount = 32768
 # ============================================================================
 $LEGAL_NOTICE_ACCEPT = "false"   # Set to "true" to accept the legal notice and proceed with execution
 $LOGFILE             = "C:\Program Files\DigiCert\TLM Agent\log\azure-app-proxy.log"
+$SCRIPT_VERSION      = "1.2.0"
 
 # Dry-run mode:
 #   "true"  = do NOT call Microsoft Graph. Instead, log the exact Graph operations
@@ -196,7 +197,7 @@ $ARGUMENT_11 = ""; $ARGUMENT_12 = ""; $ARGUMENT_13 = ""; $ARGUMENT_14 = ""; $ARG
 
 if ($JSON_OBJECT.args) {
     $ARGS_ARRAY = $JSON_OBJECT.args
-    Write-LogMessage "Raw args array: $($ARGS_ARRAY -join ',')"
+    Write-LogMessage "AWR args received: count=$($ARGS_ARRAY.Count)"
 
     for ($i = 0; $i -lt [Math]::Min($ARGS_ARRAY.Count, 15); $i++) {
         $value = ($ARGS_ARRAY[$i] -replace '\s', '').Trim()

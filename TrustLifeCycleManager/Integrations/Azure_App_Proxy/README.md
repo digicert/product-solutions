@@ -247,7 +247,7 @@ Both scripts write a detailed timestamped log including:
 | Script | Default Log Path |
 |--------|-----------------|
 | `azure-app-proxy-awr-azure-ad-module.ps1` | `C:\Program Files\DigiCert\TLM Agent\log\azure-app-proxy_data.log` |
-| `azure-app-proxy-awr-azure-microsoft-graph.ps1` | `C:\Certs\azure-app-proxy.log` |
+| `azure-app-proxy-awr-azure-microsoft-graph.ps1` | `C:\Program Files\DigiCert\TLM Agent\log\azure-app-proxy.log` |
 
 ## Troubleshooting
 

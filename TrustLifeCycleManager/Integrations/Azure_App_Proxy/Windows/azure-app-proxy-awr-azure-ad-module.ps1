@@ -47,6 +47,7 @@
 # ============================================================================
 $LEGAL_NOTICE_ACCEPT = "false" # Set to "true" to accept the legal notice and proceed with execution
 $LOGFILE = "C:\Program Files\DigiCert\TLM Agent\log\azure-app-proxy_data.log"
+$SCRIPT_VERSION = "1.2.0"
 
 # Azure App Proxy Configuration
 # A non-empty configured value takes precedence over its AWR argument:
@@ -203,6 +204,8 @@ try {
 $ARGUMENT_1 = ""; $ARGUMENT_2 = ""; $ARGUMENT_3 = ""; $ARGUMENT_4 = ""
 if ($JSON_OBJECT.args) {
     $ARGS_ARRAY = $JSON_OBJECT.args
+    Write-LogMessage "AWR args received: count=$($ARGS_ARRAY.Count)"
+    
     for ($i = 0; $i -lt [Math]::Min($ARGS_ARRAY.Count, 4); $i++) {
         $value = ([string]$ARGS_ARRAY[$i] -replace '\s', '').Trim()
         Set-Variable -Name "ARGUMENT_$($i + 1)" -Value $value
