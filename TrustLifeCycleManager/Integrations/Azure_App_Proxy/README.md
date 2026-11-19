@@ -13,6 +13,8 @@ This repository contains two PowerShell AWR post-enrollment scripts. Both automa
 
 > **Note:** Microsoft has deprecated the AzureAD PowerShell module. New deployments should use the Microsoft Graph script.
 
+> **Deprecation notice:** Hardcoding configuration values in the script is deprecated. Support for this option will be removed in the next version.
+
 ## How It Works
 
 Both scripts follow the same overall workflow:
@@ -155,7 +157,7 @@ $AZURE_MANAGED_IDENTITY_CLIENT_ID = ""              # ManagedIdentity mode: opti
 $APP_PROXY_OBJECT_ID    = ""                        # ARGUMENT_1 when blank; App Registration (Application) Object ID
 ```
 
-Client-secret authentication is the default; configure the tenant ID, connection app client ID, and client secret (in the script or through the AWR arguments). To use managed identity instead, set `$AZURE_AUTH_MODE = "ManagedIdentity"`; leave `$AZURE_MANAGED_IDENTITY_CLIENT_ID` blank for a system-assigned identity or set the client ID of a user-assigned identity. No tenant ID, app client ID, or client secret is needed in managed identity mode.
+Client-secret authentication is the default. In this version, configure the tenant ID, connection app client ID, and client secret in the script or through the AWR arguments. To use managed identity instead, set `$AZURE_AUTH_MODE = "ManagedIdentity"`; leave `$AZURE_MANAGED_IDENTITY_CLIENT_ID` blank for a system-assigned identity or set the client ID of a user-assigned identity. No tenant ID, app client ID, or client secret is needed in managed identity mode.
 
 Non-empty configuration values take precedence over AWR arguments. When a setting is blank, the Microsoft Graph script uses:
 
@@ -254,6 +256,13 @@ Both scripts write a detailed timestamped log including:
 | `Resource '<id>' does not exist or one of its queried reference-property objects are not present` (HTTP 404) | `$APP_PROXY_OBJECT_ID` is the Enterprise Application (Service Principal) Object ID or the Application (client) ID | Use the Object ID from **App registrations → Overview** — see [Which Object ID to use](#which-object-id-to-use). |
 | `Insufficient privileges to complete the operation` / `Authorization_RequestDenied` (HTTP 403) | `OnPremisesPublishingProfiles.ReadWrite.All` is missing or admin consent was not granted | Add the permission as an **Application** permission on the authentication app registration and grant admin consent, then wait a few minutes for the token to pick it up. |
 | Upload succeeds but verification shows the old thumbprint | Entra ID can take a short time to publish the new certificate metadata | Re-run the verification GET after a few minutes; no re-upload is needed. |
+
+## Changelog
+
+### 1.2.0
+
+- `azure-app-proxy-awr-azure-ad-module.ps1`: Supports system-assigned and user-assigned managed identities. Hardcoding configuration values is deprecated and will be removed in the next version.
+- `azure-app-proxy-awr-azure-microsoft-graph.ps1`: Supports system-assigned and user-assigned managed identities. Hardcoding configuration values is deprecated and will be removed in the next version.
 
 ## License
 

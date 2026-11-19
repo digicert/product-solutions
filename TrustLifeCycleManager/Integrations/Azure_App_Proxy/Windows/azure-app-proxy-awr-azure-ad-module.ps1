@@ -3,6 +3,9 @@
     DigiCert TLM Agent Certificate Processing Script - Azure App Proxy Upload
 .DESCRIPTION
     Processes certificate data from DigiCert TLM Agent and uploads to Azure App Proxy
+
+    DEPRECATION: Hardcoding configuration values in this script is deprecated.
+    Support for this option will be removed in the next version.
 .NOTES
     Legal Notice (version January 1, 2026)
     Copyright © 2026 DigiCert. All rights reserved.

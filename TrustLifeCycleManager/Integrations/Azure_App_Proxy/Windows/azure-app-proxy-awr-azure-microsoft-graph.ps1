@@ -10,6 +10,9 @@
     certificate data from the TLM Agent through the DC1_POST_SCRIPT_DATA environment
     variable (Base64-encoded JSON) and is therefore invoked NON-INTERACTIVELY.
 
+    DEPRECATION: Hardcoding configuration values in this script is deprecated.
+    Support for this option will be removed in the next version.
+
     IMPORTANT: Do NOT add a param() block to this script. The TLM Agent does not pass
     named PowerShell parameters; a [Parameter(Mandatory)] declaration will cause the
     agent run to fail (or hang) during parameter binding, before any log line is written,
