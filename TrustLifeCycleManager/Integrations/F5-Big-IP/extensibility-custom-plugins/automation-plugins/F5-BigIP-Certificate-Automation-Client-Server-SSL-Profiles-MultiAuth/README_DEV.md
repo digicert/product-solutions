@@ -93,11 +93,11 @@ version bump. Never commit `target/`.
 
 ## Testing
 
-| Layer | Location | Runs on | Count (1.1.0) |
+| Layer | Location | Runs on | Count (1.1.1) |
 |---|---|---|---|
 | Pure logic: AuthMode, MyPluginConfiguration, TransportCredentials, CertificateAttributesUtil, helper | `src/test/java/**/*Test.java` | `mvn test` | 44 |
 | F5SshAdapter with a mocked SSHClient (argument and JSON payload contract) | `adapter/F5SshAdapterTest.java` | `mvn test` | 15 |
-| F5AutomationPlugin with mocked adapters, real SDK request conversion | `F5AutomationPluginTest.java` | `mvn test` | 17 |
+| F5AutomationPlugin with mocked adapters, real SDK request conversion | `F5AutomationPluginTest.java` | `mvn test` | 19 |
 | REST adapter and artifact download against WireMock HTTPS | `**/*IT.java` | `mvn verify` | 7 |
 | Device scripts with `run_command` replaced by canned tmsh output | `src/test/python/test_*.py` | `python3 -m unittest discover -s src/test/python` | 50 |
 
@@ -154,5 +154,6 @@ Keep the four scripts Python 2.7 compatible (no f-strings, no `print` statements
 
 | Version | Notes |
 |---|---|
+| 1.1.1 | Refresh no longer fails with a NullPointerException when TLM sends no request parameters (UI-triggered refresh) |
 | 1.1.0 | Secrets manager source, tmsh shell support, HA sync toggle, JSON install payload, test suite, BC 1.86, refresh logging fix |
 | 1.0.0 | Initial multi-auth variant |

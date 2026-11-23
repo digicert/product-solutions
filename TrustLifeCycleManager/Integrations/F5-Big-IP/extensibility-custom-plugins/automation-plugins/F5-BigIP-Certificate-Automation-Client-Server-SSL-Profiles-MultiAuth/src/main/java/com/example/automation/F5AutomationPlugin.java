@@ -378,7 +378,9 @@ public class F5AutomationPlugin extends AbstractAutomationWorkflow {
             final RefreshConfigurationRequest<MyRefreshRequest> refreshRequest =
                     PluginUtils.convertWrappedObject(request, RefreshConfigurationRequest.class,
                             MyRefreshRequest.class);
-            log.debug("RefreshConfiguration name: {}", refreshRequest.getName());
+            // A refresh triggered from the TLM UI carries no parameters; the conversion then returns
+            // null. Nothing below needs the request, so only the log line has to tolerate that.
+            log.debug("RefreshConfiguration name: {}", refreshRequest == null ? null : refreshRequest.getName());
             if (!credentials.isValid()) {
                 final RefreshConfigurationResponse<JsonNode> invalid = new RefreshConfigurationResponse<>();
                 invalid.setErrors(configurationErrors());

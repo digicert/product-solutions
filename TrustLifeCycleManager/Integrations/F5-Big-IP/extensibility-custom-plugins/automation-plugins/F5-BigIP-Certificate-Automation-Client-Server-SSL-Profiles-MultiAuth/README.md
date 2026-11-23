@@ -77,17 +77,17 @@ because of extensibility framework limitations (see below).
 - Navigate to **Integrations > Plugins** and click **Add plugin**:
   - Name: F5 BIG-IP (multi-auth), or a business-friendly name
   - Plugin type: Automation
-  - Plugin version: 1.1.0
+  - Plugin version: 1.1.1
   - Vendor: F5
   - Operating system: Cross platform
-  - Plugin file: upload `plugin-dist/f5-automation-plugin-multiauth-1.1.0.zip`
+  - Plugin file: upload `plugin-dist/f5-automation-plugin-multiauth-1.1.1.zip`
   - Configuration: upload `configuration.json`
 - Click **Verify and Create**. Security scanning can take up to 15 minutes before the plugin becomes active.
 - Once active, add a connector from **Integrations > Connectors > Add connector** and pick the plugin.
 
 ### Steps to update the plugin
 
-- Edit the existing plugin under **Integrations > Plugins**, set the version to 1.1.0, upload the new zip
+- Edit the existing plugin under **Integrations > Plugins**, set the version to 1.1.1, upload the new zip
   and `configuration.json`, click **Verify and Create** and wait for the scan to complete.
 - Existing connectors keep working. Connectors saved with version 1.0.0 behave as before: shared
   credentials, direct input, HA group sync off.
@@ -219,6 +219,12 @@ failed. Search for `Error in <action>` or `SSH script ... failed` instead.
 - Enable HA group sync only where HA synchronisation is required.
 
 ## Changelog
+
+### 1.1.1
+
+- Fixed refreshConfiguration failing with a NullPointerException ("refreshRequest" is null) when TLM
+  triggers a configuration refresh without parameters, as the UI does. The connector then showed
+  "Cannot reach the connector. Try again." Regression introduced in 1.1.0.
 
 ### 1.1.0
 
