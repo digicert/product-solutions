@@ -76,6 +76,19 @@ if [ -z "$GITHUB_ACTOR" ]; then
     fi
 fi
 
+# A JDK upgrade (for example `brew upgrade openjdk@17`) deletes the versioned directory that an
+# already-open shell still holds in JAVA_HOME, and mvn then refuses to start. Re-resolve it here.
+if [ -n "$JAVA_HOME" ] && [ ! -x "$JAVA_HOME/bin/java" ]; then
+    echo "JAVA_HOME points to a missing JDK: $JAVA_HOME"
+    if [ -x /usr/libexec/java_home ] && RESOLVED_JAVA_HOME=$(/usr/libexec/java_home -v 17 2>/dev/null); then
+        export JAVA_HOME="$RESOLVED_JAVA_HOME"
+        echo "Using JDK 17 at $JAVA_HOME"
+    else
+        unset JAVA_HOME
+        echo "JAVA_HOME unset; Maven will use the java found on PATH."
+    fi
+fi
+
 # Device-side script tests (plain unittest, no third-party packages). Skipped when python3 is absent.
 if command -v python3 &>/dev/null; then
     echo "Running device script tests..."

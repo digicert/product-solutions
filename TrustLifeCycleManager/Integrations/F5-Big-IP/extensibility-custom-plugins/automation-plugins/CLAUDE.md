@@ -1,7 +1,7 @@
 # F5 BIG-IP automation plugin
 
 One plugin lives here: `F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles-MultiAuth`
-(artifactId `f5-automation-plugin-multiauth`, version 1.1.0). It extends `AbstractAutomationWorkflow`
+(artifactId `f5-automation-plugin-multiauth`, version 1.1.1). It extends `AbstractAutomationWorkflow`
 from plugin-sdk 1.1, runs every lifecycle operation over SSH by streaming a bundled Python script to
 `python -` on the BIG-IP, and uses iControl REST only in `testConnection`. `README_DEV.md` explains the
 design, the credential routing and the 1.1.0 changes.
@@ -15,7 +15,7 @@ blank `authMode` resolves to `shared`. The "legacy" argument forms described bel
 
 - The device-side scripts were exercised against BIG-IP 17.5.1.9 from TLM (discovery, CSR, install in
   both profile modes, validate) through the removed single-credential build, which shared them.
-- MultiAuth 1.1.0 builds and passes 76 unit, 7 integration and 50 script tests, but has NOT been run
+- MultiAuth 1.1.1 builds and passes 78 unit, 7 integration and 50 script tests, but has NOT been run
   against a live BIG-IP. Unverified on hardware: the three auth modes, SSH port, tmsh wrapping, HA sync
   toggle on a real pair, the PAM credential source (and whether TLM resolves the `sshPassword` vault
   reference), and the connector form with optional inputs and conditional PAM fields.

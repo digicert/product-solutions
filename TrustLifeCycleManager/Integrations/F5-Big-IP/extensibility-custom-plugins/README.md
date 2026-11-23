@@ -13,7 +13,7 @@ Trust Lifecycle Manager (TLM) **automation plugin** for F5 BIG-IP, built on the 
 | | |
 |---|---|
 | Project | [F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles-MultiAuth/](automation-plugins/F5-BigIP-Certificate-Automation-Client-Server-SSL-Profiles-MultiAuth/) |
-| Artifact (`plugin-dist/`) | `f5-automation-plugin-multiauth-1.1.0.zip` |
+| Artifact (`plugin-dist/`) | `f5-automation-plugin-multiauth-1.1.1.zip` |
 | Credentials | Direct input or a connected secrets manager, with an [authentication mode](#authentication-modes): shared, separate REST and SSH accounts, or SSH only |
 | SSH port | Configurable (`sshPort`, default 22) |
 | SSH check in Test connection | `python -c … && tmsh show sys version`, which works for local, `root` and RADIUS/TACACS+/LDAP accounts |
@@ -285,7 +285,7 @@ export GITHUB_ACTOR=<github username>      # or GITHUB_USER
 
 1. Validates the token scopes.
 2. Runs the device-script tests with the Python standard library `unittest` (skipped if `python3` is absent).
-3. Runs `mvn clean verify -s settings.xml -U`: unit tests (surefire), integration tests (failsafe, WireMock), then the fat JAR (main class `F5AutomationPluginRunner`) and the plugin ZIP `plugin-dist/f5-automation-plugin-multiauth-1.1.0.zip`.
+3. Runs `mvn clean verify -s settings.xml -U`: unit tests (surefire), integration tests (failsafe, WireMock), then the fat JAR (main class `F5AutomationPluginRunner`) and the plugin ZIP `plugin-dist/f5-automation-plugin-multiauth-1.1.1.zip`.
 4. Writes the SHA-256 of the ZIP to `plugin-dist/checksums`, using `sha256sum` or, on macOS, `shasum -a 256`.
 
 Build notes:

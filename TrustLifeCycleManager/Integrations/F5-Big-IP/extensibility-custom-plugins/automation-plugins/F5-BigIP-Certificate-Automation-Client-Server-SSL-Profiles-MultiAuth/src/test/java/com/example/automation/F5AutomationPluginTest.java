@@ -438,6 +438,32 @@ class F5AutomationPluginTest {
     }
 
     @Test
+    @DisplayName("refreshConfiguration succeeds when TLM sends no parameters (Java null)")
+    void refreshWithNullRequest() throws Exception {
+        when(ssh.getVirtualServersInfo()).thenReturn(Result.success(configurationData()));
+
+        final var response = (RefreshConfigurationResponse<JsonNode>)
+                plugin(sharedConfig()).refreshConfiguration(null);
+
+        assertNull(response.getErrors());
+        assertEquals("bigip01.example.com", response.getAutomationInfo().getHostName());
+        assertEquals(1, response.getCertificates().size());
+    }
+
+    @Test
+    @DisplayName("refreshConfiguration succeeds when TLM sends a JSON null as parameters")
+    void refreshWithJsonNullRequest() throws Exception {
+        when(ssh.getVirtualServersInfo()).thenReturn(Result.success(configurationData()));
+
+        final var response = (RefreshConfigurationResponse<JsonNode>)
+                plugin(sharedConfig()).refreshConfiguration(MAPPER.nullNode());
+
+        assertNull(response.getErrors());
+        assertEquals("bigip01.example.com", response.getAutomationInfo().getHostName());
+        assertEquals(1, response.getCertificates().size());
+    }
+
+    @Test
     @DisplayName("plugin version is read from plugin-meta.json on the classpath")
     void pluginVersion() {
         final var version = F5AutomationPlugin.readPluginVersion();
