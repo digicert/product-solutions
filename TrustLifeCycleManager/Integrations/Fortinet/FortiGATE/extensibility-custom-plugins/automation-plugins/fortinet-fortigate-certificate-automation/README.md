@@ -12,11 +12,10 @@ rotation logic) onto the FortiOS API surface used by the DigiCert `fortigate-awr
 `fortigate-awr.ps1` post-enrollment scripts.
 
 > **Status.** Every API call the plugin makes has been executed by hand against **FortiOS 7.6.7**
-> (FortiGate VM64-AWS) with the runbook: discovery (list, metadata, bodies, reference scan) and
+> (FortiGate VM64-AWS): discovery (list, metadata, bodies, reference scan) and
 > the full rotation (JSON import under a unique name → VIP `ssl-certificate` repoint → `q_ref`
 > gate → delete) all succeeded. The remaining step is driving the same sequence from TLM through
-> the packaged plugin. Before using it on a new appliance, run
-> `./runbook/fortigate-runbook.sh discover` (see [RUNBOOK.md](RUNBOOK.md)).
+> the packaged plugin.
 
 The plugin extends `AbstractAutomationWorkflow` and implements the five TLM lifecycle operations:
 
@@ -36,14 +35,14 @@ The plugin extends `AbstractAutomationWorkflow` and implements the five TLM life
 |---|---|
 | **Appliance** | FortiGate VM64-AWS (single VDOM `root`, certificates in the `global` scope) |
 | **Firmware** | **FortiOS v7.6.7 build 3704** |
-| **Access** | REST API on port 443 with a REST API administrator token (Bearer); an SSH admin was used once, by the runbook only, to prove the CLI is not needed |
+| **Access** | REST API on port 443 with a REST API administrator token (Bearer); an SSH admin was used once, during manual testing only, to prove the CLI is not needed |
 | **Test date** | 2026-09-22 |
-| **How** | (1) Manually, with [`runbook/fortigate-runbook.sh`](runbook/fortigate-runbook.sh), which issues the same REST calls with the same paths, query strings and bodies as the plugin, in the order TLM triggers them; (2) from TLM with the packaged plugin on a Linux sensor: connector creation, Test Connection and discovery. |
+| **How** | (1) Manually, issuing the same REST calls with the same paths, query strings and bodies as the plugin, in the order TLM triggers them; (2) from TLM with the packaged plugin on a Linux sensor: connector creation, Test Connection and discovery. |
 
 What was exercised and confirmed:
 
-- **Discovery** (`discover`, `certs`, `refs`): 18 local certificates listed from `cmdb/vpn.certificate/local?scope=global&with_meta=1` merged with `monitor/system/available-certificates`; metadata field names as documented above; the certificate body retrievable for **18/18** via `monitor/system/certificate/download?type=local-cer`, for 15/18 via the single cmdb entry, for 0/18 via the CLI over SSH (`show vpn certificate local` lists the entries without bodies on 7.6.7). Reference scan found `system/global admin-server-cert`, `user/setting auth-cert`, `system/ftm-push server-cert` and a firewall VIP `ssl-certificate` list; `vpn.ssl/settings` returned an empty `servercert`.
-- **Rotation of a certificate bound to a firewall VIP** (`csr` → `selfsign` → `import` → `repoint` → `candelete` → `delete`): import under the plugin's unique name via `monitor/vpn-certificate/local/import` (JSON, `type=regular`, `scope=global`) answered `status: success` and the entry appeared under the requested name; the VIP `ssl-certificate` list was rewritten to the new certificate; the old certificate then showed `q_ref: 0` and `DELETE …?scope=global` removed it.
+- **Discovery**: 18 local certificates listed from `cmdb/vpn.certificate/local?scope=global&with_meta=1` merged with `monitor/system/available-certificates`; metadata field names as documented above; the certificate body retrievable for **18/18** via `monitor/system/certificate/download?type=local-cer`, for 15/18 via the single cmdb entry, for 0/18 via the CLI over SSH (`show vpn certificate local` lists the entries without bodies on 7.6.7). Reference scan found `system/global admin-server-cert`, `user/setting auth-cert`, `system/ftm-push server-cert` and a firewall VIP `ssl-certificate` list; `vpn.ssl/settings` returned an empty `servercert`.
+- **Rotation of a certificate bound to a firewall VIP** (CSR → self-sign → import → repoint → delete check → delete): import under the plugin's unique name via `monitor/vpn-certificate/local/import` (JSON, `type=regular`, `scope=global`) answered `status: success` and the entry appeared under the requested name; the VIP `ssl-certificate` list was rewritten to the new certificate; the old certificate then showed `q_ref: 0` and `DELETE …?scope=global` removed it.
 - **Offline**: Maven build, 17 smoke checks (FortiOS error envelope, naming, monitor/PEM merge, endpoint assignment, token handling) and an eager class-load of every class in the shaded jar.
 - **From TLM** (packaged plugin, Linux sensor): connector saved, Test Connection active, discovery
   populated the inventory. Lessons from that run are baked into `configuration.json`: the REST
@@ -52,7 +51,7 @@ What was exercised and confirmed:
   were removed altogether because REST covers every certificate body and a mandatory CLI account
   is unacceptable in least-privilege deployments.
 
-Not yet exercised: CSR / issue / install / validate driven from TLM through the sensor (the same REST calls succeeded from the runbook); `certificateScope = vdom` on a multi-VDOM unit; IPsec phase1 / SSL-VPN / SSL-SSH-profile repoints (no such references existed on the test unit); the Secrets Manager (PAM) path; other FortiOS versions.
+Not yet exercised: CSR / issue / install / validate driven from TLM through the sensor (the same REST calls succeeded when issued by hand); `certificateScope = vdom` on a multi-VDOM unit; IPsec phase1 / SSL-VPN / SSL-SSH-profile repoints (no such references existed on the test unit); the Secrets Manager (PAM) path; other FortiOS versions.
 
 ## Architecture
 
@@ -171,7 +170,7 @@ discovery synthesizes an endpoint per certificate from what survives a renewal:
   empty); (3) for a certificate bound to admin HTTPS or the SSL-VPN portal, a TLS handshake against
   that listener. Each candidate is accepted only if its serial matches the entry. (The CLI over SSH
   is deliberately not used: on 7.6.7 `show vpn certificate local` lists the entries but prints no
-  bodies, and REST already covers every certificate. The runbook keeps an SSH probe for diagnosis.)
+  bodies, and REST already covers every certificate.)
   Once the body is known, subject / issuer / serial / validity / key type are re-derived from it.
 - Every server certificate in the scope is shown — expired, factory and unreferenced ones
   included. Entries of type `local-ca` (`Fortinet_CA_SSL`, `Fortinet_CA_Untrusted`) are CA
@@ -226,7 +225,7 @@ offline smoke test.
   (certificates), *VPN* (SSL-VPN settings, IPsec) and *Firewall* (VIPs, SSL/SSH profiles), and whose
   **trusted hosts** include the sensor's address. Token generation happens once in the GUI; the
   token cannot be retrieved again afterwards.
-- No SSH / CLI access is required. If `discover` on another firmware ever shows that neither the
+- No SSH / CLI access is required. If discovery on another firmware ever shows that neither the
   download endpoint nor the cmdb entry returns a PEM, the FortiWeb plugin's SSH client can be
   re-added; on 7.6.7 it is not needed.
 - Multi-VDOM units: use a REST API admin with the right VDOM assignment; global certificates are
@@ -235,7 +234,7 @@ offline smoke test.
   once under *System → Certificates → Create/Import → CA Certificate*; the uploaded local certificate
   file contains only the leaf unless `useCommonIca` is set on the request.
 - Version: written against FortiOS 7.x (`/api/v2` cmdb/monitor; import via
-  `monitor/vpn-certificate/local/import` as in `fortigate-awr.sh`). Confirm with the runbook.
+  `monitor/vpn-certificate/local/import` as in `fortigate-awr.sh`).
 
 ## Prerequisites (build)
 
@@ -277,10 +276,7 @@ src/main/java/com/example/automation/
 │   └── FortiGateAutomationPluginHelper.java # key+CSR generation, flow directory, artifact download/extract
 ├── model/                                 # Result, ErrorCode, FortiGateCertificate, CertificateReference, FlowRecord, …
 └── extended/                              # TLM request/response/config extensions
-configuration.json                         # TLM connector UI definition (field names matter: management_ip, password, vdom, certificateScope, …)
-runbook/fortigate-runbook.sh               # curl/ssh helper that performs each RUNBOOK step by hand (incl. `discover`)
-RUNBOOK.md                                 # manual test procedure (run before uploading to TLM)
-```
+configuration.json                         # TLM connector UI definition (field names matter: management_ip, password, vdom, certificateScope, …)```
 
 ## Notes & limitations
 
@@ -299,8 +295,8 @@ RUNBOOK.md                                 # manual test procedure (run before u
   but are never deleted.
 - **SSL-VPN on FortiOS 7.6+** is being retired on some models; if `vpn.ssl/settings` is absent the
   scan simply logs it as such.
-- **Verified on FortiOS 7.6.7 only.** Runbook-validated there on 2026-09-22: discovery, import
+- **Verified on FortiOS 7.6.7 only.** Validated by hand there on 2026-09-22: discovery, import
   (`monitor/vpn-certificate/local/import`, `status: success`, stored under the requested name),
   repoint of a list-valued VIP `ssl-certificate`, `q_ref` gate and `DELETE …?scope=global`. On
-  other firmware confirm with `discover` / `certs`; the parsers are tolerant (several spellings
+  other firmware nothing has been verified; the parsers are tolerant (several spellings
   tried, X.509 fields re-derived from the PEM when available).

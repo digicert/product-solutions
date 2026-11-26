@@ -23,7 +23,7 @@ Fortinet/
 │   └── extensibility-custom-plugins/
 │       ├── README.md                      how the TLM custom plugin works, build, deploy, configure
 │       └── automation-plugins/
-│           └── fortinet-fortigate-certificate-automation/   FortiGate (FortiOS) plugin source — README + RUNBOOK
+│           └── fortinet-fortigate-certificate-automation/   FortiGate (FortiOS) plugin source + README
 ├── FortiWEB/
 │   ├── admin-webrequest-post-script/      AWR script for FortiWeb
 │   │   ├── fortiweb-awr.sh
@@ -32,7 +32,7 @@ Fortinet/
 │   └── extensibility-custom-plugins/
 │       ├── README.md                      how the TLM custom plugin works, build, deploy, configure
 │       └── automation-plugins/
-│           └── fortinet-fortiweb-certificate-automation/    FortiWeb plugin source — README + RUNBOOK
+│           └── fortinet-fortiweb-certificate-automation/    FortiWeb plugin source + README
 ├── FortiNAC/
 │   ├── fortinac-awr.sh                    AWR script for FortiNAC (RADIUS / RadSec / Portal / Agent / Admin UI)
 │   └── README.md

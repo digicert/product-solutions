@@ -6,8 +6,8 @@ This folder holds the **custom automation plugin** for **DigiCert Trust Lifecycl
 |---|---|
 | **Source** | [`automation-plugins/fortinet-fortigate-certificate-automation/`](automation-plugins/fortinet-fortigate-certificate-automation/) |
 | **Appliance API** | REST `/api/v2` (cmdb + monitor) with a Bearer token |
-| **Validated against** | FortiOS **7.6.7** (FortiGate VM64-AWS), runbook-validated 2026-09-22 |
-| **Plugin reference** | [README](automation-plugins/fortinet-fortigate-certificate-automation/README.md) (API calls, field names observed on the tested firmware, design notes) · [RUNBOOK](automation-plugins/fortinet-fortigate-certificate-automation/RUNBOOK.md) (manual verification, step by step) |
+| **Validated against** | FortiOS **7.6.7** (FortiGate VM64-AWS), validated by hand 2026-09-22 |
+| **Plugin reference** | [README](automation-plugins/fortinet-fortigate-certificate-automation/README.md) (API calls, field names observed on the tested firmware, design notes) |
 | **Script alternative** | [`fortigate-awr.sh` / `fortigate-awr.ps1`](../admin-webrequest-post-script/README.md) (Admin Web Request post-enrollment script, runs on the TLM Agent) |
 | **Sibling plugin** | [FortiWeb plugin](../../FortiWEB/extensibility-custom-plugins/README.md) (same SDK skeleton, PAM support, packaging and rotation logic) |
 
@@ -143,11 +143,10 @@ export GITHUB_TOKEN=<token-with-read:packages>
 
 ## Deploying and operating in TLM
 
-1. **Run the runbook first.** `runbook/` contains a curl helper that issues the same API calls as the plugin, in the order TLM triggers them, against a real appliance. `RUNBOOK.md` walks through discovery, CSR, import, repoint, the delete gate and clean-up. Doing this once per firmware version confirms field names and behaviour before anything runs from TLM.
-2. **Upload the plugin.** In TLM, add `plugin-dist/fortigate-automation-plugin-1.0.0.zip` as a custom automation plugin under the extensibility / integrations area. TLM distributes it to the sensors.
-3. **Create a connector** of the new type: choose the managing sensor and fill in the appliance fields above. *Test Connection* must succeed.
-4. **Run discovery.** The appliance's certificates appear in the TLM inventory, one asset per certificate, with the appliance object name as the alias.
-5. **Request or renew** a certificate for a discovered asset. TLM calls `generateCsr`, issues the certificate, then calls `installCertificate` and `validateCertificate`. The appliance shows the new uniquely named certificate bound everywhere the old one was, and the old one removed (unless *keep* was selected).
+1. **Upload the plugin.** In TLM, add `plugin-dist/fortigate-automation-plugin-1.0.0.zip` as a custom automation plugin under the extensibility / integrations area. TLM distributes it to the sensors.
+2. **Create a connector** of the new type: choose the managing sensor and fill in the appliance fields above. *Test Connection* must succeed.
+3. **Run discovery.** The appliance's certificates appear in the TLM inventory, one asset per certificate, with the appliance object name as the alias.
+4. **Request or renew** a certificate for a discovered asset. TLM calls `generateCsr`, issues the certificate, then calls `installCertificate` and `validateCertificate`. The appliance shows the new uniquely named certificate bound everywhere the old one was, and the old one removed (unless *keep* was selected).
 
 The sensor logs each plugin invocation; the plugin logs every API call with its HTTP status and the appliance's error envelope on failure. Tokens and passwords are never logged.
 
@@ -174,8 +173,6 @@ automation-plugins/fortinet-fortigate-certificate-automation/
 │   └── extended/                                 # TLM request / response / configuration extensions
 ├── src/main/resources/plugin-meta.json           # how the sensor launches the plugin
 ├── configuration.json                            # TLM connector form definition
-├── runbook/                                      # manual verification helper script
-├── RUNBOOK.md                                    # manual test procedure
 ├── README.md                                     # plugin-specific reference
 └── build.sh, pom.xml, settings.xml, zip.xml      # build and packaging
 ```
@@ -188,8 +185,8 @@ automation-plugins/fortinet-fortigate-certificate-automation/
 - CSR and install must run on the same sensor.
 - Reference types outside the scanned list are not repointed; the appliance's own refusal to delete a referenced certificate keeps the old one in place.
 - Built-in / factory certificates can be replaced as references but are never deleted.
-- Verified on FortiOS **7.6.7** (FortiGate VM64-AWS), runbook-validated 2026-09-22 only. Other firmware: run the runbook's discovery step first; the parsers tolerate several field spellings and re-derive X.509 fields from the PEM when available.
-- IPsec phase1 / SSL-VPN / SSL-SSH-profile repoints, `certificateScope = vdom` on a multi-VDOM unit, the Secrets Manager path and the full CSR → install → validate sequence driven from TLM have not yet been exercised (the same REST calls succeeded from the runbook; discovery and Test Connection succeeded from TLM).
+- Verified on FortiOS **7.6.7** (FortiGate VM64-AWS), validated by hand 2026-09-22 only. Other firmware is untested; the parsers tolerate several field spellings and re-derive X.509 fields from the PEM when available.
+- IPsec phase1 / SSL-VPN / SSL-SSH-profile repoints, `certificateScope = vdom` on a multi-VDOM unit, the Secrets Manager path and the full CSR → install → validate sequence driven from TLM have not yet been exercised (the same REST calls succeeded when issued by hand; discovery and Test Connection succeeded from TLM).
 - SSL-VPN is being retired on some FortiOS 7.6+ models; if `vpn.ssl/settings` is absent the scan logs it and moves on.
 
 ---
