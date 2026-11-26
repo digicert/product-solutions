@@ -7,7 +7,7 @@ This folder holds the **custom automation plugin** for **DigiCert Trust Lifecycl
 | **Source** | [`automation-plugins/fortinet-fortiweb-certificate-automation/`](automation-plugins/fortinet-fortiweb-certificate-automation/) |
 | **Appliance API** | REST `/api/v2.0` with FortiWeb's base64 credential token, plus one read-only SSH command |
 | **Validated against** | FortiWeb **8.0.5** (virtual appliance on AWS), validated end-to-end from TLM 2026-09-21 |
-| **Plugin reference** | [README](automation-plugins/fortinet-fortiweb-certificate-automation/README.md) (API calls, field names observed on the tested firmware, design notes) · [RUNBOOK](automation-plugins/fortinet-fortiweb-certificate-automation/RUNBOOK.md) (manual verification, step by step) |
+| **Plugin reference** | [README](automation-plugins/fortinet-fortiweb-certificate-automation/README.md) (API calls, field names observed on the tested firmware, design notes) |
 | **Script alternative** | [`fortiweb-awr.sh`](../admin-webrequest-post-script/README.md) (Admin Web Request post-enrollment script, runs on the TLM Agent) |
 | **Sibling plugin** | [FortiGate plugin](../../FortiGATE/extensibility-custom-plugins/README.md) (same SDK skeleton, PAM support, packaging and rotation logic) |
 
@@ -142,11 +142,10 @@ export GITHUB_TOKEN=<token-with-read:packages>
 
 ## Deploying and operating in TLM
 
-1. **Run the runbook first.** `runbook/` contains a curl helper that issues the same API calls as the plugin, in the order TLM triggers them, against a real appliance. `RUNBOOK.md` walks through discovery, CSR, import, repoint, the delete gate and clean-up. Doing this once per firmware version confirms field names and behaviour before anything runs from TLM.
-2. **Upload the plugin.** In TLM, add `plugin-dist/fortiweb-automation-plugin-1.0.0.zip` as a custom automation plugin under the extensibility / integrations area. TLM distributes it to the sensors.
-3. **Create a connector** of the new type: choose the managing sensor and fill in the appliance fields above. *Test Connection* must succeed.
-4. **Run discovery.** The appliance's certificates appear in the TLM inventory, one asset per certificate, with the appliance object name as the alias.
-5. **Request or renew** a certificate for a discovered asset. TLM calls `generateCsr`, issues the certificate, then calls `installCertificate` and `validateCertificate`. The appliance shows the new uniquely named certificate bound everywhere the old one was, and the old one removed (unless *keep* was selected).
+1. **Upload the plugin.** In TLM, add `plugin-dist/fortiweb-automation-plugin-1.0.0.zip` as a custom automation plugin under the extensibility / integrations area. TLM distributes it to the sensors.
+2. **Create a connector** of the new type: choose the managing sensor and fill in the appliance fields above. *Test Connection* must succeed.
+3. **Run discovery.** The appliance's certificates appear in the TLM inventory, one asset per certificate, with the appliance object name as the alias.
+4. **Request or renew** a certificate for a discovered asset. TLM calls `generateCsr`, issues the certificate, then calls `installCertificate` and `validateCertificate`. The appliance shows the new uniquely named certificate bound everywhere the old one was, and the old one removed (unless *keep* was selected).
 
 The sensor logs each plugin invocation; the plugin logs every API call with its HTTP status and the appliance's error envelope on failure. Tokens and passwords are never logged.
 
@@ -173,8 +172,6 @@ automation-plugins/fortinet-fortiweb-certificate-automation/
 │   └── extended/                                 # TLM request / response / configuration extensions
 ├── src/main/resources/plugin-meta.json           # how the sensor launches the plugin
 ├── configuration.json                            # TLM connector form definition
-├── runbook/                                      # manual verification helper script
-├── RUNBOOK.md                                    # manual test procedure
 ├── README.md                                     # plugin-specific reference
 └── build.sh, pom.xml, settings.xml, zip.xml      # build and packaging
 ```
@@ -187,7 +184,7 @@ automation-plugins/fortinet-fortiweb-certificate-automation/
 - CSR and install must run on the same sensor.
 - Reference types outside the scanned list are not repointed; the appliance's own refusal to delete a referenced certificate keeps the old one in place.
 - Built-in / factory certificates can be replaced as references but are never deleted.
-- Verified on FortiWeb **8.0.5** (virtual appliance on AWS), validated end-to-end from TLM 2026-09-21 only. Other firmware: run the runbook's discovery step first; the parsers tolerate several field spellings and re-derive X.509 fields from the PEM when available.
+- Verified on FortiWeb **8.0.5** (virtual appliance on AWS), validated end-to-end from TLM 2026-09-21 only. Other firmware is untested; the parsers tolerate several field spellings and re-derive X.509 fields from the PEM when available.
 - SNI member and multi-certificate-group repoints have not yet been exercised (no such objects on the test appliance); the server-policy repoint was validated end-to-end from TLM.
 - A non-`root` ADOM and the Secrets Manager path on this plugin (inherited unchanged from the Azure Key Vault plugin, where it was tested) have not been exercised.
 - `errcode -20007` from the download/view endpoints, the SSHD host-key message and SLF4J banner lines in the sensor log are benign noise.

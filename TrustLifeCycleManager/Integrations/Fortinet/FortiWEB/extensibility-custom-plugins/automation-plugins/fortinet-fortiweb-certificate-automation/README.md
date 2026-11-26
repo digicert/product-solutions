@@ -21,10 +21,6 @@ The plugin extends `AbstractAutomationWorkflow` and implements the five TLM life
 | `installCertificate` | identify the certificate to replace (alias → thumbprint → endpoint → subject) → `POST /system/certificate.local.import_certificate` (multipart cert + key) → `PUT` repoints on every reference → `DELETE /cmdb/system/certificate.local?mkey=<old>` |
 | `validateCertificate` | `GET /system/certificate.local` → new certificate present with `status: OK`, serial cross-checked against the flow record / `certificateSerialNumber`; returns the leaf PEM recorded at install |
 
-> **Before uploading the plugin to TLM**, walk through [RUNBOOK.md](RUNBOOK.md): it reproduces
-> every API call the plugin makes with `curl`, so the appliance's field names and behaviour can be
-> confirmed by hand first.
-
 ## Tested with
 
 | | |
@@ -33,7 +29,7 @@ The plugin extends `AbstractAutomationWorkflow` and implements the five TLM life
 | **Firmware** | **FortiWeb 8.0.5** |
 | **Access** | REST API on port 8443 (base64 credential token in `Authorization`); SSH on port 22 with the same administrator account for the read-only `show system certificate local` |
 | **Test date** | 2026-09-21 |
-| **How** | Two ways: (1) by hand with [`runbook/fortiweb-runbook.sh`](runbook/fortiweb-runbook.sh), which issues the same REST/SSH calls as the plugin; (2) **end-to-end from TLM** with the packaged plugin running on a Linux sensor (JDK 17) — connector creation, Test Connection, discovery, certificate request, install and validate. |
+| **How** | Two ways: (1) by hand, issuing the same REST/SSH calls as the plugin with `curl` and `ssh`; (2) **end-to-end from TLM** with the packaged plugin running on a Linux sensor (JDK 17) — connector creation, Test Connection, discovery, certificate request, install and validate. |
 
 What was exercised and confirmed:
 
@@ -44,7 +40,7 @@ What was exercised and confirmed:
   500. The CLI over SSH prints the body per `edit "<name>"` block on an exec channel, and TLM
   inventoried the certificate only once that PEM was supplied.
 - **Rotation of a self-signed local certificate** (`cer`, CN `tlsguru.com`), both unreferenced and
-  bound to a reverse-proxy server policy (Appendix A of the runbook): multipart import under the
+  bound to a reverse-proxy server policy: multipart import under the
   plugin's unique name (stored name derived from the uploaded file name), `PUT` repoint of the
   policy `certificate`, `can_delete` gate, `DELETE …?mkey=<old>`, followed by a TLS handshake
   against the policy VIP showing the new certificate.
@@ -261,7 +257,7 @@ otherwise the dropdown is empty.
   SSH. Prefer a dedicated least-privilege account: the token base64-decodes to its credentials.
 - If ADOMs are enabled, the account's ADOM name in the *FortiWeb ADOM* field.
 - Version: validated API surface is **FortiWeb 8.0.5**; 7.x is expected to work (the endpoints date
-  back to 6.x). Confirm with the runbook — in particular `pkey_type` codes (RSA = 1, ECDSA = 3
+  back to 6.x). On other versions, confirm in particular the `pkey_type` codes (RSA = 1, ECDSA = 3
   observed), the `can_delete` flag, and that the stored name is derived from the uploaded file name.
 - Intermediate CA certificates are **not** managed by this plugin: configure the DigiCert
   intermediate under *System → Certificates → Intermediate CA* (or a CA group) once; the uploaded
@@ -311,10 +307,7 @@ src/main/java/com/example/automation/
 │   └── FortiWebAutomationPluginHelper.java# key+CSR generation, flow directory, artifact download/extract
 ├── model/                                 # Result, ErrorCode, FortiWebCertificate, CertificateReference, FlowRecord, …
 └── extended/                              # TLM request/response/config extensions
-configuration.json                         # TLM connector UI definition (field names matter: userName, sshPort, …)
-runbook/fortiweb-runbook.sh                # curl/ssh helper that performs each RUNBOOK step by hand
-RUNBOOK.md                                 # manual test procedure (run before uploading to TLM)
-```
+configuration.json                         # TLM connector UI definition (field names matter: userName, sshPort, …)```
 
 ## Notes & limitations
 
